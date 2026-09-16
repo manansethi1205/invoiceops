@@ -1,0 +1,66 @@
+# InvoiceOps
+
+InvoiceOps is an evidence-first accounts-payable automation project. AI will handle document
+perception and ambiguity; deterministic code will perform arithmetic, apply policy, and authorize
+decisions. Only synthetic or de-identified financial documents belong in this repository.
+
+## Implemented vertical slice
+
+`POST /v1/invoices` accepts one PDF, JPEG, or PNG (15 MiB by default), stores it in S3-compatible
+object storage, creates a durable queued job in PostgreSQL, dispatches it through Celery/Redis, and
+returns `202 Accepted` with a job ID and status URL. `GET /v1/jobs/{job_id}` returns its state.
+The worker currently proves the asynchronous boundary by moving the job through `processing` to
+`succeeded`; preprocessing and OCR intentionally belong to the next slice.
+
+Uploads are idempotent by SHA-256: repeated bytes reuse the existing document and job, including
+under concurrent requests through a unique database index. API and worker application events are
+JSON structured logs. Celery uses late acknowledgement, safe redelivery, bounded exponential
+retry, and a terminal failed state.
+
+## Run locally
+
+```powershell
+Copy-Item .env.example .env
+docker compose up --build
+```
+
+The API docs are at `http://localhost:8000/docs` and the MinIO console is at
+`http://localhost:9001`. Docker Compose runs Alembic migrations before starting the API or worker.
+
+Run local quality checks:
+
+```powershell
+uv sync
+uv run pytest
+uv run ruff check .
+uv run mypy apps invoiceops workers
+```
+
+Run the real PostgreSQL/Redis/MinIO/worker black-box tests in Compose:
+
+```powershell
+docker compose --profile test up --build --abort-on-container-exit --exit-code-from integration-tests integration-tests
+docker compose down
+```
+
+## API example
+
+```powershell
+curl.exe -F "file=@synthetic-invoice.pdf;type=application/pdf" http://localhost:8000/v1/invoices
+curl.exe http://localhost:8000/v1/jobs/JOB_ID
+```
+
+## Product evidence
+
+Initial discovery with a finance practitioner identified quantity, unit rate, counterparty, and
+GST rate as frequent manual-entry fields. Escalation is driven by approval thresholds, mismatches,
+disputes, and exceptional circumstances. Tolerances must be policy- and agreement-specific rather
+than model-decided. Approvers may require a PO, order confirmation, advance evidence, and email
+approval. These findings are product inputs, not measured system results.
+
+See [architecture](docs/architecture.md) and [ADR-001](docs/adr/001-ingestion-boundary.md).
+The delivery sequence is captured in [the roadmap](docs/roadmap.md).
+The current slice is explained file-by-file in the
+[implementation guide](docs/implementation-guide.md).
+For exact Windows setup, smoke-test, troubleshooting, and cleanup commands, use the
+[local runbook](docs/local-runbook.md).

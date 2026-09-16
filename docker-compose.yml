@@ -1,0 +1,104 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: infrastructure/docker/Dockerfile
+    command: uvicorn apps.api.main:app --host 0.0.0.0 --port 8000 --no-access-log
+    env_file: .env
+    ports: ["127.0.0.1:8000:8000"]
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+      redis: {condition: service_healthy}
+      minio-init: {condition: service_completed_successfully}
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://localhost:8000/healthz')",
+        ]
+      interval: 10s
+      timeout: 3s
+      retries: 20
+      start_period: 5s
+
+  worker:
+    build:
+      context: .
+      dockerfile: infrastructure/docker/Dockerfile
+    command: celery -A workers.extraction.celery_app:celery_app worker --loglevel=INFO --concurrency=2
+    env_file: .env
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+      redis: {condition: service_healthy}
+      minio-init: {condition: service_completed_successfully}
+
+  migrate:
+    build:
+      context: .
+      dockerfile: infrastructure/docker/Dockerfile
+    command: alembic upgrade head
+    env_file: .env
+    depends_on:
+      postgres: {condition: service_healthy}
+
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: invoiceops
+      POSTGRES_USER: invoiceops
+      POSTGRES_PASSWORD: invoiceops
+    ports: ["127.0.0.1:5432:5432"]
+    volumes: ["postgres-data:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U invoiceops"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports: ["127.0.0.1:6379:6379"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  minio:
+    # Legacy community binary for synthetic local development only. Keep it loopback-bound.
+    image: quay.io/minio/minio:RELEASE.2025-04-08T15-41-24Z
+    command: server /data --console-address :9001
+    environment:
+      MINIO_ROOT_USER: invoiceops
+      MINIO_ROOT_PASSWORD: change-me-in-real-deployments
+    ports: ["127.0.0.1:9000:9000", "127.0.0.1:9001:9001"]
+    volumes: ["minio-data:/data"]
+
+  minio-init:
+    image: quay.io/minio/mc:RELEASE.2024-11-21T17-21-54Z
+    env_file: .env
+    entrypoint: >
+      /bin/sh -c "until mc alias set local http://minio:9000 $$S3_ACCESS_KEY_ID $$S3_SECRET_ACCESS_KEY; do sleep 1; done &&
+      mc mb --ignore-existing local/$$S3_BUCKET"
+    depends_on:
+      minio: {condition: service_started}
+
+  integration-tests:
+    profiles: ["test"]
+    build:
+      context: .
+      dockerfile: infrastructure/docker/Dockerfile
+      args:
+        INSTALL_DEV: "true"
+    command: pytest -q -m docker tests/docker
+    environment:
+      API_BASE_URL: http://api:8000
+    depends_on:
+      api: {condition: service_healthy}
+      worker: {condition: service_started}
+
+volumes:
+  postgres-data:
+  minio-data:
