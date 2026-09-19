@@ -1,0 +1,1549 @@
+{
+  "metadata": {
+    "configuration": {
+      "line_item_alignment": "order_preserving_dp_v1",
+      "minimum_meaningful_words": 8,
+      "minimum_non_whitespace_characters": 40
+    },
+    "dataset_fingerprint": "0c59d7f39b5e0db5d4431e2db74a08d2af061b62ddf8f86e1ddb194dd38ee607",
+    "example_count": 25,
+    "extractor_name": "deterministic-baseline",
+    "extractor_version": "0.2.0",
+    "generated_at": "2026-09-19T20:47:20.489671+00:00",
+    "manifest_sha256": "5463316c2ff63b8a3a59d60490f9a8468d99884d6ef886e2e3b8e2bf0cce0d41",
+    "pymupdf_version": "1.28.2",
+    "python_version": "3.12.11",
+    "split": "development"
+  },
+  "metrics": {
+    "documents": {
+      "attempted": 25,
+      "schema_valid": 22
+    },
+    "headers": {
+      "currency": {
+        "conditional_exact_accuracy": 1.0,
+        "correct": 20,
+        "coverage": 0.8695652173913043,
+        "extracted": 20,
+        "labeled": 23,
+        "overall_exact_accuracy": 0.8695652173913043
+      },
+      "invoice_date": {
+        "conditional_exact_accuracy": 1.0,
+        "correct": 20,
+        "coverage": 0.8695652173913043,
+        "extracted": 20,
+        "labeled": 23,
+        "overall_exact_accuracy": 0.8695652173913043
+      },
+      "invoice_number": {
+        "conditional_exact_accuracy": 1.0,
+        "correct": 20,
+        "coverage": 0.8695652173913043,
+        "extracted": 20,
+        "labeled": 23,
+        "overall_exact_accuracy": 0.8695652173913043
+      },
+      "subtotal": {
+        "conditional_exact_accuracy": 1.0,
+        "correct": 20,
+        "coverage": 0.8695652173913043,
+        "extracted": 20,
+        "labeled": 23,
+        "overall_exact_accuracy": 0.8695652173913043
+      },
+      "tax": {
+        "conditional_exact_accuracy": 1.0,
+        "correct": 20,
+        "coverage": 0.8695652173913043,
+        "extracted": 20,
+        "labeled": 23,
+        "overall_exact_accuracy": 0.8695652173913043
+      },
+      "total": {
+        "conditional_exact_accuracy": 1.0,
+        "correct": 20,
+        "coverage": 0.8695652173913043,
+        "extracted": 20,
+        "labeled": 23,
+        "overall_exact_accuracy": 0.8695652173913043
+      }
+    },
+    "line_items": {
+      "exact_f1": 0.9302325581395349,
+      "exact_precision": 1.0,
+      "exact_recall": 0.8695652173913043,
+      "exact_true_positives": 40,
+      "field_micro": {
+        "f1": 0.9289940828402368,
+        "fn": 24,
+        "fp": 0,
+        "precision": 1.0,
+        "recall": 0.8674033149171271,
+        "tp": 157
+      },
+      "per_field": {
+        "description": {
+          "accuracy": 0.8695652173913043,
+          "fn": 6,
+          "fp": 0,
+          "labeled": 46,
+          "tp": 40
+        },
+        "line_total": {
+          "accuracy": 0.8695652173913043,
+          "fn": 6,
+          "fp": 0,
+          "labeled": 46,
+          "tp": 40
+        },
+        "quantity": {
+          "accuracy": 0.8636363636363636,
+          "fn": 6,
+          "fp": 0,
+          "labeled": 44,
+          "tp": 38
+        },
+        "unit_price": {
+          "accuracy": 0.8666666666666667,
+          "fn": 6,
+          "fp": 0,
+          "labeled": 45,
+          "tp": 39
+        }
+      },
+      "predicted_items": 40,
+      "truth_items": 46
+    },
+    "operational": {
+      "average_pages": 1.1363636363636365,
+      "error_counts": {
+        "ocr_unavailable": 3
+      },
+      "failure_count": 3,
+      "latency_ms": {
+        "count": 25,
+        "max": 401.79819997865707,
+        "p50": 7.423200004268438,
+        "p95": 376.5961999888532
+      },
+      "ocr_document_rate": 0.12,
+      "ocr_documents": 3,
+      "pages_known": 22,
+      "schema_validity": 0.88
+    }
+  },
+  "slices": {
+    "layout=adversarial": {
+      "documents": {
+        "attempted": 3,
+        "schema_valid": 3
+      },
+      "headers": {
+        "currency": {
+          "conditional_exact_accuracy": 1.0,
+          "correct": 3,
+          "coverage": 1.0,
+          "extracted": 3,
+          "labeled": 3,
+          "overall_exact_accuracy": 1.0
+        },
+        "invoice_date": {
+          "conditional_exact_accuracy": 1.0,
+          "correct": 3,
+          "coverage": 1.0,
+          "extracted": 3,
+          "labeled": 3,
+          "overall_exact_accuracy": 1.0
+        },
+        "invoice_number": {
+          "conditional_exact_accuracy": 1.0,
+          "correct": 3,
+          "coverage": 1.0,
+          "extracted": 3,
+          "labeled": 3,
+          "overall_exact_accuracy": 1.0
+        },
+        "subtotal": {
+          "conditional_exact_accuracy": 1.0,
+          "correct": 3,
+          "coverage": 1.0,
+          "extracted": 3,
+          "labeled": 3,
+          "overall_exact_accuracy": 1.0
+        },
+        "tax": {
+          "conditional_exact_accuracy": 1.0,
+          "correct": 3,
+          "coverage": 1.0,
+          "extracted": 3,
+          "labeled": 3,
+          "overall_exact_accuracy": 1.0
+        },
+        "total": {
+          "conditional_exact_accuracy": 1.0,
+          "correct": 3,
+          "coverage": 1.0,
+          "extracted": 3,
+          "labeled": 3,
+          "overall_exact_accuracy": 1.0
+        }
+      },
+      "line_items": {
+        "exact_f1": 1.0,
+        "exact_precision": 1.0,
+        "exact_recall": 1.0,
+        "exact_true_positives": 6,
+        "field_micro": {
+          "f1": 1.0,
+          "fn": 0,
+          "fp": 0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "tp": 24
+        },
+        "per_field": {
+          "description": {
+            "accuracy": 1.0,
+            "fn": 0,
+            "fp": 0,
+            "labeled": 6,
+            "tp": 6
+          },
+          "line_total": {
+            "accuracy": 1.0,
+            "fn": 0,
+            "fp": 0,
+            "labeled": 6,
+            "tp": 6
+          },
+          "quantity": {
+            "accuracy": 1.0,
+            "fn": 0,
+            "fp": 0,
+            "labeled": 6,
+            "tp": 6
+          },
+          "unit_price": {
+            "accuracy": 1.0,
+            "fn": 0,
+            "fp": 0,
+            "labeled": 6,
+            "tp": 6
+          }
+        },
+        "predicted_items": 6,
+        "truth_items": 6
+      },
+      "operational": {
+        "average_pages": 1.0,
+        "error_counts": {},
+        "failure_count": 0,
+        "latency_ms": {
+          "count": 3,
+          "max": 11.264400032814592,
+          "p50": 7.4680999969132245,
+          "p95": 11.264400032814592
+        },
+        "ocr_document_rate": 0.0,
+        "ocr_documents": 0,
+        "pages_known": 3,
+        "schema_validity": 1.0
+      }
+    },
+    "layout=aliases": {
+      "documents": {
+        "attempted": 4,
+        "schema_valid": 4
+      },
+      "headers": {
+        "currency": {
+          "conditional_exact_accuracy": 1.0,
+          "correct": 4,
+          "coverage": 1.0,
+          "extracted": 4,
+          "labeled": 4,
+          "overall_exact_accuracy": 1.0
+        },
+        "invoice_date": {
+          "conditional_exact_accuracy": 1.0,
+          "correct": 4,
+          "coverage": 1.0,
+          "extracted": 4,
+          "labeled": 4,
+          "overall_exact_accuracy": 1.0
+        },
+        "invoice_number": {
+          "conditional_exact_accuracy": 1.0,
+          "correct": 4,
+          "coverage": 1.0,
+          "extracted": 4,
+          "labeled": 4,
+          "overall_exact_accuracy": 1.0
+        },
+        "subtotal": {
+          "conditional_exact_accuracy": 1.0,
+          "correct": 4,
+          "coverage": 1.0,
+          "extracted": 4,
+          "labeled": 4,
+          "overall_exact_accuracy": 1.0
+        },
+        "tax": {
+          "conditional_exact_accuracy": 1.0,
+          "correct": 4,
+          "coverage": 1.0,
+          "extracted": 4,
+          "labeled": 4,
+          "overall_exact_accuracy": 1.0
+        },
+        "total": {
+          "conditional_exact_accuracy": 1.0,
+          "correct": 4,
+          "coverage": 1.0,
+          "extracted": 4,
+          "labeled": 4,
+          "overall_exact_accuracy": 1.0
+        }
+      },
+      "line_items": {
+        "exact_f1": 1.0,
+        "exact_precision": 1.0,
+        "exact_recall": 1.0,
+        "exact_true_positives": 8,
+        "field_micro": {
+          "f1": 1.0,
+          "fn": 0,
+          "fp": 0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "tp": 32
+        },
+        "per_field": {
+          "description": {
+            "accuracy": 1.0,
+            "fn": 0,
+            "fp": 0,
+            "labeled": 8,
+            "tp": 8
+          },
+          "line_total": {
+            "accuracy": 1.0,
+            "fn": 0,
+            "fp": 0,
+            "labeled": 8,
+            "tp": 8
+          },
+          "quantity": {
+            "accuracy": 1.0,
+            "fn": 0,
+            "fp": 0,
+            "labeled": 8,
+            "tp": 8
+          },
+          "unit_price": {
+            "accuracy": 1.0,
+            "fn": 0,
+            "fp": 0,
+            "labeled": 8,
+            "tp": 8
+          }
+        },
+        "predicted_items": 8,
+        "truth_items": 8
+      },
+      "operational": {
+        "average_pages": 1.0,
+        "error_counts": {},
+        "failure_count": 0,
+        "latency_ms": {
+          "count": 4,
+          "max": 8.438899996690452,
+          "p50": 6.157500029075891,
+          "p95": 8.438899996690452
+        },
+        "ocr_document_rate": 0.0,
+        "ocr_documents": 0,
+        "pages_known": 4,
+        "schema_validity": 1.0
+      }
+    },
+    "layout=missing_cells": {
+      "documents": {
+        "attempted": 3,
+        "schema_valid": 3
+      },
+      "headers": {
+        "currency": {
+          "conditional_exact_accuracy": 1.0,
+          "correct": 3,
+          "coverage": 1.0,
+          "extracted": 3,
+          "labeled": 3,
+          "overall_exact_accuracy": 1.0
+        },
+        "invoice_date": {
+          "conditional_exact_accuracy": 1.0,
+          "correct": 3,
+          "coverage": 1.0,
+          "extracted": 3,
+          "labeled": 3,
+          "overall_exact_accuracy": 1.0
+        },
+        "invoice_number": {
+          "conditional_exact_accuracy": 1.0,
+          "correct": 3,
+          "coverage": 1.0,
+          "extracted": 3,
+          "labeled": 3,
+          "overall_exact_accuracy": 1.0
+        },
+        "subtotal": {
+          "conditional_exact_accuracy": 1.0,
+          "correct": 3,
+          "coverage": 1.0,
+          "extracted": 3,
+          "labeled": 3,
+          "overall_exact_accuracy": 1.0
+        },
+        "tax": {
+          "conditional_exact_accuracy": 1.0,
+          "correct": 3,
+          "coverage": 1.0,
+          "extracted": 3,
+          "labeled": 3,
+          "overall_exact_accuracy": 1.0
+        },
+        "total": {
+          "conditional_exact_accuracy": 1.0,
+          "correct": 3,
+          "coverage": 1.0,
+          "extracted": 3,
+          "labeled": 3,
+          "overall_exact_accuracy": 1.0
+        }
+      },
+      "line_items": {
+        "exact_f1": 1.0,
+        "exact_precision": 1.0,
+        "exact_recall": 1.0,
+        "exact_true_positives": 6,
+        "field_micro": {
+          "f1": 1.0,
+          "fn": 0,
+          "fp": 0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "tp": 21
+        },
+        "per_field": {
+          "description": {
+            "accuracy": 1.0,
+            "fn": 0,
+            "fp": 0,
+            "labeled": 6,
+            "tp": 6
+          },
+          "line_total": {
+            "accuracy": 1.0,
+            "fn": 0,
+            "fp": 0,
+            "labeled": 6,
+            "tp": 6
+          },
+          "quantity": {
+            "accuracy": 1.0,
+            "fn": 0,
+            "fp": 0,
+            "labeled": 4,
+            "tp": 4
+          },
+          "unit_price": {
+            "accuracy": 1.0,
+            "fn": 0,
+            "fp": 0,
+            "labeled": 5,
+            "tp": 5
+          }
+        },
+        "predicted_items": 6,
+        "truth_items": 6
+      },
+      "operational": {
+        "average_pages": 1.0,
+        "error_counts": {},
+        "failure_count": 0,
+        "latency_ms": {
+          "count": 3,
+          "max": 7.423200004268438,
+          "p50": 5.790300027001649,
+          "p95": 7.423200004268438
+        },
+        "ocr_document_rate": 0.0,
+        "ocr_documents": 0,
+        "pages_known": 3,
+        "schema_validity": 1.0
+      }
+    },
+    "layout=multipage": {
+      "documents": {
+        "attempted": 3,
+        "schema_valid": 3
+      },
+      "headers": {
+        "currency": {
+          "conditional_exact_accuracy": 1.0,
+          "correct": 3,
+          "coverage": 1.0,
+          "extracted": 3,
+          "labeled": 3,
+          "overall_exact_accuracy": 1.0
+        },
+        "invoice_date": {
+          "conditional_exact_accuracy": 1.0,
+          "correct": 3,
+          "coverage": 1.0,
+          "extracted": 3,
+          "labeled": 3,
+          "overall_exact_accuracy": 1.0
+        },
+        "invoice_number": {
+          "conditional_exact_accuracy": 1.0,
+          "correct": 3,
+          "coverage": 1.0,
+          "extracted": 3,
+          "labeled": 3,
+          "overall_exact_accuracy": 1.0
+        },
+        "subtotal": {
+          "conditional_exact_accuracy": 1.0,
+          "correct": 3,
+          "coverage": 1.0,
+          "extracted": 3,
+          "labeled": 3,
+          "overall_exact_accuracy": 1.0
+        },
+        "tax": {
+          "conditional_exact_accuracy": 1.0,
+          "correct": 3,
+          "coverage": 1.0,
+          "extracted": 3,
+          "labeled": 3,
+          "overall_exact_accuracy": 1.0
+        },
+        "total": {
+          "conditional_exact_accuracy": 1.0,
+          "correct": 3,
+          "coverage": 1.0,
+          "extracted": 3,
+          "labeled": 3,
+          "overall_exact_accuracy": 1.0
+        }
+      },
+      "line_items": {
+        "exact_f1": 1.0,
+        "exact_precision": 1.0,
+        "exact_recall": 1.0,
+        "exact_true_positives": 6,
+        "field_micro": {
+          "f1": 1.0,
+          "fn": 0,
+          "fp": 0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "tp": 24
+        },
+        "per_field": {
+          "description": {
+            "accuracy": 1.0,
+            "fn": 0,
+            "fp": 0,
+            "labeled": 6,
+            "tp": 6
+          },
+          "line_total": {
+            "accuracy": 1.0,
+            "fn": 0,
+            "fp": 0,
+            "labeled": 6,
+            "tp": 6
+          },
+          "quantity": {
+            "accuracy": 1.0,
+            "fn": 0,
+            "fp": 0,
+            "labeled": 6,
+            "tp": 6
+          },
+          "unit_price": {
+            "accuracy": 1.0,
+            "fn": 0,
+            "fp": 0,
+            "labeled": 6,
+            "tp": 6
+          }
+        },
+        "predicted_items": 6,
+        "truth_items": 6
+      },
+      "operational": {
+        "average_pages": 2.0,
+        "error_counts": {},
+        "failure_count": 0,
+        "latency_ms": {
+          "count": 3,
+          "max": 10.909200005698949,
+          "p50": 8.252200030256063,
+          "p95": 10.909200005698949
+        },
+        "ocr_document_rate": 0.0,
+        "ocr_documents": 0,
+        "pages_known": 3,
+        "schema_validity": 1.0
+      }
+    },
+    "layout=negative": {
+      "documents": {
+        "attempted": 2,
+        "schema_valid": 2
+      },
+      "headers": {
+        "currency": {
+          "conditional_exact_accuracy": null,
+          "correct": 0,
+          "coverage": null,
+          "extracted": 0,
+          "labeled": 0,
+          "overall_exact_accuracy": null
+        },
+        "invoice_date": {
+          "conditional_exact_accuracy": null,
+          "correct": 0,
+          "coverage": null,
+          "extracted": 0,
+          "labeled": 0,
+          "overall_exact_accuracy": null
+        },
+        "invoice_number": {
+          "conditional_exact_accuracy": null,
+          "correct": 0,
+          "coverage": null,
+          "extracted": 0,
+          "labeled": 0,
+          "overall_exact_accuracy": null
+        },
+        "subtotal": {
+          "conditional_exact_accuracy": null,
+          "correct": 0,
+          "coverage": null,
+          "extracted": 0,
+          "labeled": 0,
+          "overall_exact_accuracy": null
+        },
+        "tax": {
+          "conditional_exact_accuracy": null,
+          "correct": 0,
+          "coverage": null,
+          "extracted": 0,
+          "labeled": 0,
+          "overall_exact_accuracy": null
+        },
+        "total": {
+          "conditional_exact_accuracy": null,
+          "correct": 0,
+          "coverage": null,
+          "extracted": 0,
+          "labeled": 0,
+          "overall_exact_accuracy": null
+        }
+      },
+      "line_items": {
+        "exact_f1": null,
+        "exact_precision": null,
+        "exact_recall": null,
+        "exact_true_positives": 0,
+        "field_micro": {
+          "f1": null,
+          "fn": 0,
+          "fp": 0,
+          "precision": null,
+          "recall": null,
+          "tp": 0
+        },
+        "per_field": {
+          "description": {
+            "accuracy": null,
+            "fn": 0,
+            "fp": 0,
+            "labeled": 0,
+            "tp": 0
+          },
+          "line_total": {
+            "accuracy": null,
+            "fn": 0,
+            "fp": 0,
+            "labeled": 0,
+            "tp": 0
+          },
+          "quantity": {
+            "accuracy": null,
+            "fn": 0,
+            "fp": 0,
+            "labeled": 0,
+            "tp": 0
+          },
+          "unit_price": {
+            "accuracy": null,
+            "fn": 0,
+            "fp": 0,
+            "labeled": 0,
+            "tp": 0
+          }
+        },
+        "predicted_items": 0,
+        "truth_items": 0
+      },
+      "operational": {
+        "average_pages": 1.0,
+        "error_counts": {},
+        "failure_count": 0,
+        "latency_ms": {
+          "count": 2,
+          "max": 3.7930000107735395,
+          "p50": 3.595499962102622,
+          "p95": 3.7930000107735395
+        },
+        "ocr_document_rate": 0.0,
+        "ocr_documents": 0,
+        "pages_known": 2,
+        "schema_validity": 1.0
+      }
+    },
+    "layout=ocr": {
+      "documents": {
+        "attempted": 3,
+        "schema_valid": 0
+      },
+      "headers": {
+        "currency": {
+          "conditional_exact_accuracy": null,
+          "correct": 0,
+          "coverage": 0.0,
+          "extracted": 0,
+          "labeled": 3,
+          "overall_exact_accuracy": 0.0
+        },
+        "invoice_date": {
+          "conditional_exact_accuracy": null,
+          "correct": 0,
+          "coverage": 0.0,
+          "extracted": 0,
+          "labeled": 3,
+          "overall_exact_accuracy": 0.0
+        },
+        "invoice_number": {
+          "conditional_exact_accuracy": null,
+          "correct": 0,
+          "coverage": 0.0,
+          "extracted": 0,
+          "labeled": 3,
+          "overall_exact_accuracy": 0.0
+        },
+        "subtotal": {
+          "conditional_exact_accuracy": null,
+          "correct": 0,
+          "coverage": 0.0,
+          "extracted": 0,
+          "labeled": 3,
+          "overall_exact_accuracy": 0.0
+        },
+        "tax": {
+          "conditional_exact_accuracy": null,
+          "correct": 0,
+          "coverage": 0.0,
+          "extracted": 0,
+          "labeled": 3,
+          "overall_exact_accuracy": 0.0
+        },
+        "total": {
+          "conditional_exact_accuracy": null,
+          "correct": 0,
+          "coverage": 0.0,
+          "extracted": 0,
+          "labeled": 3,
+          "overall_exact_accuracy": 0.0
+        }
+      },
+      "line_items": {
+        "exact_f1": null,
+        "exact_precision": null,
+        "exact_recall": 0.0,
+        "exact_true_positives": 0,
+        "field_micro": {
+          "f1": null,
+          "fn": 24,
+          "fp": 0,
+          "precision": null,
+          "recall": 0.0,
+          "tp": 0
+        },
+        "per_field": {
+          "description": {
+            "accuracy": 0.0,
+            "fn": 6,
+            "fp": 0,
+            "labeled": 6,
+            "tp": 0
+          },
+          "line_total": {
+            "accuracy": 0.0,
+            "fn": 6,
+            "fp": 0,
+            "labeled": 6,
+            "tp": 0
+          },
+          "quantity": {
+            "accuracy": 0.0,
+            "fn": 6,
+            "fp": 0,
+            "labeled": 6,
+            "tp": 0
+          },
+          "unit_price": {
+            "accuracy": 0.0,
+            "fn": 6,
+            "fp": 0,
+            "labeled": 6,
+            "tp": 0
+          }
+        },
+        "predicted_items": 0,
+        "truth_items": 6
+      },
+      "operational": {
+        "average_pages": null,
+        "error_counts": {
+          "ocr_unavailable": 3
+        },
+        "failure_count": 3,
+        "latency_ms": {
+          "count": 3,
+          "max": 401.79819997865707,
+          "p50": 376.5961999888532,
+          "p95": 401.79819997865707
+        },
+        "ocr_document_rate": 1.0,
+        "ocr_documents": 3,
+        "pages_known": 0,
+        "schema_validity": 0.0
+      }
+    },
+    "layout=standard": {
+      "documents": {
+        "attempted": 4,
+        "schema_valid": 4
+      },
+      "headers": {
+        "currency": {
+          "conditional_exact_accuracy": 1.0,
+          "correct": 4,
+          "coverage": 1.0,
+          "extracted": 4,
+          "labeled": 4,
+          "overall_exact_accuracy": 1.0
+        },
+        "invoice_date": {
+          "conditional_exact_accuracy": 1.0,
+          "correct": 4,
+          "coverage": 1.0,
+          "extracted": 4,
+          "labeled": 4,
+          "overall_exact_accuracy": 1.0
+        },
+        "invoice_number": {
+          "conditional_exact_accuracy": 1.0,
+          "correct": 4,
+          "coverage": 1.0,
+          "extracted": 4,
+          "labeled": 4,
+          "overall_exact_accuracy": 1.0
+        },
+        "subtotal": {
+          "conditional_exact_accuracy": 1.0,
+          "correct": 4,
+          "coverage": 1.0,
+          "extracted": 4,
+          "labeled": 4,
+          "overall_exact_accuracy": 1.0
+        },
+        "tax": {
+          "conditional_exact_accuracy": 1.0,
+          "correct": 4,
+          "coverage": 1.0,
+          "extracted": 4,
+          "labeled": 4,
+          "overall_exact_accuracy": 1.0
+        },
+        "total": {
+          "conditional_exact_accuracy": 1.0,
+          "correct": 4,
+          "coverage": 1.0,
+          "extracted": 4,
+          "labeled": 4,
+          "overall_exact_accuracy": 1.0
+        }
+      },
+      "line_items": {
+        "exact_f1": 1.0,
+        "exact_precision": 1.0,
+        "exact_recall": 1.0,
+        "exact_true_positives": 8,
+        "field_micro": {
+          "f1": 1.0,
+          "fn": 0,
+          "fp": 0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "tp": 32
+        },
+        "per_field": {
+          "description": {
+            "accuracy": 1.0,
+            "fn": 0,
+            "fp": 0,
+            "labeled": 8,
+            "tp": 8
+          },
+          "line_total": {
+            "accuracy": 1.0,
+            "fn": 0,
+            "fp": 0,
+            "labeled": 8,
+            "tp": 8
+          },
+          "quantity": {
+            "accuracy": 1.0,
+            "fn": 0,
+            "fp": 0,
+            "labeled": 8,
+            "tp": 8
+          },
+          "unit_price": {
+            "accuracy": 1.0,
+            "fn": 0,
+            "fp": 0,
+            "labeled": 8,
+            "tp": 8
+          }
+        },
+        "predicted_items": 8,
+        "truth_items": 8
+      },
+      "operational": {
+        "average_pages": 1.0,
+        "error_counts": {},
+        "failure_count": 0,
+        "latency_ms": {
+          "count": 4,
+          "max": 28.110999963246286,
+          "p50": 6.89690001308918,
+          "p95": 28.110999963246286
+        },
+        "ocr_document_rate": 0.0,
+        "ocr_documents": 0,
+        "pages_known": 4,
+        "schema_validity": 1.0
+      }
+    },
+    "layout=wrapped": {
+      "documents": {
+        "attempted": 3,
+        "schema_valid": 3
+      },
+      "headers": {
+        "currency": {
+          "conditional_exact_accuracy": 1.0,
+          "correct": 3,
+          "coverage": 1.0,
+          "extracted": 3,
+          "labeled": 3,
+          "overall_exact_accuracy": 1.0
+        },
+        "invoice_date": {
+          "conditional_exact_accuracy": 1.0,
+          "correct": 3,
+          "coverage": 1.0,
+          "extracted": 3,
+          "labeled": 3,
+          "overall_exact_accuracy": 1.0
+        },
+        "invoice_number": {
+          "conditional_exact_accuracy": 1.0,
+          "correct": 3,
+          "coverage": 1.0,
+          "extracted": 3,
+          "labeled": 3,
+          "overall_exact_accuracy": 1.0
+        },
+        "subtotal": {
+          "conditional_exact_accuracy": 1.0,
+          "correct": 3,
+          "coverage": 1.0,
+          "extracted": 3,
+          "labeled": 3,
+          "overall_exact_accuracy": 1.0
+        },
+        "tax": {
+          "conditional_exact_accuracy": 1.0,
+          "correct": 3,
+          "coverage": 1.0,
+          "extracted": 3,
+          "labeled": 3,
+          "overall_exact_accuracy": 1.0
+        },
+        "total": {
+          "conditional_exact_accuracy": 1.0,
+          "correct": 3,
+          "coverage": 1.0,
+          "extracted": 3,
+          "labeled": 3,
+          "overall_exact_accuracy": 1.0
+        }
+      },
+      "line_items": {
+        "exact_f1": 1.0,
+        "exact_precision": 1.0,
+        "exact_recall": 1.0,
+        "exact_true_positives": 6,
+        "field_micro": {
+          "f1": 1.0,
+          "fn": 0,
+          "fp": 0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "tp": 24
+        },
+        "per_field": {
+          "description": {
+            "accuracy": 1.0,
+            "fn": 0,
+            "fp": 0,
+            "labeled": 6,
+            "tp": 6
+          },
+          "line_total": {
+            "accuracy": 1.0,
+            "fn": 0,
+            "fp": 0,
+            "labeled": 6,
+            "tp": 6
+          },
+          "quantity": {
+            "accuracy": 1.0,
+            "fn": 0,
+            "fp": 0,
+            "labeled": 6,
+            "tp": 6
+          },
+          "unit_price": {
+            "accuracy": 1.0,
+            "fn": 0,
+            "fp": 0,
+            "labeled": 6,
+            "tp": 6
+          }
+        },
+        "predicted_items": 6,
+        "truth_items": 6
+      },
+      "operational": {
+        "average_pages": 1.0,
+        "error_counts": {},
+        "failure_count": 0,
+        "latency_ms": {
+          "count": 3,
+          "max": 7.6781000243499875,
+          "p50": 5.994700011797249,
+          "p95": 7.6781000243499875
+        },
+        "ocr_document_rate": 0.0,
+        "ocr_documents": 0,
+        "pages_known": 3,
+        "schema_validity": 1.0
+      }
+    },
+    "pages=multiple": {
+      "documents": {
+        "attempted": 3,
+        "schema_valid": 3
+      },
+      "headers": {
+        "currency": {
+          "conditional_exact_accuracy": 1.0,
+          "correct": 3,
+          "coverage": 1.0,
+          "extracted": 3,
+          "labeled": 3,
+          "overall_exact_accuracy": 1.0
+        },
+        "invoice_date": {
+          "conditional_exact_accuracy": 1.0,
+          "correct": 3,
+          "coverage": 1.0,
+          "extracted": 3,
+          "labeled": 3,
+          "overall_exact_accuracy": 1.0
+        },
+        "invoice_number": {
+          "conditional_exact_accuracy": 1.0,
+          "correct": 3,
+          "coverage": 1.0,
+          "extracted": 3,
+          "labeled": 3,
+          "overall_exact_accuracy": 1.0
+        },
+        "subtotal": {
+          "conditional_exact_accuracy": 1.0,
+          "correct": 3,
+          "coverage": 1.0,
+          "extracted": 3,
+          "labeled": 3,
+          "overall_exact_accuracy": 1.0
+        },
+        "tax": {
+          "conditional_exact_accuracy": 1.0,
+          "correct": 3,
+          "coverage": 1.0,
+          "extracted": 3,
+          "labeled": 3,
+          "overall_exact_accuracy": 1.0
+        },
+        "total": {
+          "conditional_exact_accuracy": 1.0,
+          "correct": 3,
+          "coverage": 1.0,
+          "extracted": 3,
+          "labeled": 3,
+          "overall_exact_accuracy": 1.0
+        }
+      },
+      "line_items": {
+        "exact_f1": 1.0,
+        "exact_precision": 1.0,
+        "exact_recall": 1.0,
+        "exact_true_positives": 6,
+        "field_micro": {
+          "f1": 1.0,
+          "fn": 0,
+          "fp": 0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "tp": 24
+        },
+        "per_field": {
+          "description": {
+            "accuracy": 1.0,
+            "fn": 0,
+            "fp": 0,
+            "labeled": 6,
+            "tp": 6
+          },
+          "line_total": {
+            "accuracy": 1.0,
+            "fn": 0,
+            "fp": 0,
+            "labeled": 6,
+            "tp": 6
+          },
+          "quantity": {
+            "accuracy": 1.0,
+            "fn": 0,
+            "fp": 0,
+            "labeled": 6,
+            "tp": 6
+          },
+          "unit_price": {
+            "accuracy": 1.0,
+            "fn": 0,
+            "fp": 0,
+            "labeled": 6,
+            "tp": 6
+          }
+        },
+        "predicted_items": 6,
+        "truth_items": 6
+      },
+      "operational": {
+        "average_pages": 2.0,
+        "error_counts": {},
+        "failure_count": 0,
+        "latency_ms": {
+          "count": 3,
+          "max": 10.909200005698949,
+          "p50": 8.252200030256063,
+          "p95": 10.909200005698949
+        },
+        "ocr_document_rate": 0.0,
+        "ocr_documents": 0,
+        "pages_known": 3,
+        "schema_validity": 1.0
+      }
+    },
+    "pages=single": {
+      "documents": {
+        "attempted": 22,
+        "schema_valid": 19
+      },
+      "headers": {
+        "currency": {
+          "conditional_exact_accuracy": 1.0,
+          "correct": 17,
+          "coverage": 0.85,
+          "extracted": 17,
+          "labeled": 20,
+          "overall_exact_accuracy": 0.85
+        },
+        "invoice_date": {
+          "conditional_exact_accuracy": 1.0,
+          "correct": 17,
+          "coverage": 0.85,
+          "extracted": 17,
+          "labeled": 20,
+          "overall_exact_accuracy": 0.85
+        },
+        "invoice_number": {
+          "conditional_exact_accuracy": 1.0,
+          "correct": 17,
+          "coverage": 0.85,
+          "extracted": 17,
+          "labeled": 20,
+          "overall_exact_accuracy": 0.85
+        },
+        "subtotal": {
+          "conditional_exact_accuracy": 1.0,
+          "correct": 17,
+          "coverage": 0.85,
+          "extracted": 17,
+          "labeled": 20,
+          "overall_exact_accuracy": 0.85
+        },
+        "tax": {
+          "conditional_exact_accuracy": 1.0,
+          "correct": 17,
+          "coverage": 0.85,
+          "extracted": 17,
+          "labeled": 20,
+          "overall_exact_accuracy": 0.85
+        },
+        "total": {
+          "conditional_exact_accuracy": 1.0,
+          "correct": 17,
+          "coverage": 0.85,
+          "extracted": 17,
+          "labeled": 20,
+          "overall_exact_accuracy": 0.85
+        }
+      },
+      "line_items": {
+        "exact_f1": 0.9189189189189189,
+        "exact_precision": 1.0,
+        "exact_recall": 0.85,
+        "exact_true_positives": 34,
+        "field_micro": {
+          "f1": 0.9172413793103449,
+          "fn": 24,
+          "fp": 0,
+          "precision": 1.0,
+          "recall": 0.8471337579617835,
+          "tp": 133
+        },
+        "per_field": {
+          "description": {
+            "accuracy": 0.85,
+            "fn": 6,
+            "fp": 0,
+            "labeled": 40,
+            "tp": 34
+          },
+          "line_total": {
+            "accuracy": 0.85,
+            "fn": 6,
+            "fp": 0,
+            "labeled": 40,
+            "tp": 34
+          },
+          "quantity": {
+            "accuracy": 0.8421052631578947,
+            "fn": 6,
+            "fp": 0,
+            "labeled": 38,
+            "tp": 32
+          },
+          "unit_price": {
+            "accuracy": 0.8461538461538461,
+            "fn": 6,
+            "fp": 0,
+            "labeled": 39,
+            "tp": 33
+          }
+        },
+        "predicted_items": 34,
+        "truth_items": 40
+      },
+      "operational": {
+        "average_pages": 1.0,
+        "error_counts": {
+          "ocr_unavailable": 3
+        },
+        "failure_count": 3,
+        "latency_ms": {
+          "count": 22,
+          "max": 401.79819997865707,
+          "p50": 6.676199962384999,
+          "p95": 376.5961999888532
+        },
+        "ocr_document_rate": 0.13636363636363635,
+        "ocr_documents": 3,
+        "pages_known": 19,
+        "schema_validity": 0.8636363636363636
+      }
+    },
+    "source=digital": {
+      "documents": {
+        "attempted": 22,
+        "schema_valid": 22
+      },
+      "headers": {
+        "currency": {
+          "conditional_exact_accuracy": 1.0,
+          "correct": 20,
+          "coverage": 1.0,
+          "extracted": 20,
+          "labeled": 20,
+          "overall_exact_accuracy": 1.0
+        },
+        "invoice_date": {
+          "conditional_exact_accuracy": 1.0,
+          "correct": 20,
+          "coverage": 1.0,
+          "extracted": 20,
+          "labeled": 20,
+          "overall_exact_accuracy": 1.0
+        },
+        "invoice_number": {
+          "conditional_exact_accuracy": 1.0,
+          "correct": 20,
+          "coverage": 1.0,
+          "extracted": 20,
+          "labeled": 20,
+          "overall_exact_accuracy": 1.0
+        },
+        "subtotal": {
+          "conditional_exact_accuracy": 1.0,
+          "correct": 20,
+          "coverage": 1.0,
+          "extracted": 20,
+          "labeled": 20,
+          "overall_exact_accuracy": 1.0
+        },
+        "tax": {
+          "conditional_exact_accuracy": 1.0,
+          "correct": 20,
+          "coverage": 1.0,
+          "extracted": 20,
+          "labeled": 20,
+          "overall_exact_accuracy": 1.0
+        },
+        "total": {
+          "conditional_exact_accuracy": 1.0,
+          "correct": 20,
+          "coverage": 1.0,
+          "extracted": 20,
+          "labeled": 20,
+          "overall_exact_accuracy": 1.0
+        }
+      },
+      "line_items": {
+        "exact_f1": 1.0,
+        "exact_precision": 1.0,
+        "exact_recall": 1.0,
+        "exact_true_positives": 40,
+        "field_micro": {
+          "f1": 1.0,
+          "fn": 0,
+          "fp": 0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "tp": 157
+        },
+        "per_field": {
+          "description": {
+            "accuracy": 1.0,
+            "fn": 0,
+            "fp": 0,
+            "labeled": 40,
+            "tp": 40
+          },
+          "line_total": {
+            "accuracy": 1.0,
+            "fn": 0,
+            "fp": 0,
+            "labeled": 40,
+            "tp": 40
+          },
+          "quantity": {
+            "accuracy": 1.0,
+            "fn": 0,
+            "fp": 0,
+            "labeled": 38,
+            "tp": 38
+          },
+          "unit_price": {
+            "accuracy": 1.0,
+            "fn": 0,
+            "fp": 0,
+            "labeled": 39,
+            "tp": 39
+          }
+        },
+        "predicted_items": 40,
+        "truth_items": 40
+      },
+      "operational": {
+        "average_pages": 1.1363636363636365,
+        "error_counts": {},
+        "failure_count": 0,
+        "latency_ms": {
+          "count": 22,
+          "max": 28.110999963246286,
+          "p50": 6.676199962384999,
+          "p95": 11.391400010325015
+        },
+        "ocr_document_rate": 0.0,
+        "ocr_documents": 0,
+        "pages_known": 22,
+        "schema_validity": 1.0
+      }
+    },
+    "source=ocr": {
+      "documents": {
+        "attempted": 3,
+        "schema_valid": 0
+      },
+      "headers": {
+        "currency": {
+          "conditional_exact_accuracy": null,
+          "correct": 0,
+          "coverage": 0.0,
+          "extracted": 0,
+          "labeled": 3,
+          "overall_exact_accuracy": 0.0
+        },
+        "invoice_date": {
+          "conditional_exact_accuracy": null,
+          "correct": 0,
+          "coverage": 0.0,
+          "extracted": 0,
+          "labeled": 3,
+          "overall_exact_accuracy": 0.0
+        },
+        "invoice_number": {
+          "conditional_exact_accuracy": null,
+          "correct": 0,
+          "coverage": 0.0,
+          "extracted": 0,
+          "labeled": 3,
+          "overall_exact_accuracy": 0.0
+        },
+        "subtotal": {
+          "conditional_exact_accuracy": null,
+          "correct": 0,
+          "coverage": 0.0,
+          "extracted": 0,
+          "labeled": 3,
+          "overall_exact_accuracy": 0.0
+        },
+        "tax": {
+          "conditional_exact_accuracy": null,
+          "correct": 0,
+          "coverage": 0.0,
+          "extracted": 0,
+          "labeled": 3,
+          "overall_exact_accuracy": 0.0
+        },
+        "total": {
+          "conditional_exact_accuracy": null,
+          "correct": 0,
+          "coverage": 0.0,
+          "extracted": 0,
+          "labeled": 3,
+          "overall_exact_accuracy": 0.0
+        }
+      },
+      "line_items": {
+        "exact_f1": null,
+        "exact_precision": null,
+        "exact_recall": 0.0,
+        "exact_true_positives": 0,
+        "field_micro": {
+          "f1": null,
+          "fn": 24,
+          "fp": 0,
+          "precision": null,
+          "recall": 0.0,
+          "tp": 0
+        },
+        "per_field": {
+          "description": {
+            "accuracy": 0.0,
+            "fn": 6,
+            "fp": 0,
+            "labeled": 6,
+            "tp": 0
+          },
+          "line_total": {
+            "accuracy": 0.0,
+            "fn": 6,
+            "fp": 0,
+            "labeled": 6,
+            "tp": 0
+          },
+          "quantity": {
+            "accuracy": 0.0,
+            "fn": 6,
+            "fp": 0,
+            "labeled": 6,
+            "tp": 0
+          },
+          "unit_price": {
+            "accuracy": 0.0,
+            "fn": 6,
+            "fp": 0,
+            "labeled": 6,
+            "tp": 0
+          }
+        },
+        "predicted_items": 0,
+        "truth_items": 6
+      },
+      "operational": {
+        "average_pages": null,
+        "error_counts": {
+          "ocr_unavailable": 3
+        },
+        "failure_count": 3,
+        "latency_ms": {
+          "count": 3,
+          "max": 401.79819997865707,
+          "p50": 376.5961999888532,
+          "p95": 401.79819997865707
+        },
+        "ocr_document_rate": 1.0,
+        "ocr_documents": 3,
+        "pages_known": 0,
+        "schema_validity": 0.0
+      }
+    }
+  }
+}

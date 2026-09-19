@@ -47,6 +47,18 @@ docker compose --profile test up --build --abort-on-container-exit --exit-code-f
 docker compose down
 ```
 
+Run the reproducible synthetic evaluation corpus:
+
+```powershell
+uv run python scripts/generate_synthetic_evaluation.py
+uv run python -m invoiceops.evaluation --manifest evals/manifests/dev.jsonl --output-dir evals/reports/development
+uv run python -m invoiceops.evaluation --manifest evals/manifests/holdout.jsonl --output-dir evals/reports/holdout/0.2.0 --allow-holdout
+```
+
+The holdout flag is mandatory. Reports contain normalized predictions and aggregate metrics, not
+raw page text or evidence snippets. Metric definitions and denominator policies are documented in
+[the evaluation guide](docs/evaluation.md).
+
 ## API example
 
 ```powershell
