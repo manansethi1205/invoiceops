@@ -83,7 +83,7 @@ uv run ruff check .
 uv run mypy apps invoiceops workers
 ```
 
-Expected results are 9 passing tests and 2 Docker-only skips, `All checks passed!`, and
+All non-Docker tests should pass, followed by `All checks passed!` and
 `Success: no issues found`.
 `-p no:cacheprovider` avoids the non-fatal `.pytest_cache` access warning seen on this machine.
 
@@ -115,7 +115,7 @@ docker compose logs api
 docker compose logs worker
 ```
 
-The migration log should show upgrades through `20260916_0002`. The worker log should list
+The migration log should show upgrades through `20260920_0003`. The worker log should list
 `invoiceops.process_document` as a registered task.
 
 The worker should report concurrency `2` and should not display the Celery superuser warning. A
@@ -129,8 +129,8 @@ Invoke-RestMethod http://localhost:8000/healthz
 Start-Process http://localhost:8000/docs
 ```
 
-The health response should contain `status = ok`. Swagger UI should show `POST /v1/invoices` and
-`GET /v1/jobs/{job_id}`.
+The health response should contain `status = ok`. Swagger UI should show `POST /v1/invoices`,
+`GET /v1/jobs/{job_id}`, and `GET /v1/invoices/{document_id}/extraction`.
 
 ## 7. Create safe synthetic test data
 
@@ -160,9 +160,9 @@ $job = Invoke-RestMethod -Uri $upload.status_url
 $job | Format-List
 ```
 
-The upload should return `job_id`, `status = queued`, `status_url`, and
-`deduplicated = False`. The worker is intentionally small, so it will usually change the job to
-`succeeded` before the first poll.
+The upload should return `job_id`, `document_id`, `status = queued`, `status_url`,
+`extraction_url`, and `deduplicated = False`. Poll `status_url` until the job succeeds, then request
+`extraction_url` to inspect the typed invoice and evidence.
 
 Upload the same bytes again to prove idempotency:
 
@@ -194,6 +194,7 @@ Inspect the database rows:
 ```powershell
 docker compose exec postgres psql -U invoiceops -d invoiceops -c "SELECT id, original_filename, byte_size, sha256, object_key, created_at FROM documents;"
 docker compose exec postgres psql -U invoiceops -d invoiceops -c "SELECT id, document_id, status, error_code, created_at, updated_at FROM ingestion_jobs;"
+docker compose exec postgres psql -U invoiceops -d invoiceops -c "SELECT id, document_id, extractor_name, extractor_version, schema_version, status, used_ocr, latency_ms, error_code FROM extraction_runs;"
 ```
 
 Open `http://localhost:9001`, sign in with `invoiceops` and

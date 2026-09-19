@@ -5,12 +5,14 @@ from collections.abc import Awaitable, Callable
 from typing import Annotated
 
 from fastapi import Depends, FastAPI, File, HTTPException, Request, UploadFile, status
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 from starlette.responses import Response
 
 from apps.api.dependencies import get_dispatcher, get_object_store
 from invoiceops.config import Settings, get_settings
 from invoiceops.db import get_db
+from invoiceops.extraction.version import EXTRACTOR_NAME, EXTRACTOR_VERSION
 from invoiceops.ingestion.dispatch import JobDispatcher
 from invoiceops.ingestion.service import (
     DocumentTooLargeError,
@@ -21,7 +23,13 @@ from invoiceops.ingestion.service import (
 )
 from invoiceops.ingestion.storage import ObjectStore
 from invoiceops.logging import configure_logging
-from invoiceops.models import IngestionJob
+from invoiceops.models import Document, ExtractionRun, ExtractionRunStatus, IngestionJob
+from invoiceops.schemas.extraction import Invoice
+from invoiceops.schemas.extraction_api import (
+    ExtractionPendingRead,
+    ExtractionResultRead,
+    ExtractorMetadata,
+)
 from invoiceops.schemas.jobs import ErrorBody, JobRead, UploadAccepted
 
 configure_logging(get_settings().log_level)
@@ -37,14 +45,15 @@ async def structured_request_log(
     started = time.perf_counter()
     try:
         response = await call_next(request)
-    except Exception:
-        logger.exception(
+    except Exception as exc:
+        logger.error(
             "HTTP request failed",
             extra={
                 "event": "http.request_failed",
                 "request_method": request.method,
                 "request_path": request.url.path,
                 "duration_ms": round((time.perf_counter() - started) * 1000, 2),
+                "error_type": type(exc).__name__,
             },
         )
         raise
@@ -105,8 +114,12 @@ def upload_invoice(
 
     return UploadAccepted(
         job_id=result.job.id,
+        document_id=result.job.document_id,
         status=result.job.status,
         status_url=str(request.url_for("get_job", job_id=str(result.job.id))),
+        extraction_url=str(
+            request.url_for("get_extraction", document_id=str(result.job.document_id))
+        ),
         deduplicated=not result.created,
     )
 
@@ -117,3 +130,49 @@ def get_job(job_id: uuid.UUID, session: Annotated[Session, Depends(get_db)]) -> 
     if job is None:
         raise HTTPException(status_code=404, detail="Job not found")
     return job
+
+
+@app.get(
+    "/v1/invoices/{document_id}/extraction",
+    response_model=ExtractionPendingRead | ExtractionResultRead,
+    tags=["invoices"],
+)
+def get_extraction(
+    document_id: uuid.UUID,
+    response: Response,
+    session: Annotated[Session, Depends(get_db)],
+) -> ExtractionPendingRead | ExtractionResultRead:
+    document = session.get(Document, document_id)
+    if document is None:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    run = session.scalar(
+        select(ExtractionRun).where(
+            ExtractionRun.document_id == document_id,
+            ExtractionRun.extractor_name == EXTRACTOR_NAME,
+            ExtractionRun.extractor_version == EXTRACTOR_VERSION,
+        )
+    )
+    if run is None or run.status == ExtractionRunStatus.PROCESSING:
+        response.status_code = status.HTTP_202_ACCEPTED
+        return ExtractionPendingRead(
+            document_id=document_id,
+            status=ExtractionRunStatus.PROCESSING,
+        )
+
+    invoice = Invoice.model_validate(run.output_json) if run.output_json is not None else None
+    return ExtractionResultRead(
+        document_id=document_id,
+        status=run.status,
+        extractor=ExtractorMetadata(
+            name=run.extractor_name,
+            version=run.extractor_version,
+            schema_version=run.schema_version,
+        ),
+        used_ocr=run.used_ocr,
+        latency_ms=run.latency_ms,
+        invoice=invoice,
+        error_code=run.error_code,
+        created_at=run.created_at,
+        completed_at=run.completed_at,
+    )

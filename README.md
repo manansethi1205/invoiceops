@@ -8,9 +8,13 @@ decisions. Only synthetic or de-identified financial documents belong in this re
 
 `POST /v1/invoices` accepts one PDF, JPEG, or PNG (15 MiB by default), stores it in S3-compatible
 object storage, creates a durable queued job in PostgreSQL, dispatches it through Celery/Redis, and
-returns `202 Accepted` with a job ID and status URL. `GET /v1/jobs/{job_id}` returns its state.
-The worker currently proves the asynchronous boundary by moving the job through `processing` to
-`succeeded`; preprocessing and OCR intentionally belong to the next slice.
+returns `202 Accepted` with job, document, status, and extraction URLs. `GET /v1/jobs/{job_id}`
+returns the job state. `GET /v1/invoices/{document_id}/extraction` returns the current versioned
+extraction state and, when complete, the typed invoice with source evidence.
+
+The worker downloads the stored document, performs text/OCR preprocessing and deterministic header
+extraction, and persists one result per document, extractor name, and extractor version. Celery
+redelivery reuses a completed extraction instead of repeating it.
 
 Uploads are idempotent by SHA-256: repeated bytes reuse the existing document and job, including
 under concurrent requests through a unique database index. API and worker application events are

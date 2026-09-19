@@ -8,8 +8,10 @@ from invoiceops.models import JobStatus
 
 class UploadAccepted(BaseModel):
     job_id: uuid.UUID
+    document_id: uuid.UUID
     status: JobStatus
     status_url: str
+    extraction_url: str
     deduplicated: bool
 
 

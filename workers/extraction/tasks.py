@@ -6,22 +6,24 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from invoiceops.db import SessionLocal
+from invoiceops.extraction.failures import (
+    TERMINAL_EXTRACTION_ERRORS,
+    extraction_error_code,
+    safe_extraction_error_message,
+)
 from invoiceops.models import Document, IngestionJob, JobStatus
 from workers.extraction.celery_app import celery_app
+from workers.extraction.factory import build_extraction_service
 
 logger = logging.getLogger(__name__)
 MAX_RETRIES = 3
-DocumentProcessor = Callable[[Document], None]
-
-
-def placeholder_pipeline(_document: Document) -> None:
-    """The next vertical slice replaces this with preprocessing and OCR."""
+DocumentProcessor = Callable[[Document], object]
 
 
 def run_job(
     session: Session,
     job_id: uuid.UUID,
-    processor: DocumentProcessor = placeholder_pipeline,
+    processor: DocumentProcessor,
 ) -> bool:
     """Run an idempotent state transition; return false when work was already complete."""
     job = session.get(IngestionJob, job_id)
@@ -73,13 +75,20 @@ def run_job(
     return True
 
 
-def record_failure(session: Session, job_id: uuid.UUID, terminal: bool) -> None:
+def record_failure(
+    session: Session,
+    job_id: uuid.UUID,
+    *,
+    terminal: bool,
+    error_code: str | None = None,
+    error_message: str | None = None,
+) -> None:
     job = session.get(IngestionJob, job_id)
     if job is None or job.status == JobStatus.SUCCEEDED:
         return
     job.status = JobStatus.FAILED if terminal else JobStatus.QUEUED
-    job.error_code = "processing_failed" if terminal else None
-    job.error_message = "Document processing failed" if terminal else None
+    job.error_code = (error_code or "processing_failed") if terminal else None
+    job.error_message = (error_message or "Document processing failed") if terminal else None
     session.commit()
 
 
@@ -95,20 +104,44 @@ def process_document(self: Any, job_id: str) -> None:
     parsed_job_id = uuid.UUID(job_id)
     try:
         with SessionLocal() as session:
-            run_job(session, parsed_job_id)
+            service = build_extraction_service(session)
+            run_job(session, parsed_job_id, service.process)
+    except TERMINAL_EXTRACTION_ERRORS as exc:
+        error_code = extraction_error_code(exc)
+        with SessionLocal() as session:
+            record_failure(
+                session,
+                parsed_job_id,
+                terminal=True,
+                error_code=error_code,
+                error_message=safe_extraction_error_message(exc),
+            )
+        logger.error(
+            "Document processing failed with a terminal extraction error",
+            extra={
+                "event": "worker.failed",
+                "job_id": job_id,
+                "status": JobStatus.FAILED.value,
+                "retry_count": int(self.request.retries),
+                "error_code": error_code,
+                "error_type": type(exc).__name__,
+            },
+        )
+        raise
     except Exception as exc:
         retry_count = int(self.request.retries)
         terminal = retry_count >= MAX_RETRIES
         with SessionLocal() as session:
             record_failure(session, parsed_job_id, terminal=terminal)
-        logger.exception(
-            "Document processing failed",
+        logger.error(
+            "Document processing encountered an operational failure",
             extra={
                 "event": "worker.failed" if terminal else "worker.retry_scheduled",
                 "job_id": job_id,
                 "status": JobStatus.FAILED.value if terminal else JobStatus.QUEUED.value,
                 "retry_count": retry_count,
                 "error_code": "processing_failed" if terminal else "retry_scheduled",
+                "error_type": type(exc).__name__,
             },
         )
         if terminal:

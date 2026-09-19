@@ -9,6 +9,7 @@ from invoiceops.extraction.header_rules import (
     extract_total,
 )
 from invoiceops.extraction.layout import reconstruct_lines
+from invoiceops.extraction.version import EXTRACTOR_NAME, EXTRACTOR_VERSION
 from invoiceops.schemas.extraction import DocumentText, Invoice
 
 
@@ -20,8 +21,8 @@ class InvoiceExtractor(Protocol):
 
 
 class DeterministicInvoiceExtractor:
-    name = "deterministic-baseline"
-    version = "0.1.0"
+    name = EXTRACTOR_NAME
+    version = EXTRACTOR_VERSION
 
     def extract(self, document: DocumentText) -> Invoice:
         lines = reconstruct_lines(document)

@@ -30,15 +30,18 @@ def wait_for_terminal_status(client: httpx.Client, status_url: str) -> dict[str,
 def synthetic_pdf_bytes(invoice_number: str) -> bytes:
     document = pymupdf.open()
     try:
-        page = document.new_page(width=400, height=300)
-        page.insert_textbox(
-            pymupdf.Rect(30, 30, 370, 270),
-            (
-                f"Synthetic invoice number {invoice_number} vendor Example Components "
-                "currency INR subtotal 1000 tax 180 total 1180"
-            ),
-            fontsize=11,
-        )
+        page = document.new_page(width=612, height=792)
+        lines = [
+            "SYNTHETIC INVOICE - DEMO DATA ONLY",
+            f"Invoice Number: {invoice_number}",
+            "Invoice Date: 19/09/2026",
+            "Currency: INR",
+            "Subtotal: 1,000.00",
+            "GST 18%: 180.00",
+            "Grand Total: INR 1,180.00",
+        ]
+        for index, line in enumerate(lines):
+            page.insert_text((72, 72 + index * 30), line, fontsize=12)
         return document.tobytes()
     finally:
         document.close()
@@ -46,7 +49,8 @@ def synthetic_pdf_bytes(invoice_number: str) -> bytes:
 
 def test_real_stack_upload_is_idempotent_and_worker_completes() -> None:
     base_url = os.environ["API_BASE_URL"]
-    body = synthetic_pdf_bytes(f"SYN-{uuid.uuid4()}")
+    invoice_number = f"SYN-{uuid.uuid4()}"
+    body = synthetic_pdf_bytes(invoice_number)
     with httpx.Client(base_url=base_url, timeout=10) as client:
         first_response = client.post(
             "/v1/invoices", files={"file": ("compose.pdf", body, "application/pdf")}
@@ -62,9 +66,24 @@ def test_real_stack_upload_is_idempotent_and_worker_completes() -> None:
         duplicate = duplicate_response.json()
         assert duplicate["deduplicated"] is True
         assert duplicate["job_id"] == first["job_id"]
+        assert duplicate["document_id"] == first["document_id"]
+        assert duplicate["extraction_url"] == first["extraction_url"]
 
         job = wait_for_terminal_status(client, first["status_url"])
         assert job["status"] == "succeeded"
+        extraction_response = client.get(first["extraction_url"])
+        extraction_response.raise_for_status()
+        extraction = extraction_response.json()
+        assert extraction["status"] == "succeeded"
+        invoice = extraction["invoice"]
+        assert invoice["invoice_number"]["value"] == invoice_number
+        assert invoice["currency"]["value"] == "INR"
+        assert invoice["subtotal"]["value"] == "1000.00"
+        assert invoice["tax"]["value"] == "180.00"
+        assert invoice["total"]["value"] == "1180.00"
+        duplicate_extraction = client.get(duplicate["extraction_url"])
+        duplicate_extraction.raise_for_status()
+        assert duplicate_extraction.json()["created_at"] == extraction["created_at"]
 
 
 def test_real_stack_returns_clear_invalid_file_error() -> None:
