@@ -75,3 +75,8 @@ Header extraction is rule-based and retains source coordinates for every selecte
 invoice dates use Indian day-first ordering (`DD/MM/YYYY` or `DD-MM-YYYY`); ISO dates use
 `YYYY-MM-DD`. Ambiguous top-ranked values are returned as ambiguous instead of being guessed.
 Money is parsed with `Decimal`, and the `$` symbol is not automatically treated as USD.
+
+Line-item extraction detects positioned table headers and assigns words to inferred normalized
+column ranges. Missing financial cells remain missing rather than being calculated. Wrapped
+descriptions are joined only within the same detected table section and page; cross-page
+description continuation is intentionally unsupported in the deterministic baseline.

@@ -3,7 +3,8 @@ from datetime import date
 from decimal import Decimal
 
 from invoiceops.extraction.candidates import FieldCandidate, resolve_candidates
-from invoiceops.extraction.layout import TextLine, union_bbox
+from invoiceops.extraction.evidence import evidence_from_words
+from invoiceops.extraction.layout import TextLine
 from invoiceops.extraction.normalization import (
     normalize_currency,
     normalize_identifier,
@@ -11,7 +12,7 @@ from invoiceops.extraction.normalization import (
     parse_invoice_date,
     parse_money,
 )
-from invoiceops.schemas.extraction import EvidenceSpan, ExtractedField, TextSource, WordToken
+from invoiceops.schemas.extraction import EvidenceSpan, ExtractedField
 
 _INVOICE_NUMBER_LABEL = re.compile(
     r"\b(?:invoice\s*(?:number|no\.?|#)|inv\.?\s*(?:number|no\.?|#)|"
@@ -41,18 +42,7 @@ _CURRENCY_CONTEXT = re.compile(
 
 
 def _line_evidence(line: TextLine) -> list[EvidenceSpan]:
-    by_source: dict[TextSource, list[WordToken]] = {}
-    for word in line.words:
-        by_source.setdefault(word.source, []).append(word)
-    return [
-        EvidenceSpan(
-            page=line.page,
-            bbox=union_bbox(words),
-            text=" ".join(word.text for word in words),
-            source=source,
-        )
-        for source, words in by_source.items()
-    ]
+    return evidence_from_words(line.words)
 
 
 def _remainder(line: TextLine, match: re.Match[str]) -> str:

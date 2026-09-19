@@ -3,8 +3,9 @@ import time
 import uuid
 
 import httpx
-import pymupdf
 import pytest
+
+from tests.synthetic_documents import generated_invoice_pdf
 
 pytestmark = [
     pytest.mark.docker,
@@ -27,30 +28,10 @@ def wait_for_terminal_status(client: httpx.Client, status_url: str) -> dict[str,
     pytest.fail("job did not reach a terminal state within 20 seconds")
 
 
-def synthetic_pdf_bytes(invoice_number: str) -> bytes:
-    document = pymupdf.open()
-    try:
-        page = document.new_page(width=612, height=792)
-        lines = [
-            "SYNTHETIC INVOICE - DEMO DATA ONLY",
-            f"Invoice Number: {invoice_number}",
-            "Invoice Date: 19/09/2026",
-            "Currency: INR",
-            "Subtotal: 1,000.00",
-            "GST 18%: 180.00",
-            "Grand Total: INR 1,180.00",
-        ]
-        for index, line in enumerate(lines):
-            page.insert_text((72, 72 + index * 30), line, fontsize=12)
-        return document.tobytes()
-    finally:
-        document.close()
-
-
 def test_real_stack_upload_is_idempotent_and_worker_completes() -> None:
     base_url = os.environ["API_BASE_URL"]
     invoice_number = f"SYN-{uuid.uuid4()}"
-    body = synthetic_pdf_bytes(invoice_number)
+    body = generated_invoice_pdf(invoice_number)
     with httpx.Client(base_url=base_url, timeout=10) as client:
         first_response = client.post(
             "/v1/invoices", files={"file": ("compose.pdf", body, "application/pdf")}
@@ -78,9 +59,25 @@ def test_real_stack_upload_is_idempotent_and_worker_completes() -> None:
         invoice = extraction["invoice"]
         assert invoice["invoice_number"]["value"] == invoice_number
         assert invoice["currency"]["value"] == "INR"
-        assert invoice["subtotal"]["value"] == "1000.00"
-        assert invoice["tax"]["value"] == "180.00"
-        assert invoice["total"]["value"] == "1180.00"
+        assert invoice["subtotal"]["value"] == "1200.00"
+        assert invoice["tax"]["value"] == "216.00"
+        assert invoice["total"]["value"] == "1416.00"
+        assert len(invoice["line_items"]) == 2
+        first_item, second_item = invoice["line_items"]
+        assert first_item["description"]["value"] == "Industrial Filter"
+        assert first_item["quantity"]["value"] == "2"
+        assert first_item["unit_price"]["value"] == "500.00"
+        assert first_item["line_total"]["value"] == "1000.00"
+        assert second_item["description"]["value"] == "Mounting Bracket"
+        assert second_item["quantity"]["value"] == "4"
+        assert second_item["unit_price"]["value"] == "50.00"
+        assert second_item["line_total"]["value"] == "200.00"
+        for item in invoice["line_items"]:
+            for field in item.values():
+                assert field["evidence"]
+                bbox = field["evidence"][0]["bbox"]
+                assert 0 <= bbox["x0"] <= bbox["x1"] <= 1
+                assert 0 <= bbox["y0"] <= bbox["y1"] <= 1
         duplicate_extraction = client.get(duplicate["extraction_url"])
         duplicate_extraction.raise_for_status()
         assert duplicate_extraction.json()["created_at"] == extraction["created_at"]

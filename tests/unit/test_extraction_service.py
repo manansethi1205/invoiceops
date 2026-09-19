@@ -21,7 +21,7 @@ from invoiceops.schemas.extraction import (
     Invoice,
 )
 from tests.conftest import MemoryObjectStore
-from tests.unit.test_header_pipeline import generated_invoice_pdf
+from tests.synthetic_documents import generated_invoice_pdf
 
 
 def make_session() -> Session:
@@ -79,7 +79,7 @@ class FakeTextExtractor:
 class FakeInvoiceExtractor:
     name = "deterministic-baseline"
 
-    def __init__(self, *, version: str = "0.1.0") -> None:
+    def __init__(self, *, version: str = "0.2.0") -> None:
         self.version = version
         self.calls = 0
 
@@ -163,13 +163,13 @@ def test_database_constraint_rejects_duplicate_version_rows() -> None:
                 ExtractionRun(
                     document_id=document.id,
                     extractor_name="deterministic-baseline",
-                    extractor_version="0.1.0",
+                    extractor_version="0.2.0",
                     schema_version="invoice-v1",
                 ),
                 ExtractionRun(
                     document_id=document.id,
                     extractor_name="deterministic-baseline",
-                    extractor_version="0.1.0",
+                    extractor_version="0.2.0",
                     schema_version="invoice-v1",
                 ),
             ]
@@ -194,6 +194,7 @@ def test_real_generated_pdf_is_persisted_as_typed_invoice() -> None:
         assert invoice.invoice_number.value == "SYN-12345"
         assert invoice.invoice_date.value == date(2026, 9, 19)
         assert invoice.currency.value == "INR"
-        assert invoice.subtotal.value == Decimal("1000.00")
-        assert invoice.tax.value == Decimal("180.00")
-        assert invoice.total.value == Decimal("1180.00")
+        assert invoice.subtotal.value == Decimal("1200.00")
+        assert invoice.tax.value == Decimal("216.00")
+        assert invoice.total.value == Decimal("1416.00")
+        assert len(invoice.line_items) == 2

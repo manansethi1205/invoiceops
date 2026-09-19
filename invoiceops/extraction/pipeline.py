@@ -9,6 +9,7 @@ from invoiceops.extraction.header_rules import (
     extract_total,
 )
 from invoiceops.extraction.layout import reconstruct_lines
+from invoiceops.extraction.line_item_rules import extract_line_items
 from invoiceops.extraction.version import EXTRACTOR_NAME, EXTRACTOR_VERSION
 from invoiceops.schemas.extraction import DocumentText, Invoice
 
@@ -33,5 +34,5 @@ class DeterministicInvoiceExtractor:
             subtotal=extract_subtotal(lines),
             tax=extract_tax(lines),
             total=extract_total(lines),
-            line_items=[],
+            line_items=extract_line_items(document),
         )

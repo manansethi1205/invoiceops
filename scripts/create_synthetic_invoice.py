@@ -1,69 +1,41 @@
-"""Create a small valid PDF containing synthetic invoice data for local smoke tests."""
+"""Create a valid positioned PDF containing synthetic invoice data for local smoke tests."""
 
 import uuid
 from pathlib import Path
 
-
-def pdf_string(value: str) -> str:
-    return value.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
+import pymupdf
 
 
 def create_pdf(path: Path, invoice_number: str) -> None:
-    lines = [
-        "SYNTHETIC INVOICE - DEMO DATA ONLY",
-        f"Invoice number: {invoice_number}",
-        "Vendor: Example Components Pvt Ltd",
-        "Currency: INR",
-        "Item: Test fasteners | Qty: 10 | Rate: 100.00",
-        "Subtotal: 1000.00",
-        "GST 18%: 180.00",
-        "Total: 1180.00",
-    ]
-    commands = ["BT", "/F1 16 Tf", "72 760 Td"]
-    for index, line in enumerate(lines):
-        if index:
-            commands.append("0 -28 Td")
-        commands.append(f"({pdf_string(line)}) Tj")
-    commands.append("ET")
-    stream = ("\n".join(commands) + "\n").encode("ascii")
-
-    objects = [
-        b"<< /Type /Catalog /Pages 2 0 R >>",
-        b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
-        (
-            b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] "
-            b"/Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>"
-        ),
-        (
-            b"<< /Length "
-            + str(len(stream)).encode("ascii")
-            + b" >>\nstream\n"
-            + stream
-            + b"endstream"
-        ),
-        b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
-    ]
-
-    document = bytearray(b"%PDF-1.4\n%\xe2\xe3\xcf\xd3\n")
-    offsets = [0]
-    for number, body in enumerate(objects, start=1):
-        offsets.append(len(document))
-        document.extend(f"{number} 0 obj\n".encode("ascii"))
-        document.extend(body)
-        document.extend(b"\nendobj\n")
-
-    xref_offset = len(document)
-    document.extend(f"xref\n0 {len(objects) + 1}\n".encode("ascii"))
-    document.extend(b"0000000000 65535 f \n")
-    for offset in offsets[1:]:
-        document.extend(f"{offset:010d} 00000 n \n".encode("ascii"))
-    document.extend(
-        (
-            f"trailer\n<< /Size {len(objects) + 1} /Root 1 0 R >>\n"
-            f"startxref\n{xref_offset}\n%%EOF\n"
-        ).encode("ascii")
-    )
-    path.write_bytes(document)
+    document = pymupdf.open()
+    try:
+        page = document.new_page(width=612, height=792)
+        for index, text in enumerate(
+            [
+                "SYNTHETIC INVOICE - DEMO DATA ONLY",
+                f"Invoice Number: {invoice_number}",
+                "Invoice Date: 19/09/2026",
+                "Currency: INR",
+            ]
+        ):
+            page.insert_text((72, 72 + index * 28), text, fontsize=12)
+        columns = [(72, "Description"), (330, "Qty"), (400, "Unit Price"), (500, "Amount")]
+        rows = [
+            ("Industrial Filter", "2", "500.00", "1,000.00"),
+            ("Mounting Bracket", "4", "50.00", "200.00"),
+        ]
+        for x, text in columns:
+            page.insert_text((x, 220), text, fontsize=11)
+        for row_index, values in enumerate(rows):
+            for (x, _), value in zip(columns, values, strict=True):
+                page.insert_text((x, 252 + row_index * 28), value, fontsize=11)
+        for index, text in enumerate(
+            ["Subtotal: 1,200.00", "GST 18%: 216.00", "Grand Total: INR 1,416.00"]
+        ):
+            page.insert_text((360, 330 + index * 28), text, fontsize=11)
+        document.save(path)
+    finally:
+        document.close()
 
 
 if __name__ == "__main__":

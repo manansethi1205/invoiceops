@@ -145,7 +145,7 @@ def test_completed_extraction_returns_typed_result_without_storage_details(
             ExtractionRun(
                 document_id=uuid.UUID(upload["document_id"]),
                 extractor_name="deterministic-baseline",
-                extractor_version="0.1.0",
+                extractor_version="0.2.0",
                 schema_version="invoice-v1",
                 status=ExtractionRunStatus.SUCCEEDED,
                 output_json=missing_invoice().model_dump(mode="json"),
@@ -179,7 +179,7 @@ def test_failed_extraction_returns_only_safe_failure_state(
             ExtractionRun(
                 document_id=uuid.UUID(upload["document_id"]),
                 extractor_name="deterministic-baseline",
-                extractor_version="0.1.0",
+                extractor_version="0.2.0",
                 schema_version="invoice-v1",
                 status=ExtractionRunStatus.FAILED,
                 error_code="document_unreadable",
