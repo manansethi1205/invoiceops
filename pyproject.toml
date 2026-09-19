@@ -9,6 +9,7 @@ dependencies = [
   "boto3>=1.35,<2",
   "celery[redis]>=5.4,<6",
   "fastapi>=0.115,<1",
+  "pymupdf>=1.26,<2",
   "psycopg[binary]>=3.2,<4",
   "pydantic-settings>=2.6,<3",
   "python-multipart>=0.0.18,<1",
@@ -51,3 +52,7 @@ plugins = ["pydantic.mypy"]
 [[tool.mypy.overrides]]
 module = ["boto3", "botocore.*", "celery", "celery.*"]
 ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["invoiceops.extraction.preprocessing"]
+disallow_untyped_calls = false

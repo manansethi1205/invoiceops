@@ -3,6 +3,7 @@ import time
 import uuid
 
 import httpx
+import pymupdf
 import pytest
 
 pytestmark = [
@@ -26,9 +27,26 @@ def wait_for_terminal_status(client: httpx.Client, status_url: str) -> dict[str,
     pytest.fail("job did not reach a terminal state within 20 seconds")
 
 
+def synthetic_pdf_bytes(invoice_number: str) -> bytes:
+    document = pymupdf.open()
+    try:
+        page = document.new_page(width=400, height=300)
+        page.insert_textbox(
+            pymupdf.Rect(30, 30, 370, 270),
+            (
+                f"Synthetic invoice number {invoice_number} vendor Example Components "
+                "currency INR subtotal 1000 tax 180 total 1180"
+            ),
+            fontsize=11,
+        )
+        return document.tobytes()
+    finally:
+        document.close()
+
+
 def test_real_stack_upload_is_idempotent_and_worker_completes() -> None:
     base_url = os.environ["API_BASE_URL"]
-    body = f"%PDF-1.7\nsynthetic compose invoice {uuid.uuid4()}\n%%EOF".encode()
+    body = synthetic_pdf_bytes(f"SYN-{uuid.uuid4()}")
     with httpx.Client(base_url=base_url, timeout=10) as client:
         first_response = client.post(
             "/v1/invoices", files={"file": ("compose.pdf", body, "application/pdf")}

@@ -19,6 +19,9 @@ class MemoryObjectStore:
     def put(self, key: str, body: bytes, content_type: str) -> None:
         self.objects[key] = (body, content_type)
 
+    def get(self, key: str) -> bytes:
+        return self.objects[key][0]
+
     def delete(self, key: str) -> None:
         self.objects.pop(key, None)
 

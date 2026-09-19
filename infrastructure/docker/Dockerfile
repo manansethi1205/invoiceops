@@ -2,6 +2,10 @@ FROM python:3.12-slim
 
 WORKDIR /app
 ARG INSTALL_DEV=false
+RUN apt-get update \
+    && apt-get install --no-install-recommends -y tesseract-ocr tesseract-ocr-eng \
+    && rm -rf /var/lib/apt/lists/*
+ENV TESSDATA_PREFIX=/usr/share/tesseract-ocr/5/tessdata
 COPY --from=ghcr.io/astral-sh/uv:0.8.0 /uv /uvx /bin/
 COPY pyproject.toml uv.lock README.md ./
 COPY apps apps

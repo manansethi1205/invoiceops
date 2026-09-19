@@ -64,3 +64,10 @@ The current slice is explained file-by-file in the
 [implementation guide](docs/implementation-guide.md).
 For exact Windows setup, smoke-test, troubleshooting, and cleanup commands, use the
 [local runbook](docs/local-runbook.md).
+
+## Deterministic extraction assumptions
+
+Header extraction is rule-based and retains source coordinates for every selected value. Numeric
+invoice dates use Indian day-first ordering (`DD/MM/YYYY` or `DD-MM-YYYY`); ISO dates use
+`YYYY-MM-DD`. Ambiguous top-ranked values are returned as ambiguous instead of being guessed.
+Money is parsed with `Decimal`, and the `$` symbol is not automatically treated as USD.

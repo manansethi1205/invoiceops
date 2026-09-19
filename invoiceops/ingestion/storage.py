@@ -1,4 +1,4 @@
-from typing import Protocol
+from typing import Protocol, cast
 
 import boto3
 from botocore.client import BaseClient
@@ -8,6 +8,8 @@ from invoiceops.config import Settings
 
 class ObjectStore(Protocol):
     def put(self, key: str, body: bytes, content_type: str) -> None: ...
+
+    def get(self, key: str) -> bytes: ...
 
     def delete(self, key: str) -> None: ...
 
@@ -40,6 +42,14 @@ class S3ObjectStore:
         if self.server_side_encryption:
             request["ServerSideEncryption"] = self.server_side_encryption
         self.client.put_object(**request)
+
+    def get(self, key: str) -> bytes:
+        response = self.client.get_object(Bucket=self.bucket, Key=key)
+        stream = response["Body"]
+        try:
+            return cast(bytes, stream.read())
+        finally:
+            stream.close()
 
     def delete(self, key: str) -> None:
         self.client.delete_object(Bucket=self.bucket, Key=key)
