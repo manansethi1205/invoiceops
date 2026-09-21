@@ -14,6 +14,17 @@ document receives a content digest for future duplicate detection. The object is
 the row is committed, and removed if that commit fails. If dispatch fails, the queued row remains
 durable so a reconciliation process can safely redispatch it.
 
-Later slices add preprocessing, OCR, schema-constrained extraction with evidence coordinates,
-deterministic validation/matching, anomaly scoring, review, audit events, and evaluation lineage.
+The current deterministic decision path is:
 
+```text
+successful versioned extraction + explicitly selected purchase order
+        -> financial validation
+        -> exact/fuzzy deterministic one-to-one line assignment
+        -> quantity, price, currency and line-amount checks
+        -> MATCHED or NEEDS_REVIEW
+        -> immutable policy snapshot + reason codes + invoice provenance
+```
+
+Extraction supplies observations and evidence. Matching code alone performs arithmetic and applies
+the versioned policy. Match runs reference the exact extraction row and are idempotent across
+retries. Later slices add anomaly scoring, review workflow, audit events, and evaluation lineage.

@@ -16,6 +16,12 @@ The worker downloads the stored document, performs text/OCR preprocessing and de
 extraction, and persists one result per document, extractor name, and extractor version. Celery
 redelivery reuses a completed extraction instead of repeating it.
 
+The deterministic two-way matching slice accepts typed purchase orders, validates invoice
+arithmetic, and compares an explicitly selected PO with a successful extraction. Matching is
+synchronous and returns only `MATCHED` or `NEEDS_REVIEW`, with versioned tolerances, reason codes,
+line assignments, and invoice evidence. Ambiguous, incomplete, or inconsistent observations can
+never produce `MATCHED`; no model makes arithmetic or approval decisions.
+
 Uploads are idempotent by SHA-256: repeated bytes reuse the existing document and job, including
 under concurrent requests through a unique database index. API and worker application events are
 JSON structured logs. Celery uses late acknowledgement, safe redelivery, bounded exponential
@@ -59,6 +65,16 @@ The holdout flag is mandatory. Reports contain normalized predictions and aggreg
 raw page text or evidence snippets. Metric definitions and denominator policies are documented in
 [the evaluation guide](docs/evaluation.md).
 
+Run the deterministic business-scenario evaluation:
+
+```powershell
+uv run python scripts/run_matching_evaluation.py
+Get-Content evals/reports/matching/matching-v1/report.md
+```
+
+The 18 scenarios are synthetic. Their aggregate result is engineering evidence, not a production
+accuracy claim. The safety invariant is `false_auto_match_count == 0`.
+
 OCR-bearing manifests require Tesseract before any document bytes are processed. Run the frozen
 holdout in the reproducible evaluation container:
 
@@ -83,6 +99,9 @@ curl.exe -F "file=@synthetic-invoice.pdf;type=application/pdf" http://localhost:
 curl.exe http://localhost:8000/v1/jobs/JOB_ID
 ```
 
+Purchase-order creation and matching examples, including both `MATCHED` and `NEEDS_REVIEW`, are in
+[the two-way matching guide](docs/matching.md#api-demonstration).
+
 ## Product evidence
 
 Initial discovery with a finance practitioner identified quantity, unit rate, counterparty, and
@@ -92,6 +111,8 @@ than model-decided. Approvers may require a PO, order confirmation, advance evid
 approval. These findings are product inputs, not measured system results.
 
 See [architecture](docs/architecture.md) and [ADR-001](docs/adr/001-ingestion-boundary.md).
+See [two-way matching](docs/matching.md) for policy definitions, reason codes, API behavior, and
+known limitations.
 The delivery sequence is captured in [the roadmap](docs/roadmap.md).
 The current slice is explained file-by-file in the
 [implementation guide](docs/implementation-guide.md).

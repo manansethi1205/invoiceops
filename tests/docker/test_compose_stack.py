@@ -1,6 +1,7 @@
 import os
 import time
 import uuid
+from typing import cast
 
 import httpx
 import pytest
@@ -23,7 +24,7 @@ def wait_for_terminal_status(client: httpx.Client, status_url: str) -> dict[str,
         response.raise_for_status()
         job = response.json()
         if job["status"] in {"succeeded", "failed"}:
-            return job
+            return cast(dict[str, object], job)
         time.sleep(0.25)
     pytest.fail("job did not reach a terminal state within 20 seconds")
 
@@ -81,6 +82,48 @@ def test_real_stack_upload_is_idempotent_and_worker_completes() -> None:
         duplicate_extraction = client.get(duplicate["extraction_url"])
         duplicate_extraction.raise_for_status()
         assert duplicate_extraction.json()["created_at"] == extraction["created_at"]
+
+        po_response = client.post(
+            "/v1/purchase-orders",
+            json={
+                "external_po_number": f"PO-{invoice_number}",
+                "vendor_name": "Synthetic Compose Vendor",
+                "currency": "INR",
+                "lines": [
+                    {
+                        "line_number": "1",
+                        "description": "Industrial Filter",
+                        "ordered_quantity": "2",
+                        "unit_price": "500.00",
+                    },
+                    {
+                        "line_number": "2",
+                        "description": "Mounting Bracket",
+                        "ordered_quantity": "4",
+                        "unit_price": "50.00",
+                    },
+                ],
+            },
+        )
+        po_response.raise_for_status()
+        purchase_order = po_response.json()
+        match_path = f"/v1/documents/{first['document_id']}/matches"
+        match_response = client.post(
+            match_path, json={"purchase_order_id": purchase_order["id"]}
+        )
+        assert match_response.status_code == 201
+        match = match_response.json()
+        assert match["decision"] == "MATCHED"
+        assert match["policy_version"] == "matching-v1"
+        assert len(match["result"]["line_assignments"]) == 2
+        repeated_match = client.post(
+            match_path, json={"purchase_order_id": purchase_order["id"]}
+        )
+        assert repeated_match.status_code == 200
+        assert repeated_match.json()["id"] == match["id"]
+        fetched_match = client.get(f"/v1/matches/{match['id']}")
+        fetched_match.raise_for_status()
+        assert fetched_match.json() == match
 
 
 def test_real_stack_returns_clear_invalid_file_error() -> None:

@@ -23,6 +23,16 @@ from invoiceops.ingestion.service import (
 )
 from invoiceops.ingestion.storage import ObjectStore
 from invoiceops.logging import configure_logging
+from invoiceops.matching.service import (
+    DocumentNotFoundError,
+    ExtractionNotReadyError,
+    MatchingService,
+    MatchRunNotFoundError,
+    PurchaseOrderNotFoundError,
+    PurchaseOrderService,
+    match_run_to_read,
+    purchase_order_to_read,
+)
 from invoiceops.models import Document, ExtractionRun, ExtractionRunStatus, IngestionJob
 from invoiceops.schemas.extraction import Invoice
 from invoiceops.schemas.extraction_api import (
@@ -31,6 +41,12 @@ from invoiceops.schemas.extraction_api import (
     ExtractorMetadata,
 )
 from invoiceops.schemas.jobs import ErrorBody, JobRead, UploadAccepted
+from invoiceops.schemas.matching import (
+    MatchCreate,
+    MatchRunRead,
+    PurchaseOrderCreate,
+    PurchaseOrderRead,
+)
 
 configure_logging(get_settings().log_level)
 logger = logging.getLogger(__name__)
@@ -176,3 +192,76 @@ def get_extraction(
         created_at=run.created_at,
         completed_at=run.completed_at,
     )
+
+
+@app.post(
+    "/v1/purchase-orders",
+    response_model=PurchaseOrderRead,
+    status_code=status.HTTP_201_CREATED,
+    tags=["purchase-orders"],
+)
+def create_purchase_order(
+    command: PurchaseOrderCreate,
+    session: Annotated[Session, Depends(get_db)],
+) -> PurchaseOrderRead:
+    purchase_order = PurchaseOrderService(session).create(command)
+    return purchase_order_to_read(purchase_order)
+
+
+@app.get(
+    "/v1/purchase-orders/{purchase_order_id}",
+    response_model=PurchaseOrderRead,
+    tags=["purchase-orders"],
+)
+def get_purchase_order(
+    purchase_order_id: uuid.UUID,
+    session: Annotated[Session, Depends(get_db)],
+) -> PurchaseOrderRead:
+    try:
+        purchase_order = PurchaseOrderService(session).get(purchase_order_id)
+    except PurchaseOrderNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="Purchase order not found") from exc
+    return purchase_order_to_read(purchase_order)
+
+
+@app.post(
+    "/v1/documents/{document_id}/matches",
+    response_model=MatchRunRead,
+    status_code=status.HTTP_201_CREATED,
+    tags=["matching"],
+)
+def create_match(
+    document_id: uuid.UUID,
+    command: MatchCreate,
+    response: Response,
+    session: Annotated[Session, Depends(get_db)],
+) -> MatchRunRead:
+    try:
+        result = MatchingService(session).match(document_id, command.purchase_order_id)
+    except DocumentNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="Document not found") from exc
+    except PurchaseOrderNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="Purchase order not found") from exc
+    except ExtractionNotReadyError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail="A successful current extraction is required before matching",
+        ) from exc
+    response.status_code = status.HTTP_201_CREATED if result.created else status.HTTP_200_OK
+    return match_run_to_read(result.run)
+
+
+@app.get(
+    "/v1/matches/{match_run_id}",
+    response_model=MatchRunRead,
+    tags=["matching"],
+)
+def get_match(
+    match_run_id: uuid.UUID,
+    session: Annotated[Session, Depends(get_db)],
+) -> MatchRunRead:
+    try:
+        run = MatchingService(session).get(match_run_id)
+    except MatchRunNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="Match run not found") from exc
+    return match_run_to_read(run)

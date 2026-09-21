@@ -1,0 +1,11 @@
+{
+  "scenario_count": 18,
+  "expected_decision_accuracy": 1.0,
+  "straight_through_match_rate": 0.2777777777777778,
+  "needs_review_rate": 0.7222222222222222,
+  "false_auto_match_count": 0,
+  "reason_code_accuracy": 1.0,
+  "p50_match_latency_ms": 0.1754,
+  "p95_match_latency_ms": 0.6498,
+  "policy_version": "matching-v1"
+}

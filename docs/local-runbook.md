@@ -115,7 +115,7 @@ docker compose logs api
 docker compose logs worker
 ```
 
-The migration log should show upgrades through `20260920_0003`. The worker log should list
+The migration log should show upgrades through `20260921_0004`. The worker log should list
 `invoiceops.process_document` as a registered task.
 
 The worker should report concurrency `2` and should not display the Celery superuser warning. A
@@ -129,8 +129,8 @@ Invoke-RestMethod http://localhost:8000/healthz
 Start-Process http://localhost:8000/docs
 ```
 
-The health response should contain `status = ok`. Swagger UI should show `POST /v1/invoices`,
-`GET /v1/jobs/{job_id}`, and `GET /v1/invoices/{document_id}/extraction`.
+The health response should contain `status = ok`. Swagger UI should show the invoice/job/extraction
+routes plus purchase-order create/read and match create/read routes.
 
 ## 7. Create safe synthetic test data
 
