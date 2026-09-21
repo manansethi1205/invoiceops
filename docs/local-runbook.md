@@ -11,7 +11,7 @@ is healthy. Rebuild once after the latest repository changes so the worker runs 
 and health checks no longer flood access logs:
 
 ```powershell
-Set-Location "C:\Users\HP\Documents\Codex\2026-09-15\i-w"
+Set-Location "<path-to-your-clone>"
 docker compose down
 docker compose up --build -d
 docker compose ps -a
@@ -31,7 +31,7 @@ Install the following once:
 Open a new PowerShell window and move into the repository:
 
 ```powershell
-Set-Location "C:\Users\HP\Documents\Codex\2026-09-15\i-w"
+Set-Location "<path-to-your-clone>"
 python --version
 uv --version
 docker --version

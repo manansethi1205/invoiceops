@@ -1,5 +1,6 @@
 import hashlib
 import json
+import os
 import platform
 import time
 from collections.abc import Callable
@@ -22,6 +23,11 @@ from invoiceops.extraction.errors import (
     OcrUnavailableError,
     UnreadableDocumentError,
     UnsupportedDocumentTypeError,
+)
+from invoiceops.extraction.ocr_runtime import (
+    OcrRuntimeInfo,
+    inspect_ocr_runtime,
+    require_ocr_runtime,
 )
 from invoiceops.extraction.pipeline import DeterministicInvoiceExtractor
 from invoiceops.extraction.preprocessing import DocumentTextExtractor
@@ -77,10 +83,12 @@ class EvaluationRunner:
         text_extractor: DocumentTextExtractor | None = None,
         invoice_extractor: DeterministicInvoiceExtractor | None = None,
         clock: Callable[[], float] = time.perf_counter,
+        ocr_runtime_probe: Callable[[], OcrRuntimeInfo] = inspect_ocr_runtime,
     ) -> None:
         self.text_extractor = text_extractor or DocumentTextExtractor()
         self.invoice_extractor = invoice_extractor or DeterministicInvoiceExtractor()
         self.clock = clock
+        self.ocr_runtime_probe = ocr_runtime_probe
 
     def run(
         self, manifest_path: Path, *, allow_holdout: bool = False
@@ -91,6 +99,9 @@ class EvaluationRunner:
             raise HoldoutAccessError(
                 "Holdout evaluation is disabled. Re-run with --allow-holdout."
             )
+        ocr_runtime = self.ocr_runtime_probe()
+        if any(example.tags.get("source") == "ocr" for example in dataset.examples):
+            require_ocr_runtime(ocr_runtime)
         inputs = [
             (
                 example,
@@ -112,6 +123,16 @@ class EvaluationRunner:
                 "manifest_sha256": hashlib.sha256(dataset.manifest_bytes).hexdigest(),
                 "python_version": platform.python_version(),
                 "pymupdf_version": pymupdf.VersionBind,
+                "evaluation_runtime": os.environ.get(
+                    "INVOICEOPS_EVALUATION_RUNTIME", "local"
+                ),
+                "ocr": {
+                    "engine": ocr_runtime.engine,
+                    "available": ocr_runtime.available,
+                    "version": ocr_runtime.version,
+                    "language": "eng",
+                    "dpi": 200,
+                },
                 "configuration": {
                     "minimum_meaningful_words": self.text_extractor.minimum_meaningful_words,
                     "minimum_non_whitespace_characters": (

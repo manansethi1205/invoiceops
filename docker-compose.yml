@@ -99,6 +99,24 @@ services:
       api: {condition: service_healthy}
       worker: {condition: service_started}
 
+  evaluator:
+    profiles: ["evaluation"]
+    build:
+      context: .
+      dockerfile: infrastructure/docker/Dockerfile
+      args:
+        INSTALL_EVALUATION: "true"
+    environment:
+      INVOICEOPS_EVALUATION_RUNTIME: docker
+      TESSDATA_PREFIX: /usr/share/tesseract-ocr/5/tessdata
+    volumes:
+      - ./evals:/app/evals
+      - type: bind
+        source: ${DOCILE_DATASET_PATH:-./data/docile}
+        target: /data/docile
+        read_only: true
+    entrypoint: ["python", "-m", "invoiceops.evaluation"]
+
 volumes:
   postgres-data:
   minio-data:

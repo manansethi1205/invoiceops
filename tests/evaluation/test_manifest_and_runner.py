@@ -5,10 +5,13 @@ import pytest
 
 from invoiceops.evaluation.adapters.manifest import ManifestAdapter, ManifestDataset
 from invoiceops.evaluation.runner import EvaluationRunner, HoldoutAccessError
+from invoiceops.extraction.ocr_runtime import OcrRuntimeInfo, OcrRuntimeUnavailableError
 from tests.synthetic_documents import generated_invoice_pdf
 
 
-def _write_dataset(root: Path, *, split: str = "development") -> Path:
+def _write_dataset(
+    root: Path, *, split: str = "development", source: str = "digital"
+) -> Path:
     manifest_dir = root / "manifests"
     document_dir = root / "documents"
     truth_dir = root / "ground_truth"
@@ -52,7 +55,7 @@ def _write_dataset(root: Path, *, split: str = "development") -> Path:
                 "document_path": "../documents/invoice.pdf",
                 "content_type": "application/pdf",
                 "ground_truth_path": "../ground_truth/invoice.json",
-                "tags": {"layout": "standard", "source": "digital"},
+                "tags": {"layout": "standard", "source": source},
             }
         )
         + "\n",
@@ -88,3 +91,19 @@ def test_runner_executes_extractors_directly_and_fingerprints_inputs(tmp_path: P
     assert results[0].prediction.schema_valid is True
     assert results[0].prediction.invoice is not None
     assert results[0].prediction.invoice.invoice_number.value == "SYN-12345"
+
+
+def test_ocr_manifest_fails_before_document_access(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    manifest = _write_dataset(tmp_path, source="ocr")
+
+    def forbidden_read(self: ManifestDataset, example: object) -> bytes:
+        raise AssertionError("document bytes were read before OCR readiness check")
+
+    monkeypatch.setattr(ManifestDataset, "read_document", forbidden_read)
+    runner = EvaluationRunner(
+        ocr_runtime_probe=lambda: OcrRuntimeInfo(available=False)
+    )
+    with pytest.raises(OcrRuntimeUnavailableError, match="Docker evaluation profile"):
+        runner.run(manifest)

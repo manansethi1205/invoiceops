@@ -59,6 +59,23 @@ The holdout flag is mandatory. Reports contain normalized predictions and aggreg
 raw page text or evidence snippets. Metric definitions and denominator policies are documented in
 [the evaluation guide](docs/evaluation.md).
 
+OCR-bearing manifests require Tesseract before any document bytes are processed. Run the frozen
+holdout in the reproducible evaluation container:
+
+```powershell
+docker compose --profile evaluation run --rm evaluator `
+  --manifest evals/manifests/holdout.jsonl `
+  --output-dir evals/reports/synthetic/0.2.0-container `
+  --allow-holdout
+```
+
+DocILE tooling is isolated in the `evaluation` dependency group. External documents, OCR and raw
+predictions are ignored; only ID-only manifests and aggregate reports may be committed. See the
+[DocILE field mapping](docs/docile-field-mapping.md).
+
+Run the two-mode DocILE smoke benchmark in the Tesseract-enabled evaluation container after setting
+`DOCILE_DATASET_PATH`; see the [evaluation guide](docs/evaluation.md#docile-external-benchmark).
+
 ## API example
 
 ```powershell

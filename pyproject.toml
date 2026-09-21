@@ -24,6 +24,9 @@ dev = [
   "pytest>=8.3,<9",
   "ruff>=0.8,<1",
 ]
+evaluation = [
+  "docile-benchmark>=0.3.5,<0.4",
+]
 
 [build-system]
 requires = ["hatchling"]
@@ -34,7 +37,10 @@ packages = ["apps", "invoiceops", "workers"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-markers = ["docker: black-box tests that require the Docker Compose stack"]
+markers = [
+  "docker: black-box tests that require the Docker Compose stack",
+  "docile: tests that require the private DocILE dataset",
+]
 
 [tool.ruff]
 line-length = 100
@@ -50,7 +56,7 @@ strict = true
 plugins = ["pydantic.mypy"]
 
 [[tool.mypy.overrides]]
-module = ["boto3", "botocore.*", "celery", "celery.*"]
+module = ["boto3", "botocore.*", "celery", "celery.*", "docile", "docile.*"]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]

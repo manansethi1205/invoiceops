@@ -1,0 +1,17 @@
+{
+  "dataset": "docile",
+  "document_ids": [
+    "f0b879843f27469a9de8069d",
+    "516572acc90c44eb80edfc0a",
+    "a426fa31a4124962b0cd3b98",
+    "d35b76ef9fb244cf9a9f26d7",
+    "fab3ceeb06354527b6543be2",
+    "ced968108b864d21ae712ce5",
+    "a6b2c1758d2c47ec97aab6f0",
+    "092d50e934b94b7181a00d32",
+    "b182c8998c7e447b845aba94",
+    "fba03542fc794843bed0da6e"
+  ],
+  "seed": 1205,
+  "source_split": "val"
+}

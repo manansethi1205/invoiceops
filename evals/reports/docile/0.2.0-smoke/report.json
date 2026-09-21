@@ -1,0 +1,30 @@
+{
+  "dataset": "DocILE",
+  "extractor_name": "deterministic-baseline",
+  "extractor_version": "0.2.0",
+  "modes": [
+    {
+      "document_count": 10,
+      "mode": "end_to_end",
+      "official_full_kile_ap": 0.0,
+      "official_full_kile_f1": 0.0,
+      "official_full_lir_ap": 0.0,
+      "official_full_lir_f1": 0.0,
+      "supported_subset_kile_f1": 0.0,
+      "supported_subset_lir_f1": 0.0
+    },
+    {
+      "document_count": 10,
+      "mode": "precomputed_ocr",
+      "official_full_kile_ap": 0.0,
+      "official_full_kile_f1": 0.0,
+      "official_full_lir_ap": 0.0,
+      "official_full_lir_f1": 0.0,
+      "supported_subset_kile_f1": 0.0,
+      "supported_subset_lir_f1": 0.0
+    }
+  ],
+  "sample_manifest_sha256": "87f212bae6f7019c0e5fc3000442aa3db87e2df4191583f72276d1f691dae5e9",
+  "sample_seed": 1205,
+  "source_split": "val"
+}

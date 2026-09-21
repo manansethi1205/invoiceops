@@ -16,3 +16,11 @@ outputs/
 work/
 tmp/pdfs/
 *.tessdata
+data/*
+!data/docile/
+data/docile/*
+!data/docile/manifests/
+!data/docile/manifests/*.json
+evals/reports/docile/**/kile_predictions.json
+evals/reports/docile/**/lir_predictions.json
+evals/reports/docile/**/official_*_result.json
