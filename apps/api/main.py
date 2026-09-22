@@ -12,7 +12,7 @@ from starlette.responses import Response
 from apps.api.dependencies import get_dispatcher, get_object_store
 from invoiceops.config import Settings, get_settings
 from invoiceops.db import get_db
-from invoiceops.extraction.version import EXTRACTOR_NAME, EXTRACTOR_VERSION
+from invoiceops.extraction.selection import current_successful_extraction
 from invoiceops.ingestion.dispatch import JobDispatcher
 from invoiceops.ingestion.service import (
     DocumentTooLargeError,
@@ -33,12 +33,20 @@ from invoiceops.matching.service import (
     match_run_to_read,
     purchase_order_to_read,
 )
-from invoiceops.models import Document, ExtractionRun, ExtractionRunStatus, IngestionJob
+from invoiceops.models import (
+    Document,
+    ExtractionRun,
+    ExtractionRunStatus,
+    IngestionJob,
+    ModelCall,
+    ModelCallStatus,
+)
 from invoiceops.schemas.extraction import Invoice
 from invoiceops.schemas.extraction_api import (
     ExtractionPendingRead,
     ExtractionResultRead,
     ExtractorMetadata,
+    HybridMetadata,
 )
 from invoiceops.schemas.jobs import ErrorBody, JobRead, UploadAccepted
 from invoiceops.schemas.matching import (
@@ -162,18 +170,44 @@ def get_extraction(
     if document is None:
         raise HTTPException(status_code=404, detail="Document not found")
 
-    run = session.scalar(
-        select(ExtractionRun).where(
-            ExtractionRun.document_id == document_id,
-            ExtractionRun.extractor_name == EXTRACTOR_NAME,
-            ExtractionRun.extractor_version == EXTRACTOR_VERSION,
+    run = current_successful_extraction(session, document_id)
+    if run is None:
+        terminal = session.scalar(
+            select(ExtractionRun)
+            .where(ExtractionRun.document_id == document_id)
+            .order_by(ExtractionRun.created_at.desc())
         )
+        if terminal is not None and terminal.status == ExtractionRunStatus.FAILED:
+            run = terminal
+        else:
+            response.status_code = status.HTTP_202_ACCEPTED
+            return ExtractionPendingRead(
+                document_id=document_id,
+                status=ExtractionRunStatus.PROCESSING,
+            )
+
+    model_call = session.scalar(
+        select(ModelCall)
+        .where(ModelCall.extraction_run_id == run.id)
+        .order_by(ModelCall.created_at.desc())
     )
-    if run is None or run.status == ExtractionRunStatus.PROCESSING:
-        response.status_code = status.HTTP_202_ACCEPTED
-        return ExtractionPendingRead(
-            document_id=document_id,
-            status=ExtractionRunStatus.PROCESSING,
+    hybrid = None
+    if model_call is not None:
+        raw_reasons = model_call.routing_json.get("reasons", [])
+        routing_reasons = raw_reasons if isinstance(raw_reasons, list) else []
+        hybrid = HybridMetadata(
+            strategy=f"{run.extractor_name}@{run.extractor_version}",
+            routing_reasons=[str(reason) for reason in routing_reasons],
+            provider_invoked=model_call.status != ModelCallStatus.SKIPPED,
+            provider=model_call.provider,
+            model=model_call.returned_model or model_call.requested_model,
+            prompt_version=model_call.prompt_version,
+            grounding_summary=model_call.grounding_fusion_json,
+            input_tokens=model_call.input_tokens,
+            output_tokens=model_call.output_tokens,
+            total_tokens=model_call.total_tokens,
+            provider_latency_ms=model_call.latency_ms,
+            provider_failure_code=model_call.error_code,
         )
 
     invoice = Invoice.model_validate(run.output_json) if run.output_json is not None else None
@@ -191,6 +225,7 @@ def get_extraction(
         error_code=run.error_code,
         created_at=run.created_at,
         completed_at=run.completed_at,
+        hybrid=hybrid,
     )
 
 

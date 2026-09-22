@@ -19,13 +19,15 @@ def test_matching_migration_upgrades_clean_and_existing_schema(
 
     command.upgrade(config, "head")
     engine = create_engine(database_url)
-    assert {"purchase_orders", "purchase_order_lines", "match_runs"}.issubset(
+    assert {"purchase_orders", "purchase_order_lines", "match_runs", "model_calls"}.issubset(
         inspect(engine).get_table_names()
     )
 
     command.downgrade(config, "20260920_0003")
     assert "match_runs" not in inspect(engine).get_table_names()
+    assert "model_calls" not in inspect(engine).get_table_names()
     command.upgrade(config, "head")
     assert "match_runs" in inspect(engine).get_table_names()
+    assert "model_calls" in inspect(engine).get_table_names()
     engine.dispose()
     get_settings.cache_clear()

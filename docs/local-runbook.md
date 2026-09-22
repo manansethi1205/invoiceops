@@ -115,7 +115,7 @@ docker compose logs api
 docker compose logs worker
 ```
 
-The migration log should show upgrades through `20260921_0004`. The worker log should list
+The migration log should show upgrades through `20260921_0005`. The worker log should list
 `invoiceops.process_document` as a registered task.
 
 The worker should report concurrency `2` and should not display the Celery superuser warning. A
@@ -195,6 +195,7 @@ Inspect the database rows:
 docker compose exec postgres psql -U invoiceops -d invoiceops -c "SELECT id, original_filename, byte_size, sha256, object_key, created_at FROM documents;"
 docker compose exec postgres psql -U invoiceops -d invoiceops -c "SELECT id, document_id, status, error_code, created_at, updated_at FROM ingestion_jobs;"
 docker compose exec postgres psql -U invoiceops -d invoiceops -c "SELECT id, document_id, extractor_name, extractor_version, schema_version, status, used_ocr, latency_ms, error_code FROM extraction_runs;"
+docker compose exec postgres psql -U invoiceops -d invoiceops -c "SELECT extraction_run_id, provider, requested_model, prompt_version, status, routing_json, input_tokens, output_tokens, latency_ms, error_code FROM model_calls;"
 ```
 
 Open `http://localhost:9001`, sign in with `invoiceops` and
@@ -242,6 +243,19 @@ Stop containers while keeping PostgreSQL and MinIO data:
 ```powershell
 docker compose down
 ```
+
+Run the fake-provider path without network access or credentials. It proves both lazy provider
+initialization for a complete invoice and safe deterministic fallback for an incomplete invoice:
+
+```powershell
+docker compose --profile hybrid-test up --build --abort-on-container-exit `
+  --exit-code-from integration-tests-hybrid integration-tests-hybrid
+docker compose down
+```
+
+To configure a real provider, set `VLM_ENABLED=true`, `VLM_PROVIDER=openai`, an explicitly chosen
+`VLM_MODEL`, and `OPENAI_API_KEY` in an untracked environment file. Never commit or log the key.
+Provider failure records only a safe code and retains the deterministic result.
 
 If the normal stack is already running, Compose will reuse or recreate its services as required.
 For the clearest output, stop it first with `docker compose down`, run the integration command, and

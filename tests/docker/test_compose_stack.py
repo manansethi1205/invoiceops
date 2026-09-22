@@ -6,7 +6,7 @@ from typing import cast
 import httpx
 import pytest
 
-from tests.synthetic_documents import generated_invoice_pdf
+from tests.synthetic_documents import generated_incomplete_invoice_pdf, generated_invoice_pdf
 
 pytestmark = [
     pytest.mark.docker,
@@ -57,6 +57,11 @@ def test_real_stack_upload_is_idempotent_and_worker_completes() -> None:
         extraction_response.raise_for_status()
         extraction = extraction_response.json()
         assert extraction["status"] == "succeeded"
+        expected_strategy = os.environ.get("EXPECT_EXTRACTION_STRATEGY")
+        if expected_strategy:
+            assert extraction["extractor"]["name"] == expected_strategy
+            assert extraction["hybrid"]["strategy"] == "hybrid-routed@0.3.0"
+            assert extraction["hybrid"]["provider_invoked"] is False
         invoice = extraction["invoice"]
         assert invoice["invoice_number"]["value"] == invoice_number
         assert invoice["currency"]["value"] == "INR"
@@ -135,3 +140,32 @@ def test_real_stack_returns_clear_invalid_file_error() -> None:
         )
     assert response.status_code == 415
     assert "does not match declared type application/pdf" in response.json()["detail"]
+
+
+def test_hybrid_fake_provider_failure_preserves_deterministic_result() -> None:
+    if os.environ.get("EXPECT_EXTRACTION_STRATEGY") != "hybrid-routed":
+        pytest.skip("hybrid fake-provider profile only")
+    base_url = os.environ["API_BASE_URL"]
+    invoice_number = f"SYN-INCOMPLETE-{uuid.uuid4()}"
+    with httpx.Client(base_url=base_url, timeout=10) as client:
+        upload_response = client.post(
+            "/v1/invoices",
+            files={
+                "file": (
+                    "incomplete.pdf",
+                    generated_incomplete_invoice_pdf(invoice_number),
+                    "application/pdf",
+                )
+            },
+        )
+        upload_response.raise_for_status()
+        upload = upload_response.json()
+        job = wait_for_terminal_status(client, upload["status_url"])
+        assert job["status"] == "succeeded"
+        response = client.get(upload["extraction_url"])
+        response.raise_for_status()
+        extraction = response.json()
+        assert extraction["invoice"]["invoice_number"]["value"] == invoice_number
+        assert extraction["hybrid"]["provider_invoked"] is True
+        assert extraction["hybrid"]["provider"] == "fake"
+        assert extraction["hybrid"]["provider_failure_code"] == "provider_schema_invalid"

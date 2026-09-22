@@ -1,4 +1,8 @@
+import hashlib
+import json
 import math
+import platform
+import subprocess
 import time
 import uuid
 from dataclasses import dataclass
@@ -39,6 +43,11 @@ class MatchingEvaluationReport(BaseModel):
     p50_match_latency_ms: float = Field(ge=0)
     p95_match_latency_ms: float = Field(ge=0)
     policy_version: str
+    scenario_set_version: str
+    evaluation_timestamp: datetime
+    python_version: str
+    git_revision: str
+    policy_hash: str
 
 
 @dataclass(frozen=True)
@@ -258,6 +267,9 @@ def run_matching_evaluation(
 ) -> MatchingEvaluationReport:
     selected = scenarios or synthetic_matching_scenarios()
     effective_policy = policy or MatchingPolicy()
+    policy_json = json.dumps(
+        effective_policy.model_dump(mode="json"), sort_keys=True, separators=(",", ":")
+    )
     decisions_correct = 0
     matched = 0
     false_auto_matches = 0
@@ -288,7 +300,25 @@ def run_matching_evaluation(
         p50_match_latency_ms=round(_percentile(latencies, 0.50), 4),
         p95_match_latency_ms=round(_percentile(latencies, 0.95), 4),
         policy_version=effective_policy.version,
+        scenario_set_version="matching-synthetic-v1",
+        evaluation_timestamp=datetime.now(UTC),
+        python_version=platform.python_version(),
+        git_revision=_git_revision(),
+        policy_hash=hashlib.sha256(policy_json.encode()).hexdigest(),
     )
+
+
+def _git_revision() -> str:
+    try:
+        return subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=2,
+        ).stdout.strip()
+    except (OSError, subprocess.SubprocessError):
+        return "unknown"
 
 
 def render_matching_report(report: MatchingEvaluationReport) -> str:
@@ -300,6 +330,11 @@ def render_matching_report(report: MatchingEvaluationReport) -> str:
             "",
             f"- Scenario count: {report.scenario_count}",
             f"- Policy version: `{report.policy_version}`",
+            f"- Policy hash: `{report.policy_hash}`",
+            f"- Scenario set: `{report.scenario_set_version}`",
+            f"- Git revision: `{report.git_revision}`",
+            f"- Python: `{report.python_version}`",
+            f"- Evaluated: `{report.evaluation_timestamp.isoformat()}`",
             f"- Expected decision accuracy: {report.expected_decision_accuracy:.4f}",
             f"- Straight-through match rate: {report.straight_through_match_rate:.4f}",
             f"- Needs-review rate: {report.needs_review_rate:.4f}",

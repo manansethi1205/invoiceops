@@ -34,6 +34,22 @@ services:
       redis: {condition: service_healthy}
       minio-init: {condition: service_completed_successfully}
 
+  worker-hybrid-fake:
+    profiles: ["hybrid-test"]
+    build:
+      context: .
+      dockerfile: infrastructure/docker/Dockerfile
+    command: celery -A workers.extraction.celery_app:celery_app worker --loglevel=INFO --concurrency=2
+    env_file: .env
+    environment:
+      VLM_ENABLED: "true"
+      VLM_PROVIDER: fake
+      VLM_MODEL: fake-vision
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+      redis: {condition: service_healthy}
+      minio-init: {condition: service_completed_successfully}
+
   migrate:
     build:
       context: .
@@ -98,6 +114,21 @@ services:
     depends_on:
       api: {condition: service_healthy}
       worker: {condition: service_started}
+
+  integration-tests-hybrid:
+    profiles: ["hybrid-test"]
+    build:
+      context: .
+      dockerfile: infrastructure/docker/Dockerfile
+      args:
+        INSTALL_DEV: "true"
+    command: pytest -q -m docker tests/docker
+    environment:
+      API_BASE_URL: http://api:8000
+      EXPECT_EXTRACTION_STRATEGY: hybrid-routed
+    depends_on:
+      api: {condition: service_healthy}
+      worker-hybrid-fake: {condition: service_started}
 
   evaluator:
     profiles: ["evaluation"]

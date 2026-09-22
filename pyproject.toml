@@ -16,11 +16,14 @@ dependencies = [
   "sqlalchemy>=2.0,<3",
   "uvicorn[standard]>=0.32,<1",
   "rapidfuzz>=3.14,<4",
+  "openai>=2.0,<3",
 ]
 
 [dependency-groups]
 dev = [
+  "anyio>=4.4,<4.15",
   "httpx>=0.27,<1",
+  "httpx2>=2,<3",
   "mypy>=1.13,<2",
   "pytest>=8.3,<9",
   "ruff>=0.8,<1",
@@ -61,5 +64,5 @@ module = ["boto3", "botocore.*", "celery", "celery.*", "docile", "docile.*"]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
-module = ["invoiceops.extraction.preprocessing"]
+module = ["invoiceops.extraction.preprocessing", "invoiceops.extraction.hybrid.renderer"]
 disallow_untyped_calls = false

@@ -5,12 +5,11 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
-from invoiceops.extraction.version import EXTRACTOR_NAME, EXTRACTOR_VERSION
+from invoiceops.extraction.selection import current_successful_extraction
 from invoiceops.matching.engine import match_invoice
 from invoiceops.models import (
     Document,
     ExtractionRun,
-    ExtractionRunStatus,
     MatchRun,
     PurchaseOrder,
     PurchaseOrderLine,
@@ -158,16 +157,7 @@ class MatchingService:
         return run
 
     def _latest_successful_extraction(self, document_id: uuid.UUID) -> ExtractionRun:
-        run = self.session.scalar(
-            select(ExtractionRun)
-            .where(
-                ExtractionRun.document_id == document_id,
-                ExtractionRun.extractor_name == EXTRACTOR_NAME,
-                ExtractionRun.extractor_version == EXTRACTOR_VERSION,
-                ExtractionRun.status == ExtractionRunStatus.SUCCEEDED,
-            )
-            .order_by(ExtractionRun.completed_at.desc(), ExtractionRun.created_at.desc())
-        )
+        run = current_successful_extraction(self.session, document_id)
         if run is None:
             raise ExtractionNotReadyError
         return run

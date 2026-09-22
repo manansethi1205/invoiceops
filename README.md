@@ -16,6 +16,13 @@ The worker downloads the stored document, performs text/OCR preprocessing and de
 extraction, and persists one result per document, extractor name, and extractor version. Celery
 redelivery reuses a completed extraction instead of repeating it.
 
+An optional deterministic-first vision fallback is implemented as `hybrid-routed@0.3.0` while the
+frozen `deterministic-baseline@0.2.0` remains intact. The router invokes a provider only for typed
+quality failures. Strict model candidates are accepted only when their quotes map uniquely to real
+embedded-text/OCR tokens. Grounded conflicts become `AMBIGUOUS`; provider failure preserves the
+deterministic invoice. The VLM is disabled and model-less by default, and confidence never
+authorizes matching, approval, or payment.
+
 The deterministic two-way matching slice accepts typed purchase orders, validates invoice
 arithmetic, and compares an explicitly selected PO with a successful extraction. Matching is
 synchronous and returns only `MATCHED` or `NEEDS_REVIEW`, with versioned tolerances, reason codes,
@@ -50,6 +57,7 @@ Run the real PostgreSQL/Redis/MinIO/worker black-box tests in Compose:
 
 ```powershell
 docker compose --profile test up --build --abort-on-container-exit --exit-code-from integration-tests integration-tests
+docker compose --profile hybrid-test up --build --abort-on-container-exit --exit-code-from integration-tests-hybrid integration-tests-hybrid
 docker compose down
 ```
 
@@ -74,6 +82,16 @@ Get-Content evals/reports/matching/matching-v1/report.md
 
 The 18 scenarios are synthetic. Their aggregate result is engineering evidence, not a production
 accuracy claim. The safety invariant is `false_auto_match_count == 0`.
+
+Run the network-free hybrid replay evaluation:
+
+```powershell
+uv run python scripts/run_hybrid_evaluation.py --mode hybrid-replay
+Get-Content evals/reports/hybrid/0.3.0-replay/report.md
+```
+
+Live mode is guarded and requires explicit manifest wiring, `--allow-live`, an enabled provider,
+an explicitly selected model, and credentials. Ordinary tests and CI make no live provider calls.
 
 OCR-bearing manifests require Tesseract before any document bytes are processed. Run the frozen
 holdout in the reproducible evaluation container:
@@ -111,6 +129,7 @@ than model-decided. Approvers may require a PO, order confirmation, advance evid
 approval. These findings are product inputs, not measured system results.
 
 See [architecture](docs/architecture.md) and [ADR-001](docs/adr/001-ingestion-boundary.md).
+See [hybrid extraction](docs/hybrid-extraction.md) for routing, grounding, fusion, and privacy.
 See [two-way matching](docs/matching.md) for policy definitions, reason codes, API behavior, and
 known limitations.
 The delivery sequence is captured in [the roadmap](docs/roadmap.md).

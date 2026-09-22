@@ -41,3 +41,16 @@ def generated_invoice_pdf(invoice_number: str = "SYN-12345") -> bytes:
         return document.tobytes()
     finally:
         document.close()
+
+
+def generated_incomplete_invoice_pdf(invoice_number: str = "SYN-INCOMPLETE") -> bytes:
+    document = pymupdf.open()
+    try:
+        page = document.new_page(width=612, height=792)
+        page.insert_text((72, 72), "SYNTHETIC INVOICE - INCOMPLETE DEMO", fontsize=12)
+        page.insert_text((72, 104), f"Invoice Number: {invoice_number}", fontsize=12)
+        page.insert_text((72, 136), "Invoice Date: 21/09/2026", fontsize=12)
+        page.insert_text((72, 168), "Currency: INR", fontsize=12)
+        return document.tobytes()
+    finally:
+        document.close()

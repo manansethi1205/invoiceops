@@ -36,6 +36,13 @@ class ExtractionRunStatus(StrEnum):
     FAILED = "failed"
 
 
+class ModelCallStatus(StrEnum):
+    SKIPPED = "skipped"
+    PROCESSING = "processing"
+    SUCCEEDED = "succeeded"
+    FAILED = "failed"
+
+
 class Document(Base):
     __tablename__ = "documents"
 
@@ -111,6 +118,48 @@ class ExtractionRun(Base):
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     document: Mapped[Document] = relationship(back_populates="extraction_runs")
     match_runs: Mapped[list["MatchRun"]] = relationship(back_populates="extraction_run")
+    model_calls: Mapped[list["ModelCall"]] = relationship(
+        back_populates="extraction_run", cascade="all, delete-orphan"
+    )
+
+
+class ModelCall(Base):
+    __tablename__ = "model_calls"
+    __table_args__ = (
+        UniqueConstraint(
+            "extraction_run_id",
+            "prompt_version",
+            "request_fingerprint",
+            name="uq_model_call_extraction_prompt_fingerprint",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    extraction_run_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("extraction_runs.id", ondelete="CASCADE"), index=True
+    )
+    provider: Mapped[str] = mapped_column(String(50))
+    requested_model: Mapped[str] = mapped_column(String(100))
+    returned_model: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    prompt_version: Mapped[str] = mapped_column(String(100))
+    status: Mapped[ModelCallStatus] = mapped_column(
+        Enum(ModelCallStatus, name="model_call_status", native_enum=False)
+    )
+    request_fingerprint: Mapped[str] = mapped_column(String(64))
+    provider_response_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    routing_json: Mapped[dict[str, object]] = mapped_column(JSON)
+    input_tokens: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    output_tokens: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    total_tokens: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    latency_ms: Mapped[float | None] = mapped_column(Float, nullable=True)
+    candidate_json: Mapped[dict[str, object] | None] = mapped_column(JSON, nullable=True)
+    grounding_fusion_json: Mapped[dict[str, object] | None] = mapped_column(JSON, nullable=True)
+    error_code: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    extraction_run: Mapped[ExtractionRun] = relationship(back_populates="model_calls")
 
 
 class PurchaseOrder(Base):

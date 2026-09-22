@@ -28,6 +28,24 @@ Reports contain normalized predictions and failure categories. They never
 contain absolute paths, raw page text, evidence snippets, or stack traces.
 Measured project results remain separate from external benchmark context.
 
+## Hybrid replay and guarded live mode
+
+The synthetic stress set covers unseen layouts, OCR/scanned and rotated sources, distracting
+totals, duplicate quotes, missing fields, arithmetic inconsistency, embedded prompt injection,
+multiple pages, and provider failure. Replay uses production routing, grounding, fusion, and
+repository-owned schemas without network access:
+
+```powershell
+uv run python scripts/run_hybrid_evaluation.py --mode hybrid-replay `
+  --output-dir evals/reports/hybrid/0.3.0-replay
+```
+
+The report separates 0.2.0 deterministic metrics from 0.3.0 replay metrics and includes header
+exact accuracy, exact line F1, schema validity, coverage, grounding, agreement, disagreement
+abstention, invocation/provider-failure rates, latency, and tokens. Cost stays `null` unless both
+token prices are supplied. `hybrid-live` refuses to run without `--allow-live` and
+organization-owned manifest wiring; it is excluded from ordinary tests and CI.
+
 ## Reproducible OCR runtime
 
 An OCR-tagged manifest is rejected before document bytes are loaded unless the Tesseract runtime

@@ -4,6 +4,10 @@ This slice compares a successfully extracted invoice with a purchase order expli
 the caller. It is two-way matching only: goods receipts, automatic PO discovery, ERP integration,
 approval routing, and three-way matching are intentionally deferred.
 
+`external_po_number` is indexed but intentionally not globally unique. Real PO identity requires
+tenant/company scope; that scope is not implemented yet, so callers select the database PO UUID
+explicitly and must not treat the external number as a global identifier.
+
 ## Decision boundary
 
 Document extraction supplies typed observations and source evidence. Deterministic code performs

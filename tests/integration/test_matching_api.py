@@ -188,3 +188,34 @@ def test_database_constraint_rejects_duplicate_match_tuple(
         session.add(duplicate)
         with pytest.raises(IntegrityError):
             session.commit()
+
+
+def test_hybrid_becomes_current_without_rewriting_historical_match(
+    db_session_factory: sessionmaker[Session],
+) -> None:
+    with db_session_factory() as session:
+        document, baseline = create_document_with_extraction(session)
+        purchase_order = PurchaseOrderService(session).create(
+            PurchaseOrderCreate.model_validate(po_payload())
+        )
+        historical = MatchingService(session).match(document.id, purchase_order.id).run
+        historical_id = historical.id
+        assert historical.extraction_run_id == baseline.id
+
+        hybrid = ExtractionRun(
+            document_id=document.id,
+            extractor_name="hybrid-routed",
+            extractor_version="0.3.0",
+            schema_version="invoice-v1",
+            status=ExtractionRunStatus.SUCCEEDED,
+            output_json=invoice().model_dump(mode="json"),
+        )
+        session.add(hybrid)
+        session.commit()
+        current = MatchingService(session).match(document.id, purchase_order.id)
+
+        assert current.created is True
+        assert current.run.extraction_run_id == hybrid.id
+        assert current.run.id != historical_id
+        preserved = session.get(MatchRun, historical_id)
+        assert preserved is not None and preserved.extraction_run_id == baseline.id

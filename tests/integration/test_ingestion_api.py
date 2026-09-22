@@ -5,7 +5,13 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
-from invoiceops.models import Document, ExtractionRun, ExtractionRunStatus
+from invoiceops.models import (
+    Document,
+    ExtractionRun,
+    ExtractionRunStatus,
+    ModelCall,
+    ModelCallStatus,
+)
 from invoiceops.schemas.extraction import ExtractionStatus, Invoice
 from tests.conftest import MemoryObjectStore, RecordingDispatcher
 
@@ -195,3 +201,58 @@ def test_failed_extraction_returns_only_safe_failure_state(
     assert response.json()["error_code"] == "document_unreadable"
     assert response.json()["invoice"] is None
     assert "internal safe message" not in response.text
+
+
+def test_current_extraction_prefers_hybrid_and_exposes_only_safe_lineage(
+    client: TestClient,
+    db_session_factory: sessionmaker[Session],
+) -> None:
+    upload = client.post(
+        "/v1/invoices",
+        files={"file": ("invoice.pdf", b"%PDF-1.7 hybrid", "application/pdf")},
+    ).json()
+    with db_session_factory() as session:
+        document_id = uuid.UUID(upload["document_id"])
+        baseline = ExtractionRun(
+            document_id=document_id,
+            extractor_name="deterministic-baseline",
+            extractor_version="0.2.0",
+            schema_version="invoice-v1",
+            status=ExtractionRunStatus.SUCCEEDED,
+            output_json=missing_invoice().model_dump(mode="json"),
+        )
+        hybrid = ExtractionRun(
+            document_id=document_id,
+            extractor_name="hybrid-routed",
+            extractor_version="0.3.0",
+            schema_version="invoice-v1",
+            status=ExtractionRunStatus.SUCCEEDED,
+            output_json=missing_invoice().model_dump(mode="json"),
+        )
+        session.add_all([baseline, hybrid])
+        session.flush()
+        session.add(
+            ModelCall(
+                extraction_run_id=hybrid.id,
+                provider="fake",
+                requested_model="fake-vision",
+                returned_model="fake-returned",
+                prompt_version="invoice-vision-v1",
+                status=ModelCallStatus.FAILED,
+                request_fingerprint="a" * 64,
+                routing_json={"reasons": ["CRITICAL_FIELD_MISSING"]},
+                grounding_fusion_json={"grounding": {}, "fusion": {}},
+                error_code="provider_transient_error",
+            )
+        )
+        session.commit()
+
+    response = client.get(upload["extraction_url"])
+    body = response.json()
+    assert response.status_code == 200
+    assert body["extractor"]["name"] == "hybrid-routed"
+    assert body["hybrid"]["routing_reasons"] == ["CRITICAL_FIELD_MISSING"]
+    assert body["hybrid"]["provider_failure_code"] == "provider_transient_error"
+    assert "request_fingerprint" not in response.text
+    assert "candidate_json" not in response.text
+    assert "a" * 64 not in response.text
