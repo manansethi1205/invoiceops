@@ -77,7 +77,7 @@ def test_missing_dataset_has_clear_setup_error(tmp_path: Path) -> None:
             DocileEvaluationMode.PRECOMPUTED_OCR,
         )
 
-
+@pytest.mark.docile
 def test_sample_ids_are_validated_then_loaded_as_custom_split(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
