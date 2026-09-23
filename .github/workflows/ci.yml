@@ -1,0 +1,155 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  quality-tests-evaluation:
+    name: Quality, Tests & Evaluation
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install
+
+      - name: Sync dependencies
+        run: uv sync --frozen
+
+      - name: Ruff
+        run: uv run ruff check .
+
+      - name: Mypy
+        run: uv run mypy apps invoiceops workers
+
+      - name: Pytest
+        run: uv run pytest -m "not docker and not docile"
+
+      - name: Run matching evaluation
+        run: |
+          mkdir -p "$RUNNER_TEMP/matching-evaluation"
+          uv run python scripts/run_matching_evaluation.py \
+            --output-dir "$RUNNER_TEMP/matching-evaluation"
+
+      - name: Assert matching evaluation invariants
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          report = Path(
+              "${{ runner.temp }}/matching-evaluation/report.md"
+          ).read_text(encoding="utf-8")
+
+          match = re.search(
+              r"False auto-match count:\s*(\d+)",
+              report,
+          )
+
+          if match is None:
+              raise SystemExit(
+                  "Could not find 'False auto-match count' in matching evaluation report"
+              )
+
+          false_auto_match_count = int(match.group(1))
+
+          if false_auto_match_count != 0:
+              raise SystemExit(
+                  f"CI invariant failed: false_auto_match_count={false_auto_match_count}"
+              )
+
+          print("PASS: false_auto_match_count == 0")
+          PY
+
+      - name: Run hybrid evaluation
+        run: |
+          mkdir -p "$RUNNER_TEMP/hybrid-evaluation"
+          uv run python scripts/run_hybrid_evaluation.py \
+            --mode hybrid-replay \
+            --output-dir "$RUNNER_TEMP/hybrid-evaluation"
+
+      - name: Assert hybrid evaluation invariants
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          report_path = Path(
+              "${{ runner.temp }}/hybrid-evaluation/report.json"
+          )
+
+          report = json.loads(report_path.read_text(encoding="utf-8"))
+
+          safety = report["safety"]
+
+          assertions = {
+              "no_ungrounded_candidate_promoted":
+                  safety["no_ungrounded_candidate_promoted"],
+              "all_grounded_disagreements_abstained":
+                  safety["all_grounded_disagreements_abstained"],
+              "schema_valid_rate":
+                  report["hybrid_replay"]["schema_valid_rate"] == 1.0,
+          }
+
+          for name, passed in assertions.items():
+              if not passed:
+                  raise SystemExit(
+                      f"CI invariant failed: {name} != required value"
+                  )
+              print(f"PASS: {name}")
+
+          print("All hybrid evaluation invariants passed.")
+          PY
+
+  migrations:
+    name: PostgreSQL Migrations
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: invoiceops
+          POSTGRES_PASSWORD: invoiceops
+          POSTGRES_DB: invoiceops
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U invoiceops -d invoiceops"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install
+
+      - name: Sync dependencies
+        run: uv sync --frozen
+
+      - name: Run Alembic migrations
+        env:
+          DATABASE_URL: postgresql+psycopg://invoiceops:invoiceops@localhost:5432/invoiceops
+        run: uv run alembic upgrade head
