@@ -7,8 +7,9 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from invoiceops.matching.service import MatchingService, PurchaseOrderService
-from invoiceops.models import MatchRun, ReviewCase, ReviewEvent
-from invoiceops.review.service import ReviewService
+from invoiceops.models import MatchRun, ReviewCase, ReviewCaseTrigger, ReviewEvent
+from invoiceops.review.audit import AUDIT_HASH_V1, event_hash
+from invoiceops.review.service import MATCH_REASON_TRIGGER, ReviewService
 from invoiceops.review.state import ReviewTransitionError
 from invoiceops.schemas.matching import PurchaseOrderCreate
 from tests.integration.test_matching_api import (
@@ -59,6 +60,7 @@ def test_needs_review_match_atomically_opens_one_case_and_event(
         assert duplicate.created is False
         assert session.scalar(select(func.count()).select_from(ReviewCase)) == 1
         assert session.scalar(select(func.count()).select_from(ReviewEvent)) == 1
+        assert session.scalar(select(func.count()).select_from(ReviewCaseTrigger)) >= 1
 
 
 def test_matched_run_does_not_create_review_case(
@@ -136,6 +138,7 @@ def test_claim_comment_release_reclaim_and_resolve_with_auditable_history(
         "CASE_RESOLVED",
     ]
     assert event_items[0]["previous_hash"] is None
+    assert {event["hash_version"] for event in event_items} == {"review-audit-v2"}
     for previous, current in zip(event_items, event_items[1:], strict=False):
         assert current["previous_hash"] == previous["event_hash"]
         assert len(current["event_hash"]) == 64
@@ -347,6 +350,58 @@ def test_queue_filters_cursor_reconciliation_and_tamper_detection(
     verification = client.get(f"/v1/review-cases/{case_id}/audit-verification").json()
     assert verification["valid"] is False
     assert "EVENT_HASH_MISMATCH_AT_1" in verification["errors"]
+
+
+def test_legacy_v1_event_hash_still_verifies(
+    client: TestClient, db_session_factory: sessionmaker[Session]
+) -> None:
+    case = create_review_case(client, db_session_factory)
+    case_id = uuid.UUID(str(case["id"]))
+    with db_session_factory() as session:
+        event = session.scalar(
+            select(ReviewEvent).where(ReviewEvent.review_case_id == case_id)
+        )
+        assert event is not None
+        event.hash_version = AUDIT_HASH_V1
+        event.event_hash = event_hash(
+            case_id=case_id,
+            sequence_number=event.sequence_number,
+            event_type=event.event_type,
+            actor_id=event.actor_id,
+            occurred_at=event.occurred_at,
+            payload=event.payload,
+            previous_hash=event.previous_hash,
+            hash_version=AUDIT_HASH_V1,
+        )
+        session.commit()
+
+    verification = client.get(f"/v1/review-cases/{case_id}/audit-verification").json()
+    assert verification["valid"] is True
+
+
+def test_match_reason_filter_uses_normalized_trigger_rows(
+    client: TestClient, db_session_factory: sessionmaker[Session]
+) -> None:
+    case = create_review_case(client, db_session_factory)
+    with db_session_factory() as session:
+        triggers = list(
+            session.scalars(
+                select(ReviewCaseTrigger).where(
+                    ReviewCaseTrigger.review_case_id == uuid.UUID(str(case["id"])),
+                    ReviewCaseTrigger.trigger_type == MATCH_REASON_TRIGGER,
+                )
+            )
+        )
+        assert {trigger.trigger_code for trigger in triggers} >= {"CURRENCY_MISMATCH"}
+
+    matching = client.get(
+        "/v1/review-cases", params={"reason_code": "CURRENCY_MISMATCH"}
+    ).json()
+    nonmatching = client.get(
+        "/v1/review-cases", params={"reason_code": "NEGATIVE_AMOUNT"}
+    ).json()
+    assert [item["id"] for item in matching["items"]] == [str(case["id"])]
+    assert nonmatching["items"] == []
 
 
 def test_match_and_review_opening_roll_back_together(

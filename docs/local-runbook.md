@@ -115,7 +115,7 @@ docker compose logs api
 docker compose logs worker
 ```
 
-The migration log should show upgrades through `20260923_0006`. The worker log should list
+The migration log should show upgrades through `20260924_0007`. The worker log should list
 `invoiceops.process_document` as a registered task.
 
 The worker should report concurrency `2` and should not display the Celery superuser warning. A

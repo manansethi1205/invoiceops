@@ -101,6 +101,7 @@ class ReviewEventRead(BaseModel):
     event_type: ReviewEventType
     actor_id: str
     payload: dict[str, object]
+    hash_version: str
     previous_hash: str | None
     event_hash: str
     occurred_at: datetime

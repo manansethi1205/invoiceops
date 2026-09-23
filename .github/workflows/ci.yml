@@ -34,6 +34,11 @@ jobs:
         shell: bash
         run: |
           uv lock --check
+          if [ -n "$(git ls-files tmp)" ]; then
+            echo "Tracked temporary artifacts detected under tmp/"
+            git ls-files tmp
+            exit 1
+          fi
           if git ls-files | grep -E '(^|/)\.env$|\.pem$|\.key$'; then
             echo "Tracked credential-like file detected"
             exit 1
@@ -53,6 +58,35 @@ jobs:
             echo "Tracked local path or credential-like token detected"
             exit 1
           fi
+
+      - name: Markdown UTF-8 and mojibake check
+        shell: python
+        run: |
+          import subprocess
+          from pathlib import Path
+
+          markdown_files = subprocess.check_output(
+              ["git", "ls-files", "*.md"], text=True
+          ).splitlines()
+          mojibake = [
+              "".join(chr(value) for value in (0xE2, 0x20AC, 0x201D)),
+              "".join(chr(value) for value in (0xC3, 0x2014)),
+              "".join(chr(value) for value in (0xEF, 0xBF, 0xBD)),
+              chr(0xFFFD),
+          ]
+          failures = []
+          for filename in markdown_files:
+              try:
+                  text = Path(filename).read_text(encoding="utf-8", errors="strict")
+              except UnicodeDecodeError as exc:
+                  failures.append(f"{filename}: invalid UTF-8 ({exc})")
+                  continue
+              for marker in mojibake:
+                  if marker in text:
+                      failures.append(f"{filename}: contains mojibake {marker!r}")
+          if failures:
+              raise SystemExit("\n".join(failures))
+          print(f"Validated {len(markdown_files)} Markdown files as clean UTF-8")
 
       - name: Ruff
         run: uv run ruff check .

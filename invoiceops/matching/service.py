@@ -185,9 +185,8 @@ class MatchingService:
 
     def _ensure_case_for_existing(self, run: MatchRun) -> None:
         try:
-            _, created = ensure_review_case(self.session, run)
-            if created:
-                self.session.commit()
+            ensure_review_case(self.session, run)
+            self.session.commit()
         except IntegrityError:
             # Another retry repaired the same historical run first.
             self.session.rollback()

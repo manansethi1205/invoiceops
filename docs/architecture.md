@@ -25,7 +25,7 @@ successful versioned extraction + explicitly selected purchase order
         -> immutable policy snapshot + reason codes + invoice provenance
         -> NEEDS_REVIEW: OPEN review case + CASE_OPENED in the same transaction
         -> claim / comment / release / resolve with optimistic concurrency
-        -> append-only hash-chained events + state reconstruction
+        -> versioned, append-only hash-chained events + state reconstruction
 ```
 
 Extraction supplies observations and evidence. Matching code alone performs arithmetic and applies
@@ -34,6 +34,14 @@ retries. Review mutations use version compare-and-swap updates; each state updat
 event commit together. Database uniqueness prevents duplicate cases and event sequence numbers.
 The hash chain is tamper-evident at application level, not immutable against a database
 administrator. Later slices add anomaly scoring and evaluation lineage.
+
+Queue triggers are normalized instead of filtering nested match JSON in memory:
+
+```text
+review case -> review_case_triggers(MATCH_REASON, reason code, match-run source)
+            -> indexed queue filtering
+            -> future duplicate/anomaly trigger types
+```
 
 The optional perception path is deterministic-first:
 

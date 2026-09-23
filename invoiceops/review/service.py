@@ -8,8 +8,20 @@ from sqlalchemy import Select, and_, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
-from invoiceops.models import ExtractionRun, MatchRun, ReviewCase, ReviewEvent
-from invoiceops.review.audit import ReconstructedState, apply_event, event_hash
+from invoiceops.models import (
+    ExtractionRun,
+    MatchRun,
+    ReviewCase,
+    ReviewCaseTrigger,
+    ReviewEvent,
+)
+from invoiceops.review.audit import (
+    AUDIT_HASH_V2,
+    ReconstructedState,
+    UnsupportedAuditHashVersionError,
+    apply_event,
+    event_hash,
+)
 from invoiceops.review.state import (
     ReviewState,
     ReviewTransitionError,
@@ -32,6 +44,7 @@ from invoiceops.schemas.review import (
 )
 
 SYSTEM_ACTOR_ID = "system:matching"
+MATCH_REASON_TRIGGER = "MATCH_REASON"
 
 
 class ReviewCaseNotFoundError(LookupError):
@@ -81,6 +94,7 @@ def review_event_to_read(event: ReviewEvent) -> ReviewEventRead:
         event_type=event.event_type,
         actor_id=event.actor_id,
         payload=event.payload,
+        hash_version=event.hash_version,
         previous_hash=event.previous_hash,
         event_hash=event.event_hash,
         occurred_at=event.occurred_at,
@@ -95,6 +109,8 @@ def ensure_review_case(session: Session, run: MatchRun) -> tuple[ReviewCase | No
         select(ReviewCase).where(ReviewCase.match_run_id == run.id)
     )
     if existing is not None:
+        _ensure_review_triggers(session, existing, run)
+        session.flush()
         return existing, False
 
     occurred_at = _now()
@@ -116,6 +132,7 @@ def ensure_review_case(session: Session, run: MatchRun) -> tuple[ReviewCase | No
         event_type=ReviewEventType.CASE_OPENED,
         actor_id=SYSTEM_ACTOR_ID,
         payload=payload,
+        hash_version=AUDIT_HASH_V2,
         previous_hash=None,
         event_hash=event_hash(
             case_id=case.id,
@@ -125,12 +142,37 @@ def ensure_review_case(session: Session, run: MatchRun) -> tuple[ReviewCase | No
             occurred_at=occurred_at,
             payload=payload,
             previous_hash=None,
+            hash_version=AUDIT_HASH_V2,
         ),
         occurred_at=occurred_at,
     )
     session.add_all((case, event))
+    _ensure_review_triggers(session, case, run)
     session.flush()
     return case, True
+
+
+def _ensure_review_triggers(session: Session, case: ReviewCase, run: MatchRun) -> None:
+    existing_codes = set(
+        session.scalars(
+            select(ReviewCaseTrigger.trigger_code).where(
+                ReviewCaseTrigger.review_case_id == case.id,
+                ReviewCaseTrigger.trigger_type == MATCH_REASON_TRIGGER,
+                ReviewCaseTrigger.source_id == run.id,
+            )
+        )
+    )
+    for reason_code in _reason_codes(run):
+        if reason_code.value not in existing_codes:
+            session.add(
+                ReviewCaseTrigger(
+                    review_case_id=case.id,
+                    trigger_type=MATCH_REASON_TRIGGER,
+                    trigger_code=reason_code.value,
+                    source_id=run.id,
+                    created_at=case.opened_at,
+                )
+            )
 
 
 class ReviewService:
@@ -198,14 +240,16 @@ class ReviewService:
             )
         statement = statement.order_by(ReviewCase.opened_at.desc(), ReviewCase.id.desc())
 
-        # Reason codes live in immutable result JSON. Scan in deterministic batches so the
-        # implementation remains portable across PostgreSQL and SQLite test databases.
-        candidates = list(self.session.scalars(statement))
         if reason_code is not None:
-            candidates = [
-                case for case in candidates if reason_code in _reason_codes(case.match_run)
-            ]
-        page = candidates[: limit + 1]
+            statement = statement.join(
+                ReviewCaseTrigger,
+                ReviewCaseTrigger.review_case_id == ReviewCase.id,
+            ).where(
+                ReviewCaseTrigger.trigger_type == MATCH_REASON_TRIGGER,
+                ReviewCaseTrigger.trigger_code == reason_code.value,
+            )
+        candidates = list(self.session.scalars(statement.limit(limit + 1)))
+        page = candidates
         has_more = len(page) > limit
         page = page[:limit]
         next_cursor = _encode_cursor(page[-1]) if has_more else None
@@ -271,17 +315,21 @@ class ReviewService:
                 errors.append(f"SEQUENCE_GAP_AT_{expected_sequence}")
             if event.previous_hash != previous_hash:
                 errors.append(f"PREVIOUS_HASH_MISMATCH_AT_{event.sequence_number}")
-            expected_hash = event_hash(
-                case_id=case.id,
-                sequence_number=event.sequence_number,
-                event_type=event.event_type,
-                actor_id=event.actor_id,
-                occurred_at=event.occurred_at,
-                payload=event.payload,
-                previous_hash=event.previous_hash,
-            )
-            if event.event_hash != expected_hash:
-                errors.append(f"EVENT_HASH_MISMATCH_AT_{event.sequence_number}")
+            try:
+                expected_hash = event_hash(
+                    case_id=case.id,
+                    sequence_number=event.sequence_number,
+                    event_type=event.event_type,
+                    actor_id=event.actor_id,
+                    occurred_at=event.occurred_at,
+                    payload=event.payload,
+                    previous_hash=event.previous_hash,
+                    hash_version=event.hash_version,
+                )
+                if event.event_hash != expected_hash:
+                    errors.append(f"EVENT_HASH_MISMATCH_AT_{event.sequence_number}")
+            except UnsupportedAuditHashVersionError:
+                errors.append(f"UNSUPPORTED_HASH_VERSION_AT_{event.sequence_number}")
             try:
                 reconstructed = _reconstruct_event(reconstructed, event)
             except (ValueError, KeyError):
@@ -381,6 +429,7 @@ class ReviewService:
             event_type=transition.event_type,
             actor_id=actor_id,
             payload=transition.payload,
+            hash_version=AUDIT_HASH_V2,
             previous_hash=previous.event_hash,
             event_hash=event_hash(
                 case_id=case.id,
@@ -390,6 +439,7 @@ class ReviewService:
                 occurred_at=occurred_at,
                 payload=transition.payload,
                 previous_hash=previous.event_hash,
+                hash_version=AUDIT_HASH_V2,
             ),
             occurred_at=occurred_at,
         )

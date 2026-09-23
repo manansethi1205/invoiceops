@@ -4,7 +4,7 @@ from decimal import Decimal
 
 import pytest
 
-from invoiceops.review.audit import canonical_json, event_hash
+from invoiceops.review.audit import AUDIT_HASH_V1, AUDIT_HASH_V2, canonical_json, event_hash
 from invoiceops.review.state import (
     ReviewState,
     ReviewTransitionError,
@@ -133,3 +133,24 @@ def test_canonical_hash_is_key_order_independent_and_decimal_safe() -> None:
         payload=right,
         previous_hash=None,
     )
+
+
+def test_v2_hash_uses_a_versioned_structured_envelope_and_v1_remains_stable() -> None:
+    case_id = uuid.UUID("22222222-2222-2222-2222-222222222222")
+    occurred_at = datetime(2026, 9, 24, 8, 30, tzinfo=UTC)
+    parameters = {
+        "case_id": case_id,
+        "sequence_number": 2,
+        "event_type": ReviewEventType.CASE_CLAIMED,
+        "actor_id": "reviewer-a",
+        "occurred_at": occurred_at,
+        "payload": {"reviewer_id": "reviewer-a"},
+        "previous_hash": "a" * 64,
+    }
+
+    v1 = event_hash(**parameters, hash_version=AUDIT_HASH_V1)  # type: ignore[arg-type]
+    v2 = event_hash(**parameters, hash_version=AUDIT_HASH_V2)  # type: ignore[arg-type]
+
+    assert len(v1) == len(v2) == 64
+    assert v1 != v2
+    assert v2 == event_hash(**parameters)  # type: ignore[arg-type]

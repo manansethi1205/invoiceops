@@ -38,7 +38,8 @@ deterministic code handles arithmetic, policy, matching, and approval.
 
 - Open exactly one review case for each `NEEDS_REVIEW` match in the matching transaction.
 - Enforce ownership, explicit resolution reasons and optimistic concurrency.
-- Reconstruct state from append-only hash-chained events and expose verification.
+- Reconstruct state from versioned, structured-envelope hash chains and expose verification.
+- Normalize indexed review triggers for scalable queue filtering and future risk signals.
 
 ## 7. Risk and approval policy — planned
 

@@ -29,7 +29,10 @@ it with organization-controlled identity and role enforcement.
 ## Queue and evidence
 
 The queue supports `status`, `assignee`, `reason_code`, `created_before`, `created_after`, opaque
-`cursor`, and bounded `limit` filters. Case detail embeds the immutable match result, including
+`cursor`, and bounded `limit` filters. Match reason codes are normalized into indexed
+`review_case_triggers` rows, so filtering is performed by the database without loading the queue
+into application memory. The trigger contract also provides a clean insertion point for future
+duplicate and anomaly signals. Case detail embeds the immutable match result, including
 reason codes, validation checks, line assignments and extraction evidence coordinates. It also
 identifies the exact extraction name and version used by matching.
 
@@ -48,10 +51,13 @@ GET  /v1/review-cases/{case_id}/audit-verification
 
 ## Tamper evidence
 
-Events are append-only through application code and chained with SHA-256 over case ID, sequence,
-event type, actor, canonical UTC timestamp, sorted compact JSON payload and the previous hash. The
-verification endpoint recomputes the chain, validates event ordering and transitions, reconstructs
-state, and compares it with the materialized case.
+Events are append-only through application code. New events use `review-audit-v2`, which hashes the
+UTF-8 encoding of one canonical, sorted JSON envelope containing `hash_version`, case ID, sequence,
+event type, actor, canonical UTC timestamp, payload and previous hash. Explicit field names and JSON
+boundaries avoid ambiguity between adjacent components. Events created before this migration are
+marked `review-audit-v1`; verification dispatches to the stored version so their original hashes
+remain valid. The verification endpoint recomputes the chain, validates event ordering and
+transitions, reconstructs state, and compares it with the materialized case.
 
 This is application-level tamper evidence. It can detect ordinary mutation or sequence corruption;
 it cannot prevent a database administrator from consistently rewriting both history and hashes.

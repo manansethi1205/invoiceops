@@ -281,6 +281,9 @@ class ReviewCase(Base):
         cascade="all, delete-orphan",
         order_by="ReviewEvent.sequence_number",
     )
+    triggers: Mapped[list["ReviewCaseTrigger"]] = relationship(
+        back_populates="review_case", cascade="all, delete-orphan"
+    )
 
 
 class ReviewEvent(Base):
@@ -292,6 +295,9 @@ class ReviewEvent(Base):
         CheckConstraint("sequence_number >= 1", name="ck_review_event_positive_sequence"),
         CheckConstraint("length(event_hash) = 64", name="ck_review_event_hash_length"),
         CheckConstraint("event_hash = lower(event_hash)", name="ck_review_event_hash_lowercase"),
+        CheckConstraint(
+            "length(trim(hash_version)) > 0", name="ck_review_event_hash_version_nonblank"
+        ),
         CheckConstraint(
             "previous_hash IS NULL OR length(previous_hash) = 64",
             name="ck_review_event_previous_hash_length",
@@ -317,7 +323,29 @@ class ReviewEvent(Base):
     )
     actor_id: Mapped[str] = mapped_column(String(100))
     payload: Mapped[dict[str, object]] = mapped_column(JSON)
+    hash_version: Mapped[str] = mapped_column(String(50), default="review-audit-v2")
     previous_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
     event_hash: Mapped[str] = mapped_column(String(64))
     occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     review_case: Mapped[ReviewCase] = relationship(back_populates="events")
+
+
+class ReviewCaseTrigger(Base):
+    __tablename__ = "review_case_triggers"
+    __table_args__ = (
+        CheckConstraint(
+            "length(trim(trigger_type)) > 0", name="ck_review_case_trigger_type_nonblank"
+        ),
+        CheckConstraint(
+            "length(trim(trigger_code)) > 0", name="ck_review_case_trigger_code_nonblank"
+        ),
+    )
+
+    review_case_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("review_cases.id", ondelete="CASCADE"), primary_key=True
+    )
+    trigger_type: Mapped[str] = mapped_column(String(50), primary_key=True)
+    trigger_code: Mapped[str] = mapped_column(String(100), primary_key=True)
+    source_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    review_case: Mapped[ReviewCase] = relationship(back_populates="triggers")

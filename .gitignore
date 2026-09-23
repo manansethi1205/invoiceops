@@ -14,7 +14,7 @@ synthetic-invoice.pdf
 not-an-invoice.txt
 outputs/
 work/
-tmp/pdfs/
+tmp/
 *.tessdata
 data/*
 !data/docile/

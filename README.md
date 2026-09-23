@@ -76,10 +76,20 @@ Run local quality checks:
 
 ```powershell
 uv sync
-uv run pytest
+uv run pytest -m "not docker and not docile"
 uv run ruff check .
 uv run mypy apps invoiceops workers
 ```
+
+Run marker-specific suites explicitly when their required environment is available:
+
+```powershell
+uv run pytest -m docile
+uv run pytest -m docker
+```
+
+Private DocILE tests require `DOCILE_DATASET_PATH`. Docker tests are normally run through the
+Compose command below, which supplies the real service dependencies and `API_BASE_URL`.
 
 Run the real PostgreSQL/Redis/MinIO/worker black-box tests in Compose:
 

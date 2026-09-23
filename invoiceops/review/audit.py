@@ -8,6 +8,13 @@ from enum import Enum
 
 from invoiceops.schemas.review import ReviewEventType, ReviewResolution, ReviewStatus
 
+AUDIT_HASH_V1 = "review-audit-v1"
+AUDIT_HASH_V2 = "review-audit-v2"
+
+
+class UnsupportedAuditHashVersionError(ValueError):
+    pass
+
 
 def canonical_json(payload: dict[str, object]) -> str:
     return json.dumps(
@@ -33,17 +40,34 @@ def event_hash(
     occurred_at: datetime,
     payload: dict[str, object],
     previous_hash: str | None,
+    hash_version: str = AUDIT_HASH_V2,
 ) -> str:
-    components = (
-        str(case_id),
-        str(sequence_number),
-        event_type.value,
-        actor_id,
-        canonical_utc(occurred_at),
-        canonical_json(payload),
-        previous_hash or "",
-    )
-    return hashlib.sha256("".join(components).encode("utf-8")).hexdigest()
+    if hash_version == AUDIT_HASH_V1:
+        components = (
+            str(case_id),
+            str(sequence_number),
+            event_type.value,
+            actor_id,
+            canonical_utc(occurred_at),
+            canonical_json(payload),
+            previous_hash or "",
+        )
+        canonical_content = "".join(components)
+    elif hash_version == AUDIT_HASH_V2:
+        envelope: dict[str, object] = {
+            "hash_version": hash_version,
+            "review_case_id": str(case_id),
+            "sequence_number": sequence_number,
+            "event_type": event_type.value,
+            "actor_id": actor_id,
+            "occurred_at": canonical_utc(occurred_at),
+            "payload": payload,
+            "previous_hash": previous_hash,
+        }
+        canonical_content = canonical_json(envelope)
+    else:
+        raise UnsupportedAuditHashVersionError(hash_version)
+    return hashlib.sha256(canonical_content.encode("utf-8")).hexdigest()
 
 
 def _json_default(value: object) -> object:
