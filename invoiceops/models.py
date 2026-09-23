@@ -24,6 +24,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from invoiceops.db import Base
 from invoiceops.schemas.matching import MatchDecision
 from invoiceops.schemas.review import ReviewEventType, ReviewResolution, ReviewStatus
+from invoiceops.schemas.risk import RiskDisposition, RiskSeverity, RiskSignalCode
 
 
 class JobStatus(StrEnum):
@@ -239,6 +240,77 @@ class MatchRun(Base):
     review_case: Mapped["ReviewCase | None"] = relationship(
         back_populates="match_run", cascade="all, delete-orphan", uselist=False
     )
+    risk_assessments: Mapped[list["RiskAssessment"]] = relationship(
+        back_populates="match_run", cascade="all, delete-orphan"
+    )
+
+
+class RiskAssessment(Base):
+    __tablename__ = "risk_assessments"
+    __table_args__ = (
+        UniqueConstraint(
+            "match_run_id", "policy_version", name="uq_risk_assessment_match_policy"
+        ),
+        CheckConstraint(
+            "length(trim(policy_version)) > 0", name="ck_risk_assessment_policy_nonblank"
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    match_run_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("match_runs.id", ondelete="CASCADE"), index=True
+    )
+    policy_version: Mapped[str] = mapped_column(String(50))
+    policy_snapshot: Mapped[dict[str, object]] = mapped_column(JSON)
+    disposition: Mapped[RiskDisposition] = mapped_column(
+        Enum(RiskDisposition, name="risk_disposition", native_enum=False)
+    )
+    feature_snapshot: Mapped[dict[str, object]] = mapped_column(JSON)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    match_run: Mapped[MatchRun] = relationship(back_populates="risk_assessments")
+    signals: Mapped[list["RiskSignal"]] = relationship(
+        back_populates="risk_assessment",
+        cascade="all, delete-orphan",
+        order_by="RiskSignal.code, RiskSignal.comparison_match_run_id, RiskSignal.id",
+    )
+
+
+class RiskSignal(Base):
+    __tablename__ = "risk_signals"
+    __table_args__ = (
+        UniqueConstraint(
+            "risk_assessment_id",
+            "code",
+            "comparison_match_run_id",
+            name="uq_risk_signal_logical",
+        ),
+        CheckConstraint(
+            "length(trim(explanation)) > 0", name="ck_risk_signal_explanation_nonblank"
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    risk_assessment_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("risk_assessments.id", ondelete="CASCADE"), index=True
+    )
+    code: Mapped[RiskSignalCode] = mapped_column(
+        Enum(RiskSignalCode, name="risk_signal_code", native_enum=False)
+    )
+    severity: Mapped[RiskSeverity] = mapped_column(
+        Enum(RiskSeverity, name="risk_severity", native_enum=False)
+    )
+    comparison_match_run_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("match_runs.id", ondelete="RESTRICT"), nullable=True
+    )
+    observed: Mapped[dict[str, object]] = mapped_column(JSON)
+    reference: Mapped[dict[str, object]] = mapped_column(JSON)
+    explanation: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    risk_assessment: Mapped[RiskAssessment] = relationship(back_populates="signals")
 
 
 class ReviewCase(Base):
@@ -333,6 +405,13 @@ class ReviewEvent(Base):
 class ReviewCaseTrigger(Base):
     __tablename__ = "review_case_triggers"
     __table_args__ = (
+        UniqueConstraint(
+            "review_case_id",
+            "trigger_type",
+            "trigger_code",
+            "source_id",
+            name="uq_review_case_trigger_logical",
+        ),
         CheckConstraint(
             "length(trim(trigger_type)) > 0", name="ck_review_case_trigger_type_nonblank"
         ),
@@ -341,11 +420,12 @@ class ReviewCaseTrigger(Base):
         ),
     )
 
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     review_case_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("review_cases.id", ondelete="CASCADE"), primary_key=True
+        ForeignKey("review_cases.id", ondelete="CASCADE")
     )
-    trigger_type: Mapped[str] = mapped_column(String(50), primary_key=True)
-    trigger_code: Mapped[str] = mapped_column(String(100), primary_key=True)
-    source_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    trigger_type: Mapped[str] = mapped_column(String(50))
+    trigger_code: Mapped[str] = mapped_column(String(100))
+    source_id: Mapped[uuid.UUID] = mapped_column()
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     review_case: Mapped[ReviewCase] = relationship(back_populates="triggers")

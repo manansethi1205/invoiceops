@@ -89,6 +89,7 @@ class ReconstructedState:
     resolution: ReviewResolution | None
     resolution_reason: str | None
     version: int
+    opening_triggers: tuple[dict[str, object], ...] = ()
 
 
 def apply_event(
@@ -99,15 +100,44 @@ def apply_event(
 ) -> ReconstructedState:
     version = state.version + 1
     if event_type == ReviewEventType.CASE_OPENED:
-        return ReconstructedState(ReviewStatus.OPEN, None, None, None, version)
+        raw_triggers = payload.get("review_triggers", [])
+        triggers = (
+            tuple(dict(item) for item in raw_triggers if isinstance(item, dict))
+            if isinstance(raw_triggers, list)
+            else ()
+        )
+        return ReconstructedState(
+            ReviewStatus.OPEN, None, None, None, version, triggers
+        )
     if event_type == ReviewEventType.CASE_CLAIMED:
-        return ReconstructedState(ReviewStatus.CLAIMED, actor_id, None, None, version)
+        return ReconstructedState(
+            ReviewStatus.CLAIMED,
+            actor_id,
+            None,
+            None,
+            version,
+            state.opening_triggers,
+        )
     if event_type == ReviewEventType.COMMENT_ADDED:
         return ReconstructedState(
-            state.status, state.assignee, state.resolution, state.resolution_reason, version
+            state.status,
+            state.assignee,
+            state.resolution,
+            state.resolution_reason,
+            version,
+            state.opening_triggers,
         )
     if event_type == ReviewEventType.CASE_RELEASED:
-        return ReconstructedState(ReviewStatus.OPEN, None, None, None, version)
+        return ReconstructedState(
+            ReviewStatus.OPEN, None, None, None, version, state.opening_triggers
+        )
     resolution = ReviewResolution(str(payload.get("resolution")))
     reason = str(payload.get("reason", ""))
-    return ReconstructedState(ReviewStatus.RESOLVED, actor_id, resolution, reason, version)
+    return ReconstructedState(
+        ReviewStatus.RESOLVED,
+        actor_id,
+        resolution,
+        reason,
+        version,
+        state.opening_triggers,
+    )

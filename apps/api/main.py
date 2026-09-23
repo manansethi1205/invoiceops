@@ -59,6 +59,7 @@ from invoiceops.review.service import (
     review_case_to_read,
 )
 from invoiceops.review.state import ReviewTransitionError
+from invoiceops.risk.service import DuplicateRiskService, RiskAssessmentNotFoundError
 from invoiceops.schemas.extraction import Invoice
 from invoiceops.schemas.extraction_api import (
     ExtractionPendingRead,
@@ -84,8 +85,10 @@ from invoiceops.schemas.review import (
     ReviewCaseRead,
     ReviewEventRead,
     ReviewStatus,
+    ReviewTriggerType,
     VersionedCommand,
 )
+from invoiceops.schemas.risk import RiskAssessmentRead
 
 configure_logging(get_settings().log_level)
 logger = logging.getLogger(__name__)
@@ -359,12 +362,53 @@ def get_match(
     return match_run_to_read(run)
 
 
+def risk_not_found() -> HTTPException:
+    return HTTPException(
+        status_code=404,
+        detail={"code": "RISK_ASSESSMENT_NOT_FOUND", "message": "Risk assessment not found"},
+    )
+
+
+@app.get(
+    "/v1/matches/{match_run_id}/risk",
+    response_model=RiskAssessmentRead,
+    tags=["risk"],
+)
+def get_match_risk(
+    match_run_id: uuid.UUID,
+    session: Annotated[Session, Depends(get_db)],
+) -> RiskAssessmentRead:
+    service = DuplicateRiskService(session)
+    try:
+        return service.read(service.get_for_match(match_run_id))
+    except RiskAssessmentNotFoundError as exc:
+        raise risk_not_found() from exc
+
+
+@app.get(
+    "/v1/risk-assessments/{risk_assessment_id}",
+    response_model=RiskAssessmentRead,
+    tags=["risk"],
+)
+def get_risk_assessment(
+    risk_assessment_id: uuid.UUID,
+    session: Annotated[Session, Depends(get_db)],
+) -> RiskAssessmentRead:
+    service = DuplicateRiskService(session)
+    try:
+        return service.read(service.get(risk_assessment_id))
+    except RiskAssessmentNotFoundError as exc:
+        raise risk_not_found() from exc
+
+
 @app.get("/v1/review-cases", response_model=ReviewCasePage, tags=["review"])
 def list_review_cases(
     session: Annotated[Session, Depends(get_db)],
     status_filter: Annotated[ReviewStatus | None, Query(alias="status")] = None,
     assignee: str | None = None,
     reason_code: ReasonCode | None = None,
+    trigger_type: ReviewTriggerType | None = None,
+    trigger_code: Annotated[str | None, Query(min_length=1, max_length=100)] = None,
     created_before: datetime | None = None,
     created_after: datetime | None = None,
     cursor: str | None = None,
@@ -375,6 +419,8 @@ def list_review_cases(
             status=status_filter,
             assignee=assignee,
             reason_code=reason_code,
+            trigger_type=trigger_type,
+            trigger_code=trigger_code,
             created_before=created_before,
             created_after=created_after,
             cursor=cursor,

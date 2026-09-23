@@ -12,6 +12,7 @@ decisions. Only synthetic or de-identified financial documents belong in this re
 | Hybrid replay 0.3.0 | 12 synthetic stress documents, no network | 93.06% header coverage, 100% line-item F1, all grounded conflicts abstained |
 | Two-way matching v1 | 18 synthetic business scenarios | 100% expected-decision accuracy, 0 false auto-matches |
 | Review workflow v1 | 17 synthetic state/concurrency scenarios | 100% category accuracy, 0 false automatic resolutions |
+| Duplicate risk v1 | 25 synthetic business scenarios | 100% disposition/signal accuracy, 0 known-duplicate false clears |
 | DocILE external context | Fixed 100-document validation sample | supported LIR F1 18.49% end-to-end / 22.28% precomputed OCR; supported KILE F1 0% |
 
 Synthetic results are project measurements, not production claims. DocILE results are reported
@@ -19,11 +20,12 @@ separately as an external stress benchmark and expose the deterministic baseline
 limits.
 
 ```text
-upload -> extraction + evidence -> deterministic PO matching
-                                      | MATCHED
-                                      ` NEEDS_REVIEW -> OPEN -> CLAIMED -> RESOLVED
-                                                               `-> OPEN (release)
-                                                    -> hash-chained audit reconstruction
+upload -> extraction + evidence -> deterministic PO matching -> duplicate risk
+                                                               | CLEAR
+                                                               ` NEEDS_REVIEW -> OPEN -> CLAIMED
+                                                                                   | RESOLVED
+                                                                                   ` OPEN (release)
+                                                               -> hash-chained audit reconstruction
 ```
 
 ## Implemented vertical slice
@@ -56,6 +58,12 @@ the same transaction as the immutable match run. Reviewers can claim, comment, r
 with optimistic concurrency and ownership checks. Events form an application-level SHA-256 chain
 that can reconstruct materialized state. `X-Reviewer-ID` is explicitly an unverified development
 identity boundary, and `ACCEPTED_EXCEPTION` never authorizes payment.
+
+Every match also receives one immutable `duplicate-risk-v1` assessment. It compares normalized
+business features with prior assessments and emits explicit exact-key, reused-number, same-PO,
+near-duplicate or incomplete-check signals—never an opaque score. A `MATCHED` invoice can be routed
+to the same review queue without changing its match decision. Risk never rejects an invoice or
+authorizes payment. See [the risk guide](docs/risk.md).
 
 Uploads are idempotent by SHA-256: repeated bytes reuse the existing document and job, including
 under concurrent requests through a unique database index. API and worker application events are
@@ -140,6 +148,16 @@ Get-Content evals/reports/review/review-v1/report.md
 
 It covers allowed and invalid transitions, stale versions, ownership, repeated requests and the
 false-automatic-resolution safety invariant.
+
+Run the deterministic duplicate-risk evaluation:
+
+```powershell
+uv run python scripts/run_duplicate_risk_evaluation.py
+Get-Content evals/reports/risk/duplicate-risk-v1/report.md
+```
+
+Its 25 scenarios are synthetic, not production fraud-detection claims. CI requires zero known
+duplicate false clears and zero duplicate assessments.
 
 OCR-bearing manifests require Tesseract before any document bytes are processed. Run the frozen
 holdout in the reproducible evaluation container:

@@ -41,12 +41,20 @@ deterministic code handles arithmetic, policy, matching, and approval.
 - Reconstruct state from versioned, structured-envelope hash chains and expose verification.
 - Normalize indexed review triggers for scalable queue filtering and future risk signals.
 
-## 7. Risk and approval policy — planned
+## 7. Duplicate risk — implemented
 
-- Add duplicate, bank-detail-change, and calibrated amount-anomaly signals.
+- Persist one versioned, immutable duplicate-risk assessment per match and policy.
+- Detect different-byte exact/reused/PO/near duplicate patterns with explicit evidence.
+- Route risk signals through normalized review triggers without changing match decisions.
+- Treat missing comparison features explicitly and gate behavior with stored policy.
+
+## 8. Broader risk and approval policy — planned
+
+- Detect altered bank details and other calibrated anomaly signals after measured error analysis.
+- Keep payment authorization outside model and risk-engine authority.
 - Model company-specific escalation and approval evidence as deterministic policy.
 
-## 8. Observability and deployment — planned
+## 9. Observability and deployment — planned
 
 - Add MLflow lineage, OpenTelemetry, Prometheus, and Grafana.
 - Add Terraform for one real cloud path using S3, SQS, RDS, and a container service.

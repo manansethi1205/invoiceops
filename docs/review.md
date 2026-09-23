@@ -36,6 +36,10 @@ duplicate and anomaly signals. Case detail embeds the immutable match result, in
 reason codes, validation checks, line assignments and extraction evidence coordinates. It also
 identifies the exact extraction name and version used by matching.
 
+`RISK_SIGNAL` triggers link to the immutable duplicate-risk assessment that caused routing. A
+`MATCHED` result can therefore have an open review case while remaining `MATCHED`. Review responses
+expose both normalized trigger types, while `reason_codes` remains for backward compatibility.
+
 Endpoints:
 
 ```text
@@ -57,7 +61,8 @@ event type, actor, canonical UTC timestamp, payload and previous hash. Explicit 
 boundaries avoid ambiguity between adjacent components. Events created before this migration are
 marked `review-audit-v1`; verification dispatches to the stored version so their original hashes
 remain valid. The verification endpoint recomputes the chain, validates event ordering and
-transitions, reconstructs state, and compares it with the materialized case.
+transitions, reconstructs state and the original opening trigger snapshot, and compares state with
+the materialized case. It never recomputes historical risk with current policy defaults.
 
 This is application-level tamper evidence. It can detect ordinary mutation or sequence corruption;
 it cannot prevent a database administrator from consistently rewriting both history and hashes.

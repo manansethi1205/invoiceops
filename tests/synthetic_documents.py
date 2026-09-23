@@ -1,7 +1,9 @@
 import pymupdf
 
 
-def generated_invoice_pdf(invoice_number: str = "SYN-12345") -> bytes:
+def generated_invoice_pdf(
+    invoice_number: str = "SYN-12345", *, producer: str | None = None
+) -> bytes:
     document = pymupdf.open()
     try:
         page = document.new_page(width=612, height=792)
@@ -38,6 +40,8 @@ def generated_invoice_pdf(invoice_number: str = "SYN-12345") -> bytes:
         ]
         for index, text in enumerate(footer_lines):
             page.insert_text((360, 330 + index * 28), text, fontsize=11)
+        if producer is not None:
+            document.set_metadata({"producer": producer})
         return document.tobytes()
     finally:
         document.close()

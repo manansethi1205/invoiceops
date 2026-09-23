@@ -31,6 +31,8 @@ def test_workflow_migrations_upgrade_clean_and_existing_schema(
         "review_cases",
         "review_events",
         "review_case_triggers",
+        "risk_assessments",
+        "risk_signals",
     }.issubset(inspect(engine).get_table_names())
 
     # Simulate an existing repository at the pre-review schema, then apply only this slice.
@@ -39,10 +41,14 @@ def test_workflow_migrations_upgrade_clean_and_existing_schema(
     assert "review_cases" not in inspect(engine).get_table_names()
     assert "review_events" not in inspect(engine).get_table_names()
     assert "review_case_triggers" not in inspect(engine).get_table_names()
+    assert "risk_assessments" not in inspect(engine).get_table_names()
+    assert "risk_signals" not in inspect(engine).get_table_names()
     command.upgrade(config, "head")
     assert "review_cases" in inspect(engine).get_table_names()
     assert "review_events" in inspect(engine).get_table_names()
     assert "review_case_triggers" in inspect(engine).get_table_names()
+    assert "risk_assessments" in inspect(engine).get_table_names()
+    assert "risk_signals" in inspect(engine).get_table_names()
 
     command.downgrade(config, "20260920_0003")
     assert "match_runs" not in inspect(engine).get_table_names()
@@ -50,12 +56,16 @@ def test_workflow_migrations_upgrade_clean_and_existing_schema(
     assert "review_cases" not in inspect(engine).get_table_names()
     assert "review_events" not in inspect(engine).get_table_names()
     assert "review_case_triggers" not in inspect(engine).get_table_names()
+    assert "risk_assessments" not in inspect(engine).get_table_names()
+    assert "risk_signals" not in inspect(engine).get_table_names()
     command.upgrade(config, "head")
     assert "match_runs" in inspect(engine).get_table_names()
     assert "model_calls" in inspect(engine).get_table_names()
     assert "review_cases" in inspect(engine).get_table_names()
     assert "review_events" in inspect(engine).get_table_names()
     assert "review_case_triggers" in inspect(engine).get_table_names()
+    assert "risk_assessments" in inspect(engine).get_table_names()
+    assert "risk_signals" in inspect(engine).get_table_names()
     engine.dispose()
     get_settings.cache_clear()
 
@@ -181,6 +191,7 @@ def test_audit_v2_migration_preserves_v1_events_and_backfills_triggers(
             )
         ).mappings().one()
     assert version == AUDIT_HASH_V1
+    assert trigger["id"] is not None
     assert trigger["trigger_type"] == "MATCH_REASON"
     assert trigger["trigger_code"] == "CURRENCY_MISMATCH"
     assert str(trigger["source_id"]).replace("-", "") == match_run_id.hex

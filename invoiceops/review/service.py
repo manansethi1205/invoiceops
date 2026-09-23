@@ -14,6 +14,7 @@ from invoiceops.models import (
     ReviewCase,
     ReviewCaseTrigger,
     ReviewEvent,
+    RiskAssessment,
 )
 from invoiceops.review.audit import (
     AUDIT_HASH_V2,
@@ -41,10 +42,14 @@ from invoiceops.schemas.review import (
     ReviewEventType,
     ReviewResolution,
     ReviewStatus,
+    ReviewTriggerRead,
+    ReviewTriggerType,
 )
+from invoiceops.schemas.risk import RiskDisposition
 
 SYSTEM_ACTOR_ID = "system:matching"
 MATCH_REASON_TRIGGER = "MATCH_REASON"
+RISK_SIGNAL_TRIGGER = "RISK_SIGNAL"
 
 
 class ReviewCaseNotFoundError(LookupError):
@@ -83,6 +88,24 @@ def review_case_to_read(case: ReviewCase) -> ReviewCaseRead:
         resolution=case.resolution,
         resolution_reason=case.resolution_reason,
         reason_codes=_reason_codes(case.match_run),
+        review_triggers=[
+            ReviewTriggerRead(
+                id=trigger.id,
+                type=ReviewTriggerType(trigger.trigger_type),
+                code=trigger.trigger_code,
+                source_id=trigger.source_id,
+                source_url=(
+                    f"/v1/risk-assessments/{trigger.source_id}"
+                    if trigger.trigger_type == RISK_SIGNAL_TRIGGER
+                    else f"/v1/matches/{trigger.source_id}"
+                ),
+                created_at=trigger.created_at,
+            )
+            for trigger in sorted(
+                case.triggers,
+                key=lambda item: (item.trigger_type, item.trigger_code, str(item.source_id)),
+            )
+        ],
     )
 
 
@@ -101,15 +124,23 @@ def review_event_to_read(event: ReviewEvent) -> ReviewEventRead:
     )
 
 
-def ensure_review_case(session: Session, run: MatchRun) -> tuple[ReviewCase | None, bool]:
-    """Ensure a NEEDS_REVIEW run has its case and opening event without committing."""
-    if run.decision != MatchDecision.NEEDS_REVIEW:
+def ensure_review_case(
+    session: Session,
+    run: MatchRun,
+    risk_assessment: RiskAssessment | None = None,
+) -> tuple[ReviewCase | None, bool]:
+    """Ensure matching/risk review routing exists without committing."""
+    requires_review = run.decision == MatchDecision.NEEDS_REVIEW or (
+        risk_assessment is not None
+        and risk_assessment.disposition == RiskDisposition.NEEDS_REVIEW
+    )
+    if not requires_review:
         return None, False
     existing = session.scalar(
         select(ReviewCase).where(ReviewCase.match_run_id == run.id)
     )
     if existing is not None:
-        _ensure_review_triggers(session, existing, run)
+        _ensure_review_triggers(session, existing, run, risk_assessment)
         session.flush()
         return existing, False
 
@@ -121,9 +152,11 @@ def ensure_review_case(session: Session, run: MatchRun) -> tuple[ReviewCase | No
         version=1,
         opened_at=occurred_at,
     )
+    trigger_snapshot = _trigger_snapshot(run, risk_assessment)
     payload: dict[str, object] = {
         "match_run_id": str(run.id),
         "reason_codes": [code.value for code in _reason_codes(run)],
+        "review_triggers": trigger_snapshot,
     }
     event = ReviewEvent(
         id=uuid.uuid4(),
@@ -147,29 +180,64 @@ def ensure_review_case(session: Session, run: MatchRun) -> tuple[ReviewCase | No
         occurred_at=occurred_at,
     )
     session.add_all((case, event))
-    _ensure_review_triggers(session, case, run)
+    _ensure_review_triggers(session, case, run, risk_assessment)
     session.flush()
     return case, True
 
 
-def _ensure_review_triggers(session: Session, case: ReviewCase, run: MatchRun) -> None:
-    existing_codes = set(
+def _trigger_snapshot(
+    run: MatchRun, risk_assessment: RiskAssessment | None
+) -> list[dict[str, str]]:
+    triggers = [
+        {
+            "type": MATCH_REASON_TRIGGER,
+            "code": reason.value,
+            "source_id": str(run.id),
+        }
+        for reason in _reason_codes(run)
+    ]
+    if risk_assessment is not None:
+        triggers.extend(
+            {
+                "type": RISK_SIGNAL_TRIGGER,
+                "code": signal.code.value,
+                "source_id": str(risk_assessment.id),
+            }
+            for signal in risk_assessment.signals
+        )
+    return sorted(triggers, key=lambda item: (item["type"], item["code"], item["source_id"]))
+
+
+def _ensure_review_triggers(
+    session: Session,
+    case: ReviewCase,
+    run: MatchRun,
+    risk_assessment: RiskAssessment | None,
+) -> None:
+    existing = set(
         session.scalars(
-            select(ReviewCaseTrigger.trigger_code).where(
+            select(ReviewCaseTrigger).where(
                 ReviewCaseTrigger.review_case_id == case.id,
-                ReviewCaseTrigger.trigger_type == MATCH_REASON_TRIGGER,
-                ReviewCaseTrigger.source_id == run.id,
             )
         )
     )
-    for reason_code in _reason_codes(run):
-        if reason_code.value not in existing_codes:
+    existing_keys = {
+        (trigger.trigger_type, trigger.trigger_code, trigger.source_id)
+        for trigger in existing
+    }
+    for trigger in _trigger_snapshot(run, risk_assessment):
+        key = (
+            trigger["type"],
+            trigger["code"],
+            uuid.UUID(trigger["source_id"]),
+        )
+        if key not in existing_keys:
             session.add(
                 ReviewCaseTrigger(
                     review_case_id=case.id,
-                    trigger_type=MATCH_REASON_TRIGGER,
-                    trigger_code=reason_code.value,
-                    source_id=run.id,
+                    trigger_type=key[0],
+                    trigger_code=key[1],
+                    source_id=key[2],
                     created_at=case.opened_at,
                 )
             )
@@ -183,7 +251,7 @@ class ReviewService:
         case = self.session.scalar(
             select(ReviewCase)
             .where(ReviewCase.id == case_id)
-            .options(selectinload(ReviewCase.match_run))
+            .options(selectinload(ReviewCase.match_run), selectinload(ReviewCase.triggers))
         )
         if case is None:
             raise ReviewCaseNotFoundError
@@ -214,13 +282,15 @@ class ReviewService:
         status: ReviewStatus | None = None,
         assignee: str | None = None,
         reason_code: ReasonCode | None = None,
+        trigger_type: ReviewTriggerType | None = None,
+        trigger_code: str | None = None,
         created_before: datetime | None = None,
         created_after: datetime | None = None,
         cursor: str | None = None,
         limit: int = 50,
     ) -> ReviewCasePage:
         statement: Select[tuple[ReviewCase]] = select(ReviewCase).options(
-            selectinload(ReviewCase.match_run)
+            selectinload(ReviewCase.match_run), selectinload(ReviewCase.triggers)
         )
         if status is not None:
             statement = statement.where(ReviewCase.status == status)
@@ -240,14 +310,26 @@ class ReviewService:
             )
         statement = statement.order_by(ReviewCase.opened_at.desc(), ReviewCase.id.desc())
 
+        effective_type = trigger_type
+        effective_code = trigger_code
         if reason_code is not None:
+            if effective_type is not None and effective_type != ReviewTriggerType.MATCH_REASON:
+                return ReviewCasePage(items=[], next_cursor=None)
+            if effective_code is not None and effective_code != reason_code.value:
+                return ReviewCasePage(items=[], next_cursor=None)
+            effective_type = ReviewTriggerType.MATCH_REASON
+            effective_code = reason_code.value
+        if effective_type is not None or effective_code is not None:
             statement = statement.join(
                 ReviewCaseTrigger,
                 ReviewCaseTrigger.review_case_id == ReviewCase.id,
-            ).where(
-                ReviewCaseTrigger.trigger_type == MATCH_REASON_TRIGGER,
-                ReviewCaseTrigger.trigger_code == reason_code.value,
             )
+            if effective_type is not None:
+                statement = statement.where(
+                    ReviewCaseTrigger.trigger_type == effective_type.value
+                )
+            if effective_code is not None:
+                statement = statement.where(ReviewCaseTrigger.trigger_code == effective_code)
         candidates = list(self.session.scalars(statement.limit(limit + 1)))
         page = candidates
         has_more = len(page) > limit
@@ -355,6 +437,7 @@ class ReviewService:
             reconstructed_resolution=reconstructed.resolution,
             reconstructed_resolution_reason=reconstructed.resolution_reason,
             reconstructed_version=reconstructed.version,
+            reconstructed_opening_triggers=list(reconstructed.opening_triggers),
         )
 
     def reconcile(self) -> ReconciliationResult:
@@ -368,7 +451,12 @@ class ReviewService:
         created = 0
         already_present = 0
         for run in runs:
-            _, was_created = ensure_review_case(self.session, run)
+            risk_assessment = self.session.scalar(
+                select(RiskAssessment)
+                .where(RiskAssessment.match_run_id == run.id)
+                .options(selectinload(RiskAssessment.signals))
+            )
+            _, was_created = ensure_review_case(self.session, run, risk_assessment)
             created += int(was_created)
             already_present += int(not was_created)
         self.session.commit()

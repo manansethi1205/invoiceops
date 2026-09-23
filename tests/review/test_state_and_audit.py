@@ -154,3 +154,45 @@ def test_v2_hash_uses_a_versioned_structured_envelope_and_v1_remains_stable() ->
     assert len(v1) == len(v2) == 64
     assert v1 != v2
     assert v2 == event_hash(**parameters)  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize(
+    ("field", "changed"),
+    [
+        ("case_id", uuid.UUID("55555555-5555-5555-5555-555555555555")),
+        ("sequence_number", 3),
+        ("event_type", ReviewEventType.COMMENT_ADDED),
+        ("actor_id", "reviewer-b"),
+        ("occurred_at", datetime(2026, 9, 24, 8, 31, tzinfo=UTC)),
+        ("payload", {"reviewer_id": "reviewer-b"}),
+        ("previous_hash", "b" * 64),
+    ],
+)
+def test_v2_hash_changes_when_any_envelope_field_changes(
+    field: str, changed: object
+) -> None:
+    parameters: dict[str, object] = {
+        "case_id": uuid.UUID("33333333-3333-3333-3333-333333333333"),
+        "sequence_number": 2,
+        "event_type": ReviewEventType.CASE_CLAIMED,
+        "actor_id": "reviewer-a",
+        "occurred_at": datetime(2026, 9, 24, 8, 30, tzinfo=UTC),
+        "payload": {"reviewer_id": "reviewer-a"},
+        "previous_hash": "a" * 64,
+    }
+    original = event_hash(**parameters)  # type: ignore[arg-type]
+    parameters[field] = changed
+    assert event_hash(**parameters) != original  # type: ignore[arg-type]
+
+
+def test_v2_canonical_boundaries_distinguish_adjacent_component_values() -> None:
+    common: dict[str, object] = {
+        "case_id": uuid.UUID("44444444-4444-4444-4444-444444444444"),
+        "sequence_number": 2,
+        "event_type": ReviewEventType.COMMENT_ADDED,
+        "occurred_at": datetime(2026, 9, 24, 8, 30, tzinfo=UTC),
+        "previous_hash": "c" * 64,
+    }
+    left = event_hash(**common, actor_id="ab", payload={"value": "c"})  # type: ignore[arg-type]
+    right = event_hash(**common, actor_id="a", payload={"value": "bc"})  # type: ignore[arg-type]
+    assert left != right

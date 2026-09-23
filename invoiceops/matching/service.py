@@ -16,8 +16,10 @@ from invoiceops.models import (
     ReviewCase,
 )
 from invoiceops.review.service import ensure_review_case
+from invoiceops.risk.service import DuplicateRiskService
 from invoiceops.schemas.extraction import Invoice
 from invoiceops.schemas.matching import (
+    MatchDecision,
     MatchingPolicy,
     MatchResult,
     MatchRunRead,
@@ -25,6 +27,7 @@ from invoiceops.schemas.matching import (
     PurchaseOrderLineRead,
     PurchaseOrderRead,
 )
+from invoiceops.schemas.risk import RiskDisposition
 
 
 class DocumentNotFoundError(LookupError):
@@ -61,6 +64,14 @@ def purchase_order_to_read(purchase_order: PurchaseOrder) -> PurchaseOrderRead:
 
 
 def match_run_to_read(run: MatchRun) -> MatchRunRead:
+    risk = next(
+        (
+            assessment
+            for assessment in run.risk_assessments
+            if assessment.policy_version == "duplicate-risk-v1"
+        ),
+        None,
+    )
     return MatchRunRead(
         id=run.id,
         document_id=run.document_id,
@@ -70,6 +81,17 @@ def match_run_to_read(run: MatchRun) -> MatchRunRead:
         policy_snapshot=MatchingPolicy.model_validate(run.policy_snapshot),
         decision=run.decision,
         result=MatchResult.model_validate(run.result_json),
+        risk_assessment_id=risk.id if risk is not None else None,
+        risk_disposition=risk.disposition if risk is not None else None,
+        risk_url=f"/v1/matches/{run.id}/risk" if risk is not None else None,
+        review_case_id=run.review_case.id if run.review_case is not None else None,
+        review_status=run.review_case.status.value if run.review_case is not None else None,
+        human_resolution=(
+            run.review_case.resolution.value
+            if run.review_case is not None and run.review_case.resolution is not None
+            else None
+        ),
+        payment_authorized=False,
         created_at=run.created_at,
     )
 
@@ -142,7 +164,8 @@ class MatchingService:
         self.session.add(run)
         try:
             self.session.flush()
-            ensure_review_case(self.session, run)
+            risk = DuplicateRiskService(self.session).ensure(run, purchase_order, invoice)
+            ensure_review_case(self.session, run, risk.assessment)
             self.session.commit()
             self.session.refresh(run)
             return MatchServiceResult(run, created=True)
@@ -185,12 +208,23 @@ class MatchingService:
 
     def _ensure_case_for_existing(self, run: MatchRun) -> None:
         try:
-            ensure_review_case(self.session, run)
+            extraction = self.session.get(ExtractionRun, run.extraction_run_id)
+            purchase_order = self.session.get(PurchaseOrder, run.purchase_order_id)
+            if extraction is None or extraction.output_json is None or purchase_order is None:
+                raise ExtractionNotReadyError
+            invoice = Invoice.model_validate(extraction.output_json)
+            risk = DuplicateRiskService(self.session).ensure(run, purchase_order, invoice)
+            ensure_review_case(self.session, run, risk.assessment)
             self.session.commit()
         except IntegrityError:
             # Another retry repaired the same historical run first.
             self.session.rollback()
-            if self.session.scalar(
+            assessment = DuplicateRiskService(self.session).get_for_match(run.id)
+            case = self.session.scalar(
                 select(ReviewCase).where(ReviewCase.match_run_id == run.id)
-            ) is None:
+            )
+            requires_case = run.decision == MatchDecision.NEEDS_REVIEW or (
+                assessment.disposition == RiskDisposition.NEEDS_REVIEW
+            )
+            if requires_case and case is None:
                 raise

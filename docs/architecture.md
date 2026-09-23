@@ -23,7 +23,9 @@ successful versioned extraction + explicitly selected purchase order
         -> quantity, price, currency and line-amount checks
         -> MATCHED or NEEDS_REVIEW
         -> immutable policy snapshot + reason codes + invoice provenance
-        -> NEEDS_REVIEW: OPEN review case + CASE_OPENED in the same transaction
+        -> versioned duplicate-risk assessment + explicit signals
+        -> match NEEDS_REVIEW or risk NEEDS_REVIEW: one OPEN review case
+        -> CASE_OPENED with immutable trigger snapshot in the same transaction
         -> claim / comment / release / resolve with optimistic concurrency
         -> versioned, append-only hash-chained events + state reconstruction
 ```
@@ -34,6 +36,10 @@ retries. Review mutations use version compare-and-swap updates; each state updat
 event commit together. Database uniqueness prevents duplicate cases and event sequence numbers.
 The hash chain is tamper-evident at application level, not immutable against a database
 administrator. Later slices add anomaly scoring and evaluation lineage.
+
+Matching and duplicate risk are independent deterministic decisions. A `MATCHED` invoice can be
+routed for duplicate review without mutating the match result, and neither decision authorizes
+payment. See [risk.md](risk.md).
 
 Queue triggers are normalized instead of filtering nested match JSON in memory:
 

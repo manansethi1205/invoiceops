@@ -130,6 +130,33 @@ def test_real_stack_upload_is_idempotent_and_worker_completes() -> None:
         fetched_match.raise_for_status()
         assert fetched_match.json() == match
 
+        reencoded_body = generated_invoice_pdf(invoice_number, producer="synthetic-reexport")
+        assert reencoded_body != body
+        reencoded_response = client.post(
+            "/v1/invoices",
+            files={"file": ("reencoded.pdf", reencoded_body, "application/pdf")},
+        )
+        reencoded_response.raise_for_status()
+        reencoded = reencoded_response.json()
+        assert reencoded["deduplicated"] is False
+        assert reencoded["document_id"] != first["document_id"]
+        assert wait_for_terminal_status(client, reencoded["status_url"])["status"] == "succeeded"
+        reencoded_match = client.post(
+            f"/v1/documents/{reencoded['document_id']}/matches",
+            json={"purchase_order_id": purchase_order["id"]},
+        )
+        reencoded_match.raise_for_status()
+        assert reencoded_match.json()["decision"] == "MATCHED"
+        risk_response = client.get(f"/v1/matches/{reencoded_match.json()['id']}/risk")
+        risk_response.raise_for_status()
+        risk = risk_response.json()
+        assert risk["disposition"] == "NEEDS_REVIEW"
+        assert risk["review_case_id"] is not None
+        assert {signal["code"] for signal in risk["signals"]} >= {
+            "EXACT_BUSINESS_KEY_DUPLICATE",
+            "SAME_PO_INVOICE_REPLAY",
+        }
+
         review_po_payload = {
             "external_po_number": f"PO-REVIEW-{invoice_number}",
             "vendor_name": "Synthetic Compose Vendor",

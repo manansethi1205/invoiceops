@@ -7,7 +7,13 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from invoiceops.matching.service import MatchingService, PurchaseOrderService
-from invoiceops.models import MatchRun, ReviewCase, ReviewCaseTrigger, ReviewEvent
+from invoiceops.models import (
+    MatchRun,
+    ReviewCase,
+    ReviewCaseTrigger,
+    ReviewEvent,
+    RiskAssessment,
+)
 from invoiceops.review.audit import AUDIT_HASH_V1, event_hash
 from invoiceops.review.service import MATCH_REASON_TRIGGER, ReviewService
 from invoiceops.review.state import ReviewTransitionError
@@ -214,6 +220,10 @@ def test_concurrency_ownership_identity_and_terminal_guards(
     )
     assert resolved.status_code == 200
     after_resolution = client.get(f"/v1/review-cases/{case_id}").json()["match"]
+    assert before_resolution.pop("review_status") == "CLAIMED"
+    assert before_resolution.pop("human_resolution") is None
+    assert after_resolution.pop("review_status") == "RESOLVED"
+    assert after_resolution.pop("human_resolution") == "ACCEPTED_EXCEPTION"
     assert after_resolution == before_resolution
     assert after_resolution["decision"] == "NEEDS_REVIEW"
     assert "payment" not in resolved.json()
@@ -379,6 +389,54 @@ def test_legacy_v1_event_hash_still_verifies(
     assert verification["valid"] is True
 
 
+def test_mixed_v1_v2_event_chain_remains_verifiable(
+    client: TestClient, db_session_factory: sessionmaker[Session]
+) -> None:
+    case = create_review_case(client, db_session_factory)
+    case_id = uuid.UUID(str(case["id"]))
+    assert client.post(
+        f"/v1/review-cases/{case_id}/claim",
+        json={"expected_version": 1},
+        headers={"X-Reviewer-ID": "reviewer-a"},
+    ).status_code == 200
+    with db_session_factory() as session:
+        events = list(
+            session.scalars(
+                select(ReviewEvent)
+                .where(ReviewEvent.review_case_id == case_id)
+                .order_by(ReviewEvent.sequence_number)
+            )
+        )
+        first, second = events
+        first.hash_version = AUDIT_HASH_V1
+        first.event_hash = event_hash(
+            case_id=case_id,
+            sequence_number=first.sequence_number,
+            event_type=first.event_type,
+            actor_id=first.actor_id,
+            occurred_at=first.occurred_at,
+            payload=first.payload,
+            previous_hash=None,
+            hash_version=AUDIT_HASH_V1,
+        )
+        second.previous_hash = first.event_hash
+        second.event_hash = event_hash(
+            case_id=case_id,
+            sequence_number=second.sequence_number,
+            event_type=second.event_type,
+            actor_id=second.actor_id,
+            occurred_at=second.occurred_at,
+            payload=second.payload,
+            previous_hash=second.previous_hash,
+            hash_version=second.hash_version,
+        )
+        session.commit()
+
+    verification = client.get(f"/v1/review-cases/{case_id}/audit-verification").json()
+    assert verification["valid"] is True
+    assert verification["event_count"] == 2
+
+
 def test_match_reason_filter_uses_normalized_trigger_rows(
     client: TestClient, db_session_factory: sessionmaker[Session]
 ) -> None:
@@ -413,7 +471,9 @@ def test_match_and_review_opening_roll_back_together(
             PurchaseOrderCreate.model_validate(review_po_payload())
         )
 
-        def fail_opening(_session: Session, _run: MatchRun) -> tuple[None, bool]:
+        def fail_opening(
+            _session: Session, _run: MatchRun, _risk: object
+        ) -> tuple[None, bool]:
             raise RuntimeError("synthetic opening failure")
 
         monkeypatch.setattr("invoiceops.matching.service.ensure_review_case", fail_opening)
@@ -421,4 +481,5 @@ def test_match_and_review_opening_roll_back_together(
             MatchingService(session).match(document.id, purchase_order.id)
         session.rollback()
         assert session.scalar(select(func.count()).select_from(MatchRun)) == 0
+        assert session.scalar(select(func.count()).select_from(RiskAssessment)) == 0
         assert session.scalar(select(func.count()).select_from(ReviewCase)) == 0

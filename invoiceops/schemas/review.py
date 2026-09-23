@@ -27,6 +27,20 @@ class ReviewEventType(StrEnum):
     CASE_RESOLVED = "CASE_RESOLVED"
 
 
+class ReviewTriggerType(StrEnum):
+    MATCH_REASON = "MATCH_REASON"
+    RISK_SIGNAL = "RISK_SIGNAL"
+
+
+class ReviewTriggerRead(BaseModel):
+    id: uuid.UUID
+    type: ReviewTriggerType
+    code: str
+    source_id: uuid.UUID
+    source_url: str
+    created_at: datetime
+
+
 class VersionedCommand(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -79,6 +93,7 @@ class ReviewCaseRead(BaseModel):
     resolution: ReviewResolution | None
     resolution_reason: str | None
     reason_codes: list[ReasonCode]
+    review_triggers: list[ReviewTriggerRead]
 
 
 class ReviewCaseDetail(ReviewCaseRead):
@@ -118,6 +133,7 @@ class AuditVerificationRead(BaseModel):
     reconstructed_resolution: ReviewResolution | None
     reconstructed_resolution_reason: str | None
     reconstructed_version: int
+    reconstructed_opening_triggers: list[dict[str, object]]
 
 
 class ReviewErrorBody(BaseModel):

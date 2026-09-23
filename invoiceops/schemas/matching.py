@@ -7,6 +7,7 @@ from enum import StrEnum
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from invoiceops.schemas.extraction import EvidenceSpan
+from invoiceops.schemas.risk import RiskDisposition
 
 
 def _reject_float(value: object) -> object:
@@ -220,4 +221,11 @@ class MatchRunRead(BaseModel):
     policy_snapshot: MatchingPolicy
     decision: MatchDecision
     result: MatchResult
+    risk_assessment_id: uuid.UUID | None
+    risk_disposition: RiskDisposition | None
+    risk_url: str | None
+    review_case_id: uuid.UUID | None
+    review_status: str | None
+    human_resolution: str | None
+    payment_authorized: bool = False
     created_at: datetime

@@ -208,6 +208,28 @@ jobs:
           print("All review workflow invariants passed.")
           PY
 
+      - name: Run duplicate-risk evaluation
+        run: |
+          mkdir -p "$RUNNER_TEMP/duplicate-risk-evaluation"
+          uv run python scripts/run_duplicate_risk_evaluation.py \
+            --output-dir "$RUNNER_TEMP/duplicate-risk-evaluation"
+
+      - name: Assert duplicate-risk safety invariants
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          report = json.loads(
+              Path("${{ runner.temp }}/duplicate-risk-evaluation/report.json").read_text()
+          )
+          if report["known_duplicate_false_clear_count"] != 0:
+              raise SystemExit("CI invariant failed: a known duplicate was cleared")
+          if report["duplicate_assessment_count"] != 0:
+              raise SystemExit("CI invariant failed: duplicate assessments were produced")
+          print("All duplicate-risk safety invariants passed.")
+          PY
+
   migrations:
     name: PostgreSQL Migrations
     runs-on: ubuntu-latest

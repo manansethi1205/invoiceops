@@ -115,8 +115,17 @@ docker compose logs api
 docker compose logs worker
 ```
 
-The migration log should show upgrades through `20260924_0007`. The worker log should list
+The migration log should show upgrades through `20260924_0008`. The worker log should list
 `invoiceops.process_document` as a registered task.
+
+Repair historical matches that predate duplicate-risk persistence, then inspect aggregate counts:
+
+```powershell
+uv run python scripts/reconcile_duplicate_risk.py
+```
+
+The command is idempotent: a second run reports existing assessments as reused and creates no
+duplicate review cases or triggers.
 
 The worker should report concurrency `2` and should not display the Celery superuser warning. A
 small amount of plain Celery/Uvicorn lifecycle output is normal; InvoiceOps application and request

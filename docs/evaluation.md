@@ -1,5 +1,14 @@
 # Reproducible deterministic evaluation
 
+## Duplicate-risk evaluation
+
+The `duplicate-risk-synthetic-v1` suite measures at least 25 synthetic scenarios independently of
+FastAPI, SQLAlchemy, object storage and Celery. It reports disposition accuracy, duplicate-signal
+precision/recall, false-clear and false-review counts, incomplete-data accuracy, duplicate
+assessment count and p50/p95 deterministic latency. CI requires zero known-duplicate false clears
+and zero duplicate assessments. Results are synthetic engineering evidence, not production fraud
+detection claims. See [risk.md](risk.md).
+
 The committed corpus is entirely synthetic. Generate it with:
 
 ```powershell
