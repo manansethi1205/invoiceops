@@ -13,7 +13,9 @@ from invoiceops.models import (
     MatchRun,
     PurchaseOrder,
     PurchaseOrderLine,
+    ReviewCase,
 )
+from invoiceops.review.service import ensure_review_case
 from invoiceops.schemas.extraction import Invoice
 from invoiceops.schemas.matching import (
     MatchingPolicy,
@@ -121,6 +123,7 @@ class MatchingService:
         extraction_run = self._latest_successful_extraction(document_id)
         existing = self._find_existing(document_id, purchase_order_id, extraction_run.id)
         if existing is not None:
+            self._ensure_case_for_existing(existing)
             return MatchServiceResult(existing, created=False)
 
         if extraction_run.output_json is None:
@@ -138,6 +141,8 @@ class MatchingService:
         )
         self.session.add(run)
         try:
+            self.session.flush()
+            ensure_review_case(self.session, run)
             self.session.commit()
             self.session.refresh(run)
             return MatchServiceResult(run, created=True)
@@ -148,6 +153,7 @@ class MatchingService:
             )
             if concurrent is None:
                 raise
+            self._ensure_case_for_existing(concurrent)
             return MatchServiceResult(concurrent, created=False)
 
     def get(self, match_run_id: uuid.UUID) -> MatchRun:
@@ -176,3 +182,16 @@ class MatchingService:
                 MatchRun.policy_version == self.policy.version,
             )
         )
+
+    def _ensure_case_for_existing(self, run: MatchRun) -> None:
+        try:
+            _, created = ensure_review_case(self.session, run)
+            if created:
+                self.session.commit()
+        except IntegrityError:
+            # Another retry repaired the same historical run first.
+            self.session.rollback()
+            if self.session.scalar(
+                select(ReviewCase).where(ReviewCase.match_run_id == run.id)
+            ) is None:
+                raise

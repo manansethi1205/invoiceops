@@ -2,9 +2,20 @@ import logging
 import time
 import uuid
 from collections.abc import Awaitable, Callable
+from datetime import datetime
 from typing import Annotated
 
-from fastapi import Depends, FastAPI, File, HTTPException, Request, UploadFile, status
+from fastapi import (
+    Depends,
+    FastAPI,
+    File,
+    Header,
+    HTTPException,
+    Query,
+    Request,
+    UploadFile,
+    status,
+)
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from starlette.responses import Response
@@ -41,6 +52,13 @@ from invoiceops.models import (
     ModelCall,
     ModelCallStatus,
 )
+from invoiceops.review.service import (
+    InvalidReviewCursorError,
+    ReviewCaseNotFoundError,
+    ReviewService,
+    review_case_to_read,
+)
+from invoiceops.review.state import ReviewTransitionError
 from invoiceops.schemas.extraction import Invoice
 from invoiceops.schemas.extraction_api import (
     ExtractionPendingRead,
@@ -54,11 +72,50 @@ from invoiceops.schemas.matching import (
     MatchRunRead,
     PurchaseOrderCreate,
     PurchaseOrderRead,
+    ReasonCode,
+)
+from invoiceops.schemas.review import (
+    AuditVerificationRead,
+    CommentCommand,
+    ReleaseCommand,
+    ResolveCommand,
+    ReviewCaseDetail,
+    ReviewCasePage,
+    ReviewCaseRead,
+    ReviewEventRead,
+    ReviewStatus,
+    VersionedCommand,
 )
 
 configure_logging(get_settings().log_level)
 logger = logging.getLogger(__name__)
 app = FastAPI(title="InvoiceOps API", version="0.1.0")
+
+
+def get_reviewer_id(
+    value: Annotated[str | None, Header(alias="X-Reviewer-ID")] = None,
+) -> str:
+    reviewer_id = value.strip() if value is not None else ""
+    if not reviewer_id or len(reviewer_id) > 100:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "code": "INVALID_REVIEWER_ID",
+                "message": "X-Reviewer-ID must contain 1 to 100 nonblank characters",
+            },
+        )
+    return reviewer_id
+
+
+def review_conflict(exc: ReviewTransitionError) -> HTTPException:
+    return HTTPException(status_code=409, detail={"code": exc.code, "message": str(exc)})
+
+
+def review_not_found() -> HTTPException:
+    return HTTPException(
+        status_code=404,
+        detail={"code": "REVIEW_CASE_NOT_FOUND", "message": "Review case not found"},
+    )
 
 
 @app.middleware("http")
@@ -300,3 +357,161 @@ def get_match(
     except MatchRunNotFoundError as exc:
         raise HTTPException(status_code=404, detail="Match run not found") from exc
     return match_run_to_read(run)
+
+
+@app.get("/v1/review-cases", response_model=ReviewCasePage, tags=["review"])
+def list_review_cases(
+    session: Annotated[Session, Depends(get_db)],
+    status_filter: Annotated[ReviewStatus | None, Query(alias="status")] = None,
+    assignee: str | None = None,
+    reason_code: ReasonCode | None = None,
+    created_before: datetime | None = None,
+    created_after: datetime | None = None,
+    cursor: str | None = None,
+    limit: Annotated[int, Query(ge=1, le=100)] = 50,
+) -> ReviewCasePage:
+    try:
+        return ReviewService(session).list_cases(
+            status=status_filter,
+            assignee=assignee,
+            reason_code=reason_code,
+            created_before=created_before,
+            created_after=created_after,
+            cursor=cursor,
+            limit=limit,
+        )
+    except InvalidReviewCursorError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail={"code": "INVALID_CURSOR", "message": str(exc)},
+        ) from exc
+
+
+@app.get(
+    "/v1/review-cases/{case_id}", response_model=ReviewCaseDetail, tags=["review"]
+)
+def get_review_case(
+    case_id: uuid.UUID,
+    request: Request,
+    session: Annotated[Session, Depends(get_db)],
+) -> ReviewCaseDetail:
+    try:
+        return ReviewService(session).detail(
+            case_id,
+            events_url=str(request.url_for("get_review_events", case_id=str(case_id))),
+            audit_verification_url=str(
+                request.url_for("verify_review_audit", case_id=str(case_id))
+            ),
+        )
+    except ReviewCaseNotFoundError as exc:
+        raise review_not_found() from exc
+
+
+@app.post(
+    "/v1/review-cases/{case_id}/claim", response_model=ReviewCaseRead, tags=["review"]
+)
+def claim_review_case(
+    case_id: uuid.UUID,
+    command: VersionedCommand,
+    reviewer_id: Annotated[str, Depends(get_reviewer_id)],
+    session: Annotated[Session, Depends(get_db)],
+) -> ReviewCaseRead:
+    try:
+        case = ReviewService(session).claim(case_id, reviewer_id, command.expected_version)
+    except ReviewCaseNotFoundError as exc:
+        raise review_not_found() from exc
+    except ReviewTransitionError as exc:
+        raise review_conflict(exc) from exc
+    return review_case_to_read(case)
+
+
+@app.post(
+    "/v1/review-cases/{case_id}/release", response_model=ReviewCaseRead, tags=["review"]
+)
+def release_review_case(
+    case_id: uuid.UUID,
+    command: ReleaseCommand,
+    reviewer_id: Annotated[str, Depends(get_reviewer_id)],
+    session: Annotated[Session, Depends(get_db)],
+) -> ReviewCaseRead:
+    try:
+        case = ReviewService(session).release(
+            case_id, reviewer_id, command.expected_version, command.reason
+        )
+    except ReviewCaseNotFoundError as exc:
+        raise review_not_found() from exc
+    except ReviewTransitionError as exc:
+        raise review_conflict(exc) from exc
+    return review_case_to_read(case)
+
+
+@app.post(
+    "/v1/review-cases/{case_id}/comments", response_model=ReviewCaseRead, tags=["review"]
+)
+def add_review_comment(
+    case_id: uuid.UUID,
+    command: CommentCommand,
+    reviewer_id: Annotated[str, Depends(get_reviewer_id)],
+    session: Annotated[Session, Depends(get_db)],
+) -> ReviewCaseRead:
+    try:
+        case = ReviewService(session).comment(
+            case_id, reviewer_id, command.expected_version, command.comment
+        )
+    except ReviewCaseNotFoundError as exc:
+        raise review_not_found() from exc
+    except ReviewTransitionError as exc:
+        raise review_conflict(exc) from exc
+    return review_case_to_read(case)
+
+
+@app.post(
+    "/v1/review-cases/{case_id}/resolve", response_model=ReviewCaseRead, tags=["review"]
+)
+def resolve_review_case(
+    case_id: uuid.UUID,
+    command: ResolveCommand,
+    reviewer_id: Annotated[str, Depends(get_reviewer_id)],
+    session: Annotated[Session, Depends(get_db)],
+) -> ReviewCaseRead:
+    try:
+        case = ReviewService(session).resolve(
+            case_id,
+            reviewer_id,
+            command.expected_version,
+            command.resolution,
+            command.reason,
+        )
+    except ReviewCaseNotFoundError as exc:
+        raise review_not_found() from exc
+    except ReviewTransitionError as exc:
+        raise review_conflict(exc) from exc
+    return review_case_to_read(case)
+
+
+@app.get(
+    "/v1/review-cases/{case_id}/events",
+    response_model=list[ReviewEventRead],
+    tags=["review"],
+)
+def get_review_events(
+    case_id: uuid.UUID, session: Annotated[Session, Depends(get_db)]
+) -> list[ReviewEventRead]:
+    try:
+        return ReviewService(session).events(case_id)
+    except ReviewCaseNotFoundError as exc:
+        raise review_not_found() from exc
+
+
+@app.get(
+    "/v1/review-cases/{case_id}/audit-verification",
+    response_model=AuditVerificationRead,
+    tags=["review"],
+)
+def verify_review_audit(
+    case_id: uuid.UUID, session: Annotated[Session, Depends(get_db)]
+) -> AuditVerificationRead:
+    try:
+        return ReviewService(session).verify_audit(case_id)
+    except ReviewCaseNotFoundError as exc:
+        raise review_not_found() from exc

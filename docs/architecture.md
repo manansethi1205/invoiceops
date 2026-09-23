@@ -23,11 +23,17 @@ successful versioned extraction + explicitly selected purchase order
         -> quantity, price, currency and line-amount checks
         -> MATCHED or NEEDS_REVIEW
         -> immutable policy snapshot + reason codes + invoice provenance
+        -> NEEDS_REVIEW: OPEN review case + CASE_OPENED in the same transaction
+        -> claim / comment / release / resolve with optimistic concurrency
+        -> append-only hash-chained events + state reconstruction
 ```
 
 Extraction supplies observations and evidence. Matching code alone performs arithmetic and applies
 the versioned policy. Match runs reference the exact extraction row and are idempotent across
-retries. Later slices add anomaly scoring, review workflow, audit events, and evaluation lineage.
+retries. Review mutations use version compare-and-swap updates; each state update and its next
+event commit together. Database uniqueness prevents duplicate cases and event sequence numbers.
+The hash chain is tamper-evident at application level, not immutable against a database
+administrator. Later slices add anomaly scoring and evaluation lineage.
 
 The optional perception path is deterministic-first:
 

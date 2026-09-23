@@ -1,0 +1,1 @@
+{"document_id": "synthetic-one", "split": "development", "document_path": "../documents/invoice.pdf", "content_type": "application/pdf", "ground_truth_path": "../ground_truth/invoice.json", "tags": {"layout": "standard", "source": "digital"}}

@@ -27,7 +27,9 @@ RUN if [ "$INSTALL_EVALUATION" = "true" ]; then \
 ENV PATH="/app/.venv/bin:$PATH"
 ENV PYTHONDONTWRITEBYTECODE=1
 COPY . .
-RUN groupadd --system invoiceops \
-    && useradd --system --gid invoiceops --home-dir /nonexistent --shell /usr/sbin/nologin invoiceops \
-    && chown -R invoiceops:invoiceops /app
-USER invoiceops
+RUN groupadd --gid 10001 invoiceops \
+    && useradd --uid 10001 --gid 10001 --no-create-home \
+       --home-dir /nonexistent --shell /usr/sbin/nologin invoiceops \
+    && chown -R 10001:10001 /app
+# A numeric runtime identity remains valid even if a container runtime cannot resolve /etc/passwd.
+USER 10001:10001

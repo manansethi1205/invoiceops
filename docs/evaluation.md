@@ -28,6 +28,24 @@ Reports contain normalized predictions and failure categories. They never
 contain absolute paths, raw page text, evidence snippets, or stack traces.
 Measured project results remain separate from external benchmark context.
 
+## Review workflow scenarios
+
+The committed `review-scenarios-v1` evaluation contains 17 synthetic allowed, invalid, stale,
+unauthorized and repeated-request scenarios. Accuracy denominators are the scenarios in each named
+category; expected-transition accuracy covers all 17. Three deterministic complete histories
+measure event-chain verification and state reconstruction. `duplicate_case_count` measures repeated
+logical-match insertion in the evaluation registry. `false_auto_resolution_count` counts rejected
+scenarios that nevertheless returned a resolved state. Latency covers only pure in-process
+transition logic, not HTTP or database time.
+
+```powershell
+uv run python scripts/run_review_evaluation.py
+Get-Content evals/reports/review/review-v1/report.md
+```
+
+CI requires all category accuracies, event verification and reconstruction to equal 1.0, with zero
+duplicate cases and zero false automatic resolutions.
+
 ## Hybrid replay and guarded live mode
 
 The synthetic stress set covers unseen layouts, OCR/scanned and rotated sources, distracting

@@ -130,6 +130,84 @@ def test_real_stack_upload_is_idempotent_and_worker_completes() -> None:
         fetched_match.raise_for_status()
         assert fetched_match.json() == match
 
+        review_po_payload = {
+            "external_po_number": f"PO-REVIEW-{invoice_number}",
+            "vendor_name": "Synthetic Compose Vendor",
+            "currency": "USD",
+            "lines": [
+                {
+                    "line_number": "1",
+                    "description": "Industrial Filter",
+                    "ordered_quantity": "2",
+                    "unit_price": "500.00",
+                },
+                {
+                    "line_number": "2",
+                    "description": "Mounting Bracket",
+                    "ordered_quantity": "4",
+                    "unit_price": "50.00",
+                },
+            ],
+        }
+        review_po_response = client.post("/v1/purchase-orders", json=review_po_payload)
+        review_po_response.raise_for_status()
+        review_match = client.post(
+            match_path,
+            json={"purchase_order_id": review_po_response.json()["id"]},
+        )
+        assert review_match.status_code == 201
+        assert review_match.json()["decision"] == "NEEDS_REVIEW"
+
+        queue_response = client.get(
+            "/v1/review-cases", params={"reason_code": "CURRENCY_MISMATCH"}
+        )
+        queue_response.raise_for_status()
+        case = next(
+            item
+            for item in queue_response.json()["items"]
+            if item["match_run_id"] == review_match.json()["id"]
+        )
+        headers = {"X-Reviewer-ID": "compose-reviewer"}
+        claim_response = client.post(
+            f"/v1/review-cases/{case['id']}/claim",
+            json={"expected_version": case["version"]},
+            headers=headers,
+        )
+        claim_response.raise_for_status()
+        comment_response = client.post(
+            f"/v1/review-cases/{case['id']}/comments",
+            json={
+                "expected_version": claim_response.json()["version"],
+                "comment": "Synthetic currency mismatch verified.",
+            },
+            headers=headers,
+        )
+        comment_response.raise_for_status()
+        resolve_response = client.post(
+            f"/v1/review-cases/{case['id']}/resolve",
+            json={
+                "expected_version": comment_response.json()["version"],
+                "resolution": "CORRECTION_REQUESTED",
+                "reason": "Invoice currency must match the purchase order.",
+            },
+            headers=headers,
+        )
+        resolve_response.raise_for_status()
+        assert resolve_response.json()["status"] == "RESOLVED"
+        events_response = client.get(f"/v1/review-cases/{case['id']}/events")
+        events_response.raise_for_status()
+        assert [event["event_type"] for event in events_response.json()] == [
+            "CASE_OPENED",
+            "CASE_CLAIMED",
+            "COMMENT_ADDED",
+            "CASE_RESOLVED",
+        ]
+        audit_response = client.get(
+            f"/v1/review-cases/{case['id']}/audit-verification"
+        )
+        audit_response.raise_for_status()
+        assert audit_response.json()["valid"] is True
+
 
 def test_real_stack_returns_clear_invalid_file_error() -> None:
     base_url = os.environ["API_BASE_URL"]

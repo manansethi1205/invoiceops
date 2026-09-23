@@ -30,6 +30,30 @@ jobs:
       - name: Sync dependencies
         run: uv sync --frozen
 
+      - name: Dependency and repository hygiene
+        shell: bash
+        run: |
+          uv lock --check
+          if git ls-files | grep -E '(^|/)\.env$|\.pem$|\.key$'; then
+            echo "Tracked credential-like file detected"
+            exit 1
+          fi
+          if git ls-files | grep -E '(kile_predictions|lir_predictions|official_.*_result)\.json$'; then
+            echo "Tracked raw DocILE evaluation artifact detected"
+            exit 1
+          fi
+          unexpected_docile=$(git ls-files data/docile | grep -vE '^data/docile/manifests/[^/]+\.json$' || true)
+          if [ -n "$unexpected_docile" ]; then
+            echo "Tracked DocILE content outside ID-only manifests detected"
+            echo "$unexpected_docile"
+            exit 1
+          fi
+          if git grep -nE 'C:\\Users\\|/Users/|/home/|sk-[A-Za-z0-9_-]{16,}' -- \
+            ':!.github/workflows/ci.yml'; then
+            echo "Tracked local path or credential-like token detected"
+            exit 1
+          fi
+
       - name: Ruff
         run: uv run ruff check .
 
@@ -115,6 +139,41 @@ jobs:
           print("All hybrid evaluation invariants passed.")
           PY
 
+      - name: Run review workflow evaluation
+        run: |
+          mkdir -p "$RUNNER_TEMP/review-evaluation"
+          uv run python scripts/run_review_evaluation.py \
+            --output-dir "$RUNNER_TEMP/review-evaluation"
+
+      - name: Assert review workflow safety invariants
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          report = json.loads(
+              Path("${{ runner.temp }}/review-evaluation/report.json").read_text()
+          )
+          required_one = [
+              "expected_transition_accuracy",
+              "allowed_transition_accuracy",
+              "invalid_transition_rejection_rate",
+              "stale_version_rejection_accuracy",
+              "unauthorized_owner_action_rejection_rate",
+              "idempotent_replay_rejection_accuracy",
+              "event_chain_verification_rate",
+              "state_reconstruction_accuracy",
+          ]
+          for metric in required_one:
+              if report[metric] != 1.0:
+                  raise SystemExit(f"CI invariant failed: {metric}={report[metric]}")
+          if report["false_auto_resolution_count"] != 0:
+              raise SystemExit("CI invariant failed: false automatic review resolution")
+          if report["duplicate_case_count"] != 0:
+              raise SystemExit("CI invariant failed: duplicate review cases")
+          print("All review workflow invariants passed.")
+          PY
+
   migrations:
     name: PostgreSQL Migrations
     runs-on: ubuntu-latest
@@ -153,3 +212,27 @@ jobs:
         env:
           DATABASE_URL: postgresql+psycopg://invoiceops:invoiceops@localhost:5432/invoiceops
         run: uv run alembic upgrade head
+
+  compose-integration:
+    name: Docker Compose Integration
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure environment
+        run: cp .env.example .env
+
+      - name: Run real-stack integration tests
+        run: >-
+          docker compose --profile test up --build --abort-on-container-exit
+          --exit-code-from integration-tests integration-tests
+
+      - name: Show service logs on failure
+        if: failure()
+        run: docker compose logs api worker migrate postgres redis minio
+
+      - name: Tear down stack
+        if: always()
+        run: docker compose --profile test down --volumes

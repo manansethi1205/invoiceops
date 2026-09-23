@@ -1,0 +1,16 @@
+{
+  "scenario_count": 18,
+  "expected_decision_accuracy": 1.0,
+  "straight_through_match_rate": 0.2777777777777778,
+  "needs_review_rate": 0.7222222222222222,
+  "false_auto_match_count": 0,
+  "reason_code_accuracy": 1.0,
+  "p50_match_latency_ms": 0.0897,
+  "p95_match_latency_ms": 0.2981,
+  "policy_version": "matching-v1",
+  "scenario_set_version": "matching-synthetic-v1",
+  "evaluation_timestamp": "2026-09-23T10:56:12.349071Z",
+  "python_version": "3.12.11",
+  "git_revision": "fb23a84077a56bfa5745a5c9da003499d2786927",
+  "policy_hash": "ca3b68d709821ea8ff6236a95185b9f1672389a42dbcfc65bca09020c19abdbf"
+}

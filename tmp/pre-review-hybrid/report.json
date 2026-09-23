@@ -1,0 +1,68 @@
+{
+  "dataset_id": "synthetic-hybrid-stress-v1",
+  "dataset_fingerprint": "f7ae019d20c0f3dce402fa0ec8b8c331219cfeb8664295a997d931ccfb571346",
+  "example_count": 12,
+  "source_revision": "99f3598b355ff6fb538aebfdc83975c5bd059b3e",
+  "python_version": "3.12.11",
+  "extractor_version": "0.3.0",
+  "prompt_version": "invoice-vision-v1",
+  "deterministic": {
+    "header_exact_match": {
+      "invoice_number": 0.5833333333333334,
+      "invoice_date": 0.9166666666666666,
+      "currency": 0.9166666666666666,
+      "subtotal": 1.0,
+      "tax": 1.0,
+      "total": 0.8333333333333334
+    },
+    "line_item_exact_f1": 1.0,
+    "schema_valid_rate": 1.0,
+    "field_coverage": 0.8888888888888888,
+    "critical_field_coverage": 0.8333333333333334
+  },
+  "hybrid_replay": {
+    "header_exact_match": {
+      "invoice_number": 0.75,
+      "invoice_date": 1.0,
+      "currency": 1.0,
+      "subtotal": 1.0,
+      "tax": 1.0,
+      "total": 0.8333333333333334
+    },
+    "line_item_exact_f1": 1.0,
+    "schema_valid_rate": 1.0,
+    "field_coverage": 0.9305555555555556,
+    "critical_field_coverage": 0.8958333333333334
+  },
+  "grounded_field_rate": 0.8888888888888888,
+  "deterministic_vlm_agreement_rate": 0.3333333333333333,
+  "disagreement_abstention_rate": 1.0,
+  "fallback_invocation_rate": 0.9166666666666666,
+  "provider_failure_rate": 0.09090909090909091,
+  "p50_total_latency_ms": 13.0,
+  "p95_total_latency_ms": 13.0,
+  "p50_provider_latency_ms": 12.0,
+  "p95_provider_latency_ms": 12.0,
+  "mean_input_tokens_per_document": 83.33333333333333,
+  "mean_output_tokens_per_document": 16.666666666666668,
+  "mean_total_tokens_per_document": 100.0,
+  "estimated_cost": null,
+  "safety": {
+    "no_ungrounded_candidate_promoted": true,
+    "all_grounded_disagreements_abstained": true,
+    "schema_valid_rate_is_one": true,
+    "matching_input_remains_canonical_invoice": true
+  },
+  "stress_tags": [
+    "arithmetic_inconsistency",
+    "distracting_totals",
+    "duplicate_evidence",
+    "missing_fields",
+    "multi_page",
+    "prompt_injection",
+    "provider_failure",
+    "rotated",
+    "scanned",
+    "unseen_layout"
+  ]
+}

@@ -34,13 +34,18 @@ deterministic code handles arithmetic, policy, matching, and approval.
 - Abstain on grounded disagreement and preserve deterministic output on provider failure.
 - Keep the provider disabled and model-less by default; replay evaluation is network-free.
 
-## 6. Risk, review, and audit — planned
+## 6. Evidence-linked review and audit — implemented
+
+- Open exactly one review case for each `NEEDS_REVIEW` match in the matching transaction.
+- Enforce ownership, explicit resolution reasons and optimistic concurrency.
+- Reconstruct state from append-only hash-chained events and expose verification.
+
+## 7. Risk and approval policy — planned
 
 - Add duplicate, bank-detail-change, and calibrated amount-anomaly signals.
-- Build evidence-linked human review and append-only audit events.
 - Model company-specific escalation and approval evidence as deterministic policy.
 
-## 7. Observability and deployment — planned
+## 8. Observability and deployment — planned
 
 - Add MLflow lineage, OpenTelemetry, Prometheus, and Grafana.
 - Add Terraform for one real cloud path using S3, SQS, RDS, and a container service.

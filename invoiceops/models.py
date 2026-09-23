@@ -7,10 +7,12 @@ from sqlalchemy import (
     JSON,
     BigInteger,
     Boolean,
+    CheckConstraint,
     DateTime,
     Enum,
     Float,
     ForeignKey,
+    Integer,
     Numeric,
     String,
     Text,
@@ -21,6 +23,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from invoiceops.db import Base
 from invoiceops.schemas.matching import MatchDecision
+from invoiceops.schemas.review import ReviewEventType, ReviewResolution, ReviewStatus
 
 
 class JobStatus(StrEnum):
@@ -233,3 +236,88 @@ class MatchRun(Base):
     document: Mapped[Document] = relationship(back_populates="match_runs")
     purchase_order: Mapped[PurchaseOrder] = relationship(back_populates="match_runs")
     extraction_run: Mapped[ExtractionRun] = relationship(back_populates="match_runs")
+    review_case: Mapped["ReviewCase | None"] = relationship(
+        back_populates="match_run", cascade="all, delete-orphan", uselist=False
+    )
+
+
+class ReviewCase(Base):
+    __tablename__ = "review_cases"
+    __table_args__ = (
+        CheckConstraint("version >= 1", name="ck_review_case_positive_version"),
+        CheckConstraint(
+            "(status = 'OPEN' AND assigned_reviewer_id IS NULL AND claimed_at IS NULL "
+            "AND resolved_at IS NULL AND resolution IS NULL AND resolution_reason IS NULL) OR "
+            "(status = 'CLAIMED' AND assigned_reviewer_id IS NOT NULL "
+            "AND claimed_at IS NOT NULL AND resolved_at IS NULL "
+            "AND resolution IS NULL AND resolution_reason IS NULL) OR "
+            "(status = 'RESOLVED' AND assigned_reviewer_id IS NOT NULL "
+            "AND claimed_at IS NOT NULL AND resolved_at IS NOT NULL "
+            "AND resolution IS NOT NULL AND length(trim(resolution_reason)) > 0)",
+            name="ck_review_case_state_shape",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    match_run_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("match_runs.id", ondelete="CASCADE"), unique=True, index=True
+    )
+    status: Mapped[ReviewStatus] = mapped_column(
+        Enum(ReviewStatus, name="review_status", native_enum=False),
+        default=ReviewStatus.OPEN,
+    )
+    assigned_reviewer_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    version: Mapped[int] = mapped_column(Integer, default=1)
+    opened_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    claimed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    resolution: Mapped[ReviewResolution | None] = mapped_column(
+        Enum(ReviewResolution, name="review_resolution", native_enum=False), nullable=True
+    )
+    resolution_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    match_run: Mapped[MatchRun] = relationship(back_populates="review_case")
+    events: Mapped[list["ReviewEvent"]] = relationship(
+        back_populates="review_case",
+        cascade="all, delete-orphan",
+        order_by="ReviewEvent.sequence_number",
+    )
+
+
+class ReviewEvent(Base):
+    __tablename__ = "review_events"
+    __table_args__ = (
+        UniqueConstraint(
+            "review_case_id", "sequence_number", name="uq_review_event_case_sequence"
+        ),
+        CheckConstraint("sequence_number >= 1", name="ck_review_event_positive_sequence"),
+        CheckConstraint("length(event_hash) = 64", name="ck_review_event_hash_length"),
+        CheckConstraint("event_hash = lower(event_hash)", name="ck_review_event_hash_lowercase"),
+        CheckConstraint(
+            "previous_hash IS NULL OR length(previous_hash) = 64",
+            name="ck_review_event_previous_hash_length",
+        ),
+        CheckConstraint(
+            "(sequence_number = 1 AND previous_hash IS NULL) OR "
+            "(sequence_number > 1 AND previous_hash IS NOT NULL)",
+            name="ck_review_event_chain_shape",
+        ),
+        CheckConstraint(
+            "previous_hash IS NULL OR previous_hash = lower(previous_hash)",
+            name="ck_review_event_previous_hash_lowercase",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    review_case_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("review_cases.id", ondelete="CASCADE"), index=True
+    )
+    sequence_number: Mapped[int] = mapped_column(Integer)
+    event_type: Mapped[ReviewEventType] = mapped_column(
+        Enum(ReviewEventType, name="review_event_type", native_enum=False)
+    )
+    actor_id: Mapped[str] = mapped_column(String(100))
+    payload: Mapped[dict[str, object]] = mapped_column(JSON)
+    previous_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    event_hash: Mapped[str] = mapped_column(String(64))
+    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    review_case: Mapped[ReviewCase] = relationship(back_populates="events")

@@ -115,7 +115,7 @@ docker compose logs api
 docker compose logs worker
 ```
 
-The migration log should show upgrades through `20260921_0005`. The worker log should list
+The migration log should show upgrades through `20260923_0006`. The worker log should list
 `invoiceops.process_document` as a registered task.
 
 The worker should report concurrency `2` and should not display the Celery superuser warning. A
@@ -130,7 +130,7 @@ Start-Process http://localhost:8000/docs
 ```
 
 The health response should contain `status = ok`. Swagger UI should show the invoice/job/extraction
-routes plus purchase-order create/read and match create/read routes.
+routes plus purchase-order, matching and review-workflow routes.
 
 ## 7. Create safe synthetic test data
 
@@ -318,3 +318,21 @@ If you want the normal application running again after the test:
 docker compose up --build -d
 docker compose ps -a
 ```
+
+## 14. Operate and verify the review workflow
+
+After creating a deliberately mismatched purchase order and matching it, inspect the queue at
+`http://localhost:8000/docs` or follow the PowerShell example in [the review guide](review.md).
+Mutations require `X-Reviewer-ID`; it is an unverified local-development identity only.
+
+Verify all case histories after an upgrade:
+
+```powershell
+uv run python scripts/reconcile_review_cases.py
+uv run python scripts/run_review_evaluation.py
+Get-Content evals/reports/review/review-v1/report.md
+```
+
+Reconciliation is safe to repeat. It creates only missing cases for historical `NEEDS_REVIEW`
+runs and prints aggregate counts. Use the per-case `audit-verification` endpoint to recompute the
+hash chain and compare reconstructed state with the materialized case.

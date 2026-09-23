@@ -1,0 +1,1 @@
+{"invoice_number": "SYN-12345", "invoice_date": "2026-09-19", "currency": "INR", "subtotal": "1200", "tax": "216", "total": "1416", "line_items": [{"description": "Industrial Filter", "quantity": "2", "unit_price": "500", "line_total": "1000"}, {"description": "Mounting Bracket", "quantity": "4", "unit_price": "50", "line_total": "200"}]}

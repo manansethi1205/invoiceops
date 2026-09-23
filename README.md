@@ -4,6 +4,28 @@ InvoiceOps is an evidence-first accounts-payable automation project. AI will han
 perception and ambiguity; deterministic code will perform arithmetic, apply policy, and authorize
 decisions. Only synthetic or de-identified financial documents belong in this repository.
 
+## Measured results at a glance
+
+| Evaluation | Scope | Key measured result |
+| --- | --- | --- |
+| Deterministic extraction 0.2.0 | 15-document synthetic holdout in Docker | 100% header overall exact, 100% exact line-item F1, 0 failures |
+| Hybrid replay 0.3.0 | 12 synthetic stress documents, no network | 93.06% header coverage, 100% line-item F1, all grounded conflicts abstained |
+| Two-way matching v1 | 18 synthetic business scenarios | 100% expected-decision accuracy, 0 false auto-matches |
+| Review workflow v1 | 17 synthetic state/concurrency scenarios | 100% category accuracy, 0 false automatic resolutions |
+| DocILE external context | Fixed 100-document validation sample | supported LIR F1 18.49% end-to-end / 22.28% precomputed OCR; supported KILE F1 0% |
+
+Synthetic results are project measurements, not production claims. DocILE results are reported
+separately as an external stress benchmark and expose the deterministic baseline's generalization
+limits.
+
+```text
+upload -> extraction + evidence -> deterministic PO matching
+                                      | MATCHED
+                                      ` NEEDS_REVIEW -> OPEN -> CLAIMED -> RESOLVED
+                                                               `-> OPEN (release)
+                                                    -> hash-chained audit reconstruction
+```
+
 ## Implemented vertical slice
 
 `POST /v1/invoices` accepts one PDF, JPEG, or PNG (15 MiB by default), stores it in S3-compatible
@@ -28,6 +50,12 @@ arithmetic, and compares an explicitly selected PO with a successful extraction.
 synchronous and returns only `MATCHED` or `NEEDS_REVIEW`, with versioned tolerances, reason codes,
 line assignments, and invoice evidence. Ambiguous, incomplete, or inconsistent observations can
 never produce `MATCHED`; no model makes arithmetic or approval decisions.
+
+Every `NEEDS_REVIEW` result now opens exactly one evidence-linked case and opening audit event in
+the same transaction as the immutable match run. Reviewers can claim, comment, release and resolve
+with optimistic concurrency and ownership checks. Events form an application-level SHA-256 chain
+that can reconstruct materialized state. `X-Reviewer-ID` is explicitly an unverified development
+identity boundary, and `ACCEPTED_EXCEPTION` never authorizes payment.
 
 Uploads are idempotent by SHA-256: repeated bytes reuse the existing document and job, including
 under concurrent requests through a unique database index. API and worker application events are
@@ -93,6 +121,16 @@ Get-Content evals/reports/hybrid/0.3.0-replay/report.md
 Live mode is guarded and requires explicit manifest wiring, `--allow-live`, an enabled provider,
 an explicitly selected model, and credentials. Ordinary tests and CI make no live provider calls.
 
+Run the synthetic review-workflow evaluation:
+
+```powershell
+uv run python scripts/run_review_evaluation.py
+Get-Content evals/reports/review/review-v1/report.md
+```
+
+It covers allowed and invalid transitions, stale versions, ownership, repeated requests and the
+false-automatic-resolution safety invariant.
+
 OCR-bearing manifests require Tesseract before any document bytes are processed. Run the frozen
 holdout in the reproducible evaluation container:
 
@@ -108,7 +146,17 @@ predictions are ignored; only ID-only manifests and aggregate reports may be com
 [DocILE field mapping](docs/docile-field-mapping.md).
 
 Run the two-mode DocILE smoke benchmark in the Tesseract-enabled evaluation container after setting
-`DOCILE_DATASET_PATH`; see the [evaluation guide](docs/evaluation.md#docile-external-benchmark).
+`DOCILE_DATASET_PATH`:
+
+```powershell
+docker compose --profile evaluation run --rm --build --entrypoint python evaluator `
+  scripts/run_docile_evaluation.py --dataset-path /data/docile `
+  --sample-manifest data/docile/manifests/smoke.json `
+  --output-dir evals/reports/docile/0.2.0-smoke
+```
+
+See the [evaluation guide](docs/evaluation.md#docile-external-benchmark) for dataset placement and
+the fixed 100-document command.
 
 ## API example
 
@@ -132,6 +180,8 @@ See [architecture](docs/architecture.md) and [ADR-001](docs/adr/001-ingestion-bo
 See [hybrid extraction](docs/hybrid-extraction.md) for routing, grounding, fusion, and privacy.
 See [two-way matching](docs/matching.md) for policy definitions, reason codes, API behavior, and
 known limitations.
+See [human review](docs/review.md) for state transitions, concurrency, identity limitations,
+evidence navigation, reconciliation and audit verification.
 The delivery sequence is captured in [the roadmap](docs/roadmap.md).
 The current slice is explained file-by-file in the
 [implementation guide](docs/implementation-guide.md).
