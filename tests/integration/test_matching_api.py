@@ -111,6 +111,9 @@ def test_match_api_is_idempotent_and_retrievable(
     assert second.status_code == 200
     assert first.json()["id"] == second.json()["id"]
     assert first.json()["decision"] == "MATCHED"
+    assert first.json()["matching_mode"] == "TWO_WAY"
+    assert first.json()["context_fingerprint"] is None
+    assert first.json()["three_way_context_url"] is None
     assert first.json()["extraction_run_id"] == str(extraction.id)
     assert first.json()["policy_snapshot"]["unit_price_relative_tolerance"] == "0.01"
     fetched = client.get(f"/v1/matches/{first.json()['id']}")

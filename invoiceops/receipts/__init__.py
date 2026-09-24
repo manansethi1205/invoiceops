@@ -1,0 +1,1 @@
+"""Immutable goods-receipt persistence."""

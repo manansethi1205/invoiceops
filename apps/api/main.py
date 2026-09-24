@@ -51,6 +51,16 @@ from invoiceops.models import (
     IngestionJob,
     ModelCall,
     ModelCallStatus,
+    ThreeWayContext,
+)
+from invoiceops.receipts.service import (
+    ConflictingReceiptReplayError,
+    GoodsReceiptAlreadyReversedError,
+    GoodsReceiptNotFoundError,
+    GoodsReceiptService,
+    ReceiptLineNotFoundError,
+    ReceiptPurchaseOrderNotFoundError,
+    goods_receipt_to_read,
 )
 from invoiceops.review.service import (
     InvalidReviewCursorError,
@@ -75,6 +85,11 @@ from invoiceops.schemas.matching import (
     PurchaseOrderRead,
     ReasonCode,
 )
+from invoiceops.schemas.receipts import (
+    GoodsReceiptCreate,
+    GoodsReceiptRead,
+    ReverseGoodsReceiptCommand,
+)
 from invoiceops.schemas.review import (
     AuditVerificationRead,
     CommentCommand,
@@ -89,6 +104,7 @@ from invoiceops.schemas.review import (
     VersionedCommand,
 )
 from invoiceops.schemas.risk import RiskAssessmentRead
+from invoiceops.schemas.three_way import ThreeWayContextRead, ThreeWayContextSnapshot
 
 configure_logging(get_settings().log_level)
 logger = logging.getLogger(__name__)
@@ -108,6 +124,21 @@ def get_reviewer_id(
             },
         )
     return reviewer_id
+
+
+def get_actor_id(
+    value: Annotated[str | None, Header(alias="X-Actor-ID")] = None,
+) -> str:
+    actor_id = value.strip() if value is not None else ""
+    if not actor_id or len(actor_id) > 100:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "code": "INVALID_ACTOR_ID",
+                "message": "X-Actor-ID must contain 1 to 100 nonblank characters",
+            },
+        )
+    return actor_id
 
 
 def review_conflict(exc: ReviewTransitionError) -> HTTPException:
@@ -320,6 +351,100 @@ def get_purchase_order(
 
 
 @app.post(
+    "/v1/goods-receipts",
+    response_model=GoodsReceiptRead,
+    status_code=status.HTTP_201_CREATED,
+    tags=["goods-receipts"],
+)
+def create_goods_receipt(
+    command: GoodsReceiptCreate,
+    response: Response,
+    session: Annotated[Session, Depends(get_db)],
+) -> GoodsReceiptRead:
+    try:
+        result = GoodsReceiptService(session).create(command)
+    except ReceiptPurchaseOrderNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="Purchase order not found") from exc
+    except ReceiptLineNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="Purchase order line not found") from exc
+    except ConflictingReceiptReplayError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "CONFLICTING_RECEIPT_REPLAY",
+                "message": "The receipt number already exists with a different payload",
+            },
+        ) from exc
+    response.status_code = status.HTTP_201_CREATED if result.created else status.HTTP_200_OK
+    return goods_receipt_to_read(result.receipt)
+
+
+@app.get("/v1/goods-receipts", response_model=list[GoodsReceiptRead], tags=["goods-receipts"])
+def list_goods_receipts(
+    session: Annotated[Session, Depends(get_db)],
+    purchase_order_id: uuid.UUID | None = None,
+) -> list[GoodsReceiptRead]:
+    return [
+        goods_receipt_to_read(item) for item in GoodsReceiptService(session).list(purchase_order_id)
+    ]
+
+
+@app.get(
+    "/v1/purchase-orders/{purchase_order_id}/goods-receipts",
+    response_model=list[GoodsReceiptRead],
+    tags=["goods-receipts"],
+)
+def list_purchase_order_goods_receipts(
+    purchase_order_id: uuid.UUID,
+    session: Annotated[Session, Depends(get_db)],
+) -> list[GoodsReceiptRead]:
+    try:
+        PurchaseOrderService(session).get(purchase_order_id)
+    except PurchaseOrderNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="Purchase order not found") from exc
+    return [
+        goods_receipt_to_read(item) for item in GoodsReceiptService(session).list(purchase_order_id)
+    ]
+
+
+@app.get(
+    "/v1/goods-receipts/{receipt_id}",
+    response_model=GoodsReceiptRead,
+    tags=["goods-receipts"],
+)
+def get_goods_receipt(
+    receipt_id: uuid.UUID, session: Annotated[Session, Depends(get_db)]
+) -> GoodsReceiptRead:
+    try:
+        return goods_receipt_to_read(GoodsReceiptService(session).get(receipt_id))
+    except GoodsReceiptNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="Goods receipt not found") from exc
+
+
+@app.post(
+    "/v1/goods-receipts/{receipt_id}/reverse",
+    response_model=GoodsReceiptRead,
+    tags=["goods-receipts"],
+)
+def reverse_goods_receipt(
+    receipt_id: uuid.UUID,
+    command: ReverseGoodsReceiptCommand,
+    actor_id: Annotated[str, Depends(get_actor_id)],
+    session: Annotated[Session, Depends(get_db)],
+) -> GoodsReceiptRead:
+    try:
+        receipt = GoodsReceiptService(session).reverse(receipt_id, actor_id, command.reason)
+    except GoodsReceiptNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="Goods receipt not found") from exc
+    except GoodsReceiptAlreadyReversedError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={"code": "RECEIPT_ALREADY_REVERSED", "message": "Receipt already reversed"},
+        ) from exc
+    return goods_receipt_to_read(receipt)
+
+
+@app.post(
     "/v1/documents/{document_id}/matches",
     response_model=MatchRunRead,
     status_code=status.HTTP_201_CREATED,
@@ -332,7 +457,9 @@ def create_match(
     session: Annotated[Session, Depends(get_db)],
 ) -> MatchRunRead:
     try:
-        result = MatchingService(session).match(document_id, command.purchase_order_id)
+        result = MatchingService(session).match(
+            document_id, command.purchase_order_id, command.mode
+        )
     except DocumentNotFoundError as exc:
         raise HTTPException(status_code=404, detail="Document not found") from exc
     except PurchaseOrderNotFoundError as exc:
@@ -360,6 +487,28 @@ def get_match(
     except MatchRunNotFoundError as exc:
         raise HTTPException(status_code=404, detail="Match run not found") from exc
     return match_run_to_read(run)
+
+
+@app.get(
+    "/v1/matches/{match_run_id}/three-way-context",
+    response_model=ThreeWayContextRead,
+    tags=["matching"],
+)
+def get_three_way_context(
+    match_run_id: uuid.UUID,
+    session: Annotated[Session, Depends(get_db)],
+) -> ThreeWayContextRead:
+    context = session.scalar(
+        select(ThreeWayContext).where(ThreeWayContext.match_run_id == match_run_id)
+    )
+    if context is None:
+        raise HTTPException(status_code=404, detail="Three-way context not found")
+    return ThreeWayContextRead(
+        match_run_id=context.match_run_id,
+        context_fingerprint=context.context_fingerprint,
+        snapshot=ThreeWayContextSnapshot.model_validate(context.snapshot),
+        created_at=context.created_at,
+    )
 
 
 def risk_not_found() -> HTTPException:
@@ -433,9 +582,7 @@ def list_review_cases(
         ) from exc
 
 
-@app.get(
-    "/v1/review-cases/{case_id}", response_model=ReviewCaseDetail, tags=["review"]
-)
+@app.get("/v1/review-cases/{case_id}", response_model=ReviewCaseDetail, tags=["review"])
 def get_review_case(
     case_id: uuid.UUID,
     request: Request,
@@ -453,9 +600,7 @@ def get_review_case(
         raise review_not_found() from exc
 
 
-@app.post(
-    "/v1/review-cases/{case_id}/claim", response_model=ReviewCaseRead, tags=["review"]
-)
+@app.post("/v1/review-cases/{case_id}/claim", response_model=ReviewCaseRead, tags=["review"])
 def claim_review_case(
     case_id: uuid.UUID,
     command: VersionedCommand,
@@ -471,9 +616,7 @@ def claim_review_case(
     return review_case_to_read(case)
 
 
-@app.post(
-    "/v1/review-cases/{case_id}/release", response_model=ReviewCaseRead, tags=["review"]
-)
+@app.post("/v1/review-cases/{case_id}/release", response_model=ReviewCaseRead, tags=["review"])
 def release_review_case(
     case_id: uuid.UUID,
     command: ReleaseCommand,
@@ -491,9 +634,7 @@ def release_review_case(
     return review_case_to_read(case)
 
 
-@app.post(
-    "/v1/review-cases/{case_id}/comments", response_model=ReviewCaseRead, tags=["review"]
-)
+@app.post("/v1/review-cases/{case_id}/comments", response_model=ReviewCaseRead, tags=["review"])
 def add_review_comment(
     case_id: uuid.UUID,
     command: CommentCommand,
@@ -511,9 +652,7 @@ def add_review_comment(
     return review_case_to_read(case)
 
 
-@app.post(
-    "/v1/review-cases/{case_id}/resolve", response_model=ReviewCaseRead, tags=["review"]
-)
+@app.post("/v1/review-cases/{case_id}/resolve", response_model=ReviewCaseRead, tags=["review"])
 def resolve_review_case(
     case_id: uuid.UUID,
     command: ResolveCommand,

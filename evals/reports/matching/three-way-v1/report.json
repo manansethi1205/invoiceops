@@ -1,0 +1,20 @@
+{
+  "scenario_count": 26,
+  "expected_decision_accuracy": 1.0,
+  "expected_reason_recall": 1.0,
+  "straight_through_three_way_match_rate": 0.5384615384615384,
+  "needs_review_rate": 0.46153846153846156,
+  "false_auto_match_count": 0,
+  "allocation_on_review_count": 0,
+  "allocation_correctness_rate": 1.0,
+  "cumulative_overbilling_detection_rate": 1.0,
+  "idempotency_accuracy": 1.0,
+  "concurrency_conflict_accuracy": 1.0,
+  "p50_latency_ms": 0.3168,
+  "p95_latency_ms": 0.5973,
+  "policy_version": "three-way-v1",
+  "scenario_set_version": "three-way-synthetic-v1",
+  "scenario_fingerprint": "1038bb6dc168c74dd2d1419c1af231c21d75a0fb387809bce79eff137d7ed8da",
+  "source_tree_fingerprint": "ebbd5719a7c0168e5e8ea2d20ef4bbdfc76326c39155d74656ca0463db6329ca",
+  "python_version": "3.12.11"
+}

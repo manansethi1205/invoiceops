@@ -1,7 +1,10 @@
 # Deterministic financial validation and two-way PO matching
 
+This document covers `TWO_WAY`, the backward-compatible default. Explicit goods-receipt matching
+is documented in [three-way-matching.md](three-way-matching.md).
+
 This slice compares a successfully extracted invoice with a purchase order explicitly selected by
-the caller. It is two-way matching only: goods receipts, automatic PO discovery, ERP integration,
+the caller. This page describes two-way matching only; automatic PO discovery, ERP integration,
 approval routing, and three-way matching are intentionally deferred.
 
 `external_po_number` is indexed but intentionally not globally unique. Real PO identity requires
@@ -103,7 +106,7 @@ the first request returns HTTP 201.
 ## Verification and limitations
 
 ```powershell
-uv run pytest -q -p no:cacheprovider
+uv run pytest -m "not docker and not docile" -q -p no:cacheprovider
 uv run ruff check .
 uv run mypy apps invoiceops workers
 uv run python scripts/run_matching_evaluation.py

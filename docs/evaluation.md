@@ -1,5 +1,11 @@
 # Reproducible deterministic evaluation
 
+The three-way suite contains 26 synthetic receipt/allocation scenarios and reports decision and
+routing metrics, cumulative-overbilling detection, allocation correctness, idempotency,
+serialized-contention behavior, latency and source-tree provenance. Run
+`uv run python scripts/run_three_way_evaluation.py`; its aggregate report is under
+`evals/reports/matching/three-way-v1/`.
+
 ## Duplicate-risk evaluation
 
 The `duplicate-risk-synthetic-v1` suite measures at least 25 synthetic scenarios independently of

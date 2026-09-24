@@ -14,7 +14,23 @@ document receives a content digest for future duplicate detection. The object is
 the row is committed, and removed if that commit fails. If dispatch fails, the queued row remains
 durable so a reconciliation process can safely redispatch it.
 
-The current deterministic decision path is:
+The current deterministic decision path supports explicit two-way and three-way modes:
+
+```mermaid
+flowchart LR
+    I[Invoice extraction + evidence] --> M{Matching mode}
+    PO[Selected purchase order] --> M
+    GR[Immutable receipts + reversals] --> C[Versioned receipt context]
+    A[Prior matched allocations] --> C
+    C --> M
+    M -->|TWO_WAY| D[Deterministic checks]
+    M -->|THREE_WAY| D
+    D --> R[Duplicate-risk assessment]
+    D -->|MATCHED in THREE_WAY| AL[Receipt allocation]
+    D -->|NEEDS_REVIEW| Q[Review case]
+    R -->|NEEDS_REVIEW| Q
+    Q --> AU[Hash-chained audit events]
+```
 
 ```text
 successful versioned extraction + explicitly selected purchase order
@@ -29,6 +45,10 @@ successful versioned extraction + explicitly selected purchase order
         -> claim / comment / release / resolve with optimistic concurrency
         -> versioned, append-only hash-chained events + state reconstruction
 ```
+
+In `THREE_WAY` mode, immutable goods receipts and reversals are reduced into a fingerprinted
+context before deterministic checks run. Only a `MATCHED` result creates cumulative receipt
+allocations. Match, context, allocations, risk, review case and opening event share one transaction.
 
 Extraction supplies observations and evidence. Matching code alone performs arithmetic and applies
 the versioned policy. Match runs reference the exact extraction row and are idempotent across

@@ -230,6 +230,37 @@ jobs:
           print("All duplicate-risk safety invariants passed.")
           PY
 
+      - name: Run three-way matching evaluation
+        run: |
+          mkdir -p "$RUNNER_TEMP/three-way-evaluation"
+          uv run python scripts/run_three_way_evaluation.py \
+            --output-dir "$RUNNER_TEMP/three-way-evaluation"
+
+      - name: Assert three-way matching safety invariants
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          report = json.loads(
+              Path("${{ runner.temp }}/three-way-evaluation/report.json").read_text()
+          )
+          if report["scenario_count"] < 25:
+              raise SystemExit("CI invariant failed: fewer than 25 scenarios")
+          if report["false_auto_match_count"] != 0:
+              raise SystemExit("CI invariant failed: false automatic three-way match")
+          if report["allocation_on_review_count"] != 0:
+              raise SystemExit("CI invariant failed: allocation created for review outcome")
+          for metric in (
+              "allocation_correctness_rate",
+              "cumulative_overbilling_detection_rate",
+              "concurrency_conflict_accuracy",
+          ):
+              if report[metric] != 1.0:
+                  raise SystemExit(f"CI invariant failed: {metric}={report[metric]}")
+          print("All three-way matching safety invariants passed.")
+          PY
+
   migrations:
     name: PostgreSQL Migrations
     runs-on: ubuntu-latest

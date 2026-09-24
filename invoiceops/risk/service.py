@@ -1,7 +1,9 @@
 import uuid
 from dataclasses import dataclass
+from datetime import timedelta
+from decimal import Decimal
 
-from sqlalchemy import select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from invoiceops.models import (
@@ -10,6 +12,7 @@ from invoiceops.models import (
     PurchaseOrder,
     ReviewCase,
     RiskAssessment,
+    RiskFeatureRecord,
     RiskSignal,
 )
 from invoiceops.risk.engine import SIGNAL_ORDER, assess_duplicate_risk
@@ -18,9 +21,27 @@ from invoiceops.schemas.extraction import ExtractedField, ExtractionStatus, Invo
 from invoiceops.schemas.risk import (
     DuplicateRiskPolicy,
     RiskAssessmentRead,
+    RiskCandidateMetrics,
     RiskFeatureSnapshot,
     RiskSignalRead,
 )
+
+CURRENT_DUPLICATE_RISK_POLICY_VERSION = "duplicate-risk-v1"
+
+
+def current_duplicate_risk_policy() -> DuplicateRiskPolicy:
+    return DuplicateRiskPolicy(version=CURRENT_DUPLICATE_RISK_POLICY_VERSION)
+
+
+def select_effective_assessment(run: MatchRun) -> RiskAssessment | None:
+    return next(
+        (
+            assessment
+            for assessment in run.risk_assessments
+            if assessment.policy_version == run.risk_policy_version
+        ),
+        None,
+    )
 
 
 class RiskAssessmentNotFoundError(LookupError):
@@ -120,6 +141,7 @@ def risk_assessment_to_read(
         match_run_id=assessment.match_run_id,
         policy_version=assessment.policy_version,
         policy_snapshot=DuplicateRiskPolicy.model_validate(assessment.policy_snapshot),
+        candidate_metrics=RiskCandidateMetrics.model_validate(assessment.candidate_metrics),
         disposition=assessment.disposition,
         feature_snapshot=features,
         feature_complete=features.complete,
@@ -146,11 +168,9 @@ def risk_assessment_to_read(
 
 
 class DuplicateRiskService:
-    def __init__(
-        self, session: Session, policy: DuplicateRiskPolicy | None = None
-    ) -> None:
+    def __init__(self, session: Session, policy: DuplicateRiskPolicy | None = None) -> None:
         self.session = session
-        self.policy = policy or DuplicateRiskPolicy()
+        self.policy = policy or current_duplicate_risk_policy()
 
     def ensure(
         self,
@@ -160,28 +180,41 @@ class DuplicateRiskService:
     ) -> RiskServiceResult:
         existing = self._find_for_match(run.id)
         if existing is not None:
+            features = build_feature_snapshot(run, purchase_order, invoice)
+            self._ensure_feature_record(features)
             return RiskServiceResult(existing, False)
 
         features = build_feature_snapshot(run, purchase_order, invoice)
-        historical = [
-            RiskFeatureSnapshot.model_validate(item.feature_snapshot)
-            for item in self.session.scalars(
-                select(RiskAssessment)
-                .where(
-                    RiskAssessment.policy_version == self.policy.version,
-                    RiskAssessment.match_run_id != run.id,
-                )
-                .order_by(RiskAssessment.created_at, RiskAssessment.id)
-            )
-        ]
+        feature_record = self._ensure_feature_record(features)
+        historical_count, candidate_records = self._candidate_records(feature_record)
+        historical = [self._record_to_snapshot(item) for item in candidate_records]
         result = assess_duplicate_risk(features, historical, self.policy)
+        comparison_count = sum(
+            item.complete
+            and item.match_run_id != features.match_run_id
+            and item.document_id != features.document_id
+            for item in historical
+        )
+        reduction = (
+            Decimal("1") - (Decimal(len(candidate_records)) / Decimal(historical_count))
+            if historical_count
+            else Decimal("0")
+        )
+        metrics = RiskCandidateMetrics(
+            historical_record_count=historical_count,
+            candidate_record_count=len(candidate_records),
+            candidate_reduction_rate=reduction,
+            comparison_count=comparison_count,
+        )
         assessment = RiskAssessment(
             match_run_id=run.id,
             policy_version=self.policy.version,
             policy_snapshot=self.policy.model_dump(mode="json"),
             disposition=result.disposition,
             feature_snapshot=result.features.model_dump(mode="json"),
+            candidate_metrics=metrics.model_dump(mode="json"),
         )
+        run.risk_policy_version = self.policy.version
         self.session.add(assessment)
         self.session.flush()
         for signal in result.signals:
@@ -212,7 +245,10 @@ class DuplicateRiskService:
         return assessment
 
     def get_for_match(self, match_run_id: uuid.UUID) -> RiskAssessment:
-        assessment = self._find_for_match(match_run_id)
+        run = self.session.get(MatchRun, match_run_id)
+        if run is None:
+            raise RiskAssessmentNotFoundError
+        assessment = self._find_for_match(match_run_id, run.risk_policy_version)
         if assessment is None:
             raise RiskAssessmentNotFoundError
         return assessment
@@ -251,12 +287,85 @@ class DuplicateRiskService:
         self.session.commit()
         return RiskReconciliationResult(len(runs), created, reused, failed)
 
-    def _find_for_match(self, match_run_id: uuid.UUID) -> RiskAssessment | None:
+    def _find_for_match(
+        self, match_run_id: uuid.UUID, policy_version: str | None = None
+    ) -> RiskAssessment | None:
         return self.session.scalar(
             select(RiskAssessment)
             .where(
                 RiskAssessment.match_run_id == match_run_id,
-                RiskAssessment.policy_version == self.policy.version,
+                RiskAssessment.policy_version == (policy_version or self.policy.version),
             )
             .options(selectinload(RiskAssessment.signals))
+        )
+
+    def _ensure_feature_record(self, features: RiskFeatureSnapshot) -> RiskFeatureRecord:
+        existing = self.session.scalar(
+            select(RiskFeatureRecord).where(RiskFeatureRecord.match_run_id == features.match_run_id)
+        )
+        if existing is not None:
+            return existing
+        record = RiskFeatureRecord(
+            match_run_id=features.match_run_id,
+            normalized_vendor=features.normalized_vendor,
+            normalized_invoice_number=features.normalized_invoice_number,
+            invoice_date=features.invoice_date,
+            currency=features.currency,
+            total=Decimal(features.total) if features.total is not None else None,
+            purchase_order_id=features.purchase_order_id,
+            document_id=features.document_id,
+            extraction_run_id=features.extraction_run_id,
+            missing_fields=list(features.missing_fields),
+        )
+        self.session.add(record)
+        self.session.flush()
+        return record
+
+    def _candidate_records(self, current: RiskFeatureRecord) -> tuple[int, list[RiskFeatureRecord]]:
+        base_conditions = (
+            RiskFeatureRecord.match_run_id != current.match_run_id,
+            RiskFeatureRecord.document_id != current.document_id,
+        )
+        historical_count = int(
+            self.session.scalar(
+                select(func.count()).select_from(RiskFeatureRecord).where(*base_conditions)
+            )
+            or 0
+        )
+        plausible = [RiskFeatureRecord.purchase_order_id == current.purchase_order_id]
+        if current.normalized_vendor and current.normalized_invoice_number:
+            plausible.append(
+                (RiskFeatureRecord.normalized_vendor == current.normalized_vendor)
+                & (RiskFeatureRecord.normalized_invoice_number == current.normalized_invoice_number)
+            )
+        if current.normalized_vendor and current.currency and current.invoice_date:
+            earliest = current.invoice_date - timedelta(days=self.policy.date_window_days)
+            latest = current.invoice_date + timedelta(days=self.policy.date_window_days)
+            plausible.append(
+                (RiskFeatureRecord.normalized_vendor == current.normalized_vendor)
+                & (RiskFeatureRecord.currency == current.currency)
+                & RiskFeatureRecord.invoice_date.between(earliest, latest)
+            )
+        candidates = list(
+            self.session.scalars(
+                select(RiskFeatureRecord)
+                .where(*base_conditions, or_(*plausible))
+                .order_by(RiskFeatureRecord.created_at, RiskFeatureRecord.id)
+            )
+        )
+        return historical_count, candidates
+
+    @staticmethod
+    def _record_to_snapshot(record: RiskFeatureRecord) -> RiskFeatureSnapshot:
+        return RiskFeatureSnapshot(
+            normalized_vendor=record.normalized_vendor,
+            normalized_invoice_number=record.normalized_invoice_number,
+            invoice_date=record.invoice_date,
+            currency=record.currency,
+            total=format(record.total, "f") if record.total is not None else None,
+            purchase_order_id=record.purchase_order_id,
+            document_id=record.document_id,
+            extraction_run_id=record.extraction_run_id,
+            match_run_id=record.match_run_id,
+            missing_fields=tuple(record.missing_fields),
         )

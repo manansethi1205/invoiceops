@@ -155,7 +155,7 @@ In `tests/integration/test_ingestion_api.py`, prove:
 Run the isolated suite and static gates before every Compose smoke test:
 
 ```powershell
-uv run pytest -q -p no:cacheprovider
+uv run pytest -m "not docker and not docile" -q -p no:cacheprovider
 uv run ruff check .
 uv run mypy apps invoiceops workers
 ```

@@ -13,9 +13,11 @@ matching result != risk disposition != human resolution != payment authorization
 
 ## Features and normalization
 
-The stored feature snapshot contains normalized vendor and invoice number, invoice date, currency,
-decimal total, purchase-order ID, document ID, extraction-run ID and match-run ID. The explicitly
-selected purchase order supplies vendor identity in this slice.
+Each match stores one policy-independent `RiskFeatureRecord` containing indexed scalar values for
+normalized vendor and invoice number, invoice date, currency, decimal total, purchase-order ID,
+document ID and extraction-run ID. Assessments retain immutable feature and policy snapshots, but
+candidate history is no longer coupled to an assessment version. A future v2 policy therefore sees
+records first created under v1. The explicitly selected purchase order supplies vendor identity.
 
 Vendor normalization applies Unicode NFKC, case folding, punctuation-to-space normalization and
 whitespace collapse while preserving letters and digits. Invoice-number normalization applies NFKC
@@ -56,7 +58,11 @@ these dispositions reject a document or approve payment.
 
 ## Persistence and review routing
 
-Every match has at most one assessment per policy version. A new match, its assessment/signals,
+Every match has at most one assessment per policy version, and records which risk policy is the
+effective historical selection. Read APIs use that stored selection rather than current defaults.
+Candidate retrieval prefilters indexed records in SQL by exact vendor/number, PO, or
+vendor/currency/date window. Responses expose historical count, candidate count,
+candidate-reduction rate and actual comparison count. A new match, its assessment/signals,
 review case, normalized triggers and opening audit event commit in one transaction. Database
 uniqueness is the final retry/concurrency safeguard. `MATCHED` plus duplicate risk opens a case
 without changing the immutable match decision.

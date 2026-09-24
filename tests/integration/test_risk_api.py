@@ -12,9 +12,11 @@ from invoiceops.models import (
     ReviewCaseTrigger,
     ReviewEvent,
     RiskAssessment,
+    RiskFeatureRecord,
     RiskSignal,
 )
 from invoiceops.risk.service import DuplicateRiskService
+from invoiceops.schemas.extraction import Invoice
 from invoiceops.schemas.matching import PurchaseOrderCreate
 from invoiceops.schemas.risk import DuplicateRiskPolicy, RiskDisposition
 from tests.integration.test_matching_api import (
@@ -23,11 +25,38 @@ from tests.integration.test_matching_api import (
 )
 
 
-def create_clean_match(
-    session: Session, purchase_order_id: uuid.UUID
-) -> MatchRun:
+def create_clean_match(session: Session, purchase_order_id: uuid.UUID) -> MatchRun:
     document, _ = create_document_with_extraction(session)
     return MatchingService(session).match(document.id, purchase_order_id).run
+
+
+def test_new_policy_version_uses_policy_independent_v1_feature_history(
+    db_session_factory: sessionmaker[Session],
+) -> None:
+    with db_session_factory() as session:
+        purchase_order = PurchaseOrderService(session).create(
+            PurchaseOrderCreate.model_validate(po_payload())
+        )
+        first = create_clean_match(session, purchase_order.id)
+        v2 = DuplicateRiskPolicy(version="duplicate-risk-v2")
+        v2_service = DuplicateRiskService(session, v2)
+        document, _ = create_document_with_extraction(session)
+        second = MatchingService(session).match(document.id, purchase_order.id).run
+        second_extraction = second.extraction_run
+        assert second_extraction.output_json is not None
+        assessment = v2_service.ensure(
+            second,
+            purchase_order,
+            Invoice.model_validate(second_extraction.output_json),
+        ).assessment
+
+        assert assessment.policy_version == "duplicate-risk-v2"
+        assert assessment.disposition == RiskDisposition.NEEDS_REVIEW
+        assert any(signal.comparison_match_run_id == first.id for signal in assessment.signals)
+        assert session.scalar(select(func.count()).select_from(RiskFeatureRecord)) == 2
+        metrics = assessment.candidate_metrics
+        assert metrics["historical_record_count"] == 1
+        assert metrics["candidate_record_count"] == 1
 
 
 def test_different_byte_business_duplicate_opens_one_explainable_review_case(
@@ -113,19 +142,30 @@ def test_match_review_and_duplicate_risk_share_one_case_and_opening_event(
         assert second.decision.value == "NEEDS_REVIEW"
         case = session.scalar(select(ReviewCase).where(ReviewCase.match_run_id == second.id))
         assert case is not None
-        assert session.scalar(
-            select(func.count()).select_from(ReviewCase).where(ReviewCase.match_run_id == second.id)
-        ) == 1
-        assert session.scalar(
-            select(func.count()).select_from(RiskAssessment).where(
-                RiskAssessment.match_run_id == second.id
+        assert (
+            session.scalar(
+                select(func.count())
+                .select_from(ReviewCase)
+                .where(ReviewCase.match_run_id == second.id)
             )
-        ) == 1
-        assert session.scalar(
-            select(func.count()).select_from(ReviewEvent).where(
-                ReviewEvent.review_case_id == case.id
+            == 1
+        )
+        assert (
+            session.scalar(
+                select(func.count())
+                .select_from(RiskAssessment)
+                .where(RiskAssessment.match_run_id == second.id)
             )
-        ) == 1
+            == 1
+        )
+        assert (
+            session.scalar(
+                select(func.count())
+                .select_from(ReviewEvent)
+                .where(ReviewEvent.review_case_id == case.id)
+            )
+            == 1
+        )
         trigger_types = set(
             session.scalars(
                 select(ReviewCaseTrigger.trigger_type).where(
@@ -134,9 +174,7 @@ def test_match_review_and_duplicate_risk_share_one_case_and_opening_event(
             )
         )
         assert trigger_types == {"MATCH_REASON", "RISK_SIGNAL"}
-        opening = session.scalar(
-            select(ReviewEvent).where(ReviewEvent.review_case_id == case.id)
-        )
+        opening = session.scalar(select(ReviewEvent).where(ReviewEvent.review_case_id == case.id))
         assert opening is not None
         snapshot = opening.payload["review_triggers"]
         assert isinstance(snapshot, list)
@@ -195,11 +233,14 @@ def test_database_uniqueness_is_final_concurrent_assessment_safeguard(
             session.rollback()
         else:
             raise AssertionError("duplicate risk assessment unexpectedly committed")
-        assert session.scalar(
-            select(func.count()).select_from(RiskAssessment).where(
-                RiskAssessment.match_run_id == run.id
+        assert (
+            session.scalar(
+                select(func.count())
+                .select_from(RiskAssessment)
+                .where(RiskAssessment.match_run_id == run.id)
             )
-        ) == 1
+            == 1
+        )
 
 
 def test_missing_risk_resources_and_immutable_api_surface(client: TestClient) -> None:
@@ -227,7 +268,5 @@ def test_missing_selected_po_vendor_routes_as_incomplete_without_false_clear(
     risk = client.get(f"/v1/matches/{match['id']}/risk").json()
     assert risk["feature_complete"] is False
     assert risk["feature_snapshot"]["missing_fields"] == ["normalized_vendor"]
-    assert [signal["code"] for signal in risk["signals"]] == [
-        "DUPLICATE_CHECK_INCOMPLETE"
-    ]
+    assert [signal["code"] for signal in risk["signals"]] == ["DUPLICATE_CHECK_INCOMPLETE"]
     assert risk["review_case_id"] is not None

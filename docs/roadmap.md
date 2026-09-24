@@ -1,5 +1,10 @@
 # Delivery roadmap
 
+The explainable three-way slice is implemented: immutable/idempotent receipts, append-only
+reversals, versioned context, cumulative allocations, review/risk integration and evaluation.
+ERP integration, payments, production authentication and generic anomaly models remain out of
+scope.
+
 Build this as independently measurable vertical slices. AI handles perception and ambiguity;
 deterministic code handles arithmetic, policy, matching, and approval.
 

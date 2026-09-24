@@ -6,26 +6,33 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
 from invoiceops.extraction.selection import current_successful_extraction
+from invoiceops.matching.context import ThreeWayContextBuilder
 from invoiceops.matching.engine import match_invoice
+from invoiceops.matching.three_way import match_invoice_three_way
 from invoiceops.models import (
+    TWO_WAY_CONTEXT_FINGERPRINT,
     Document,
     ExtractionRun,
     MatchRun,
     PurchaseOrder,
     PurchaseOrderLine,
     ReviewCase,
+    ThreeWayAllocation,
+    ThreeWayContext,
 )
 from invoiceops.review.service import ensure_review_case
-from invoiceops.risk.service import DuplicateRiskService
+from invoiceops.risk.service import DuplicateRiskService, select_effective_assessment
 from invoiceops.schemas.extraction import Invoice
 from invoiceops.schemas.matching import (
     MatchDecision,
+    MatchingMode,
     MatchingPolicy,
     MatchResult,
     MatchRunRead,
     PurchaseOrderCreate,
     PurchaseOrderLineRead,
     PurchaseOrderRead,
+    ThreeWayMatchingPolicy,
 )
 from invoiceops.schemas.risk import RiskDisposition
 
@@ -64,13 +71,11 @@ def purchase_order_to_read(purchase_order: PurchaseOrder) -> PurchaseOrderRead:
 
 
 def match_run_to_read(run: MatchRun) -> MatchRunRead:
-    risk = next(
-        (
-            assessment
-            for assessment in run.risk_assessments
-            if assessment.policy_version == "duplicate-risk-v1"
-        ),
-        None,
+    risk = select_effective_assessment(run)
+    policy = (
+        ThreeWayMatchingPolicy.model_validate(run.policy_snapshot)
+        if run.matching_mode == MatchingMode.THREE_WAY
+        else MatchingPolicy.model_validate(run.policy_snapshot)
     )
     return MatchRunRead(
         id=run.id,
@@ -78,7 +83,18 @@ def match_run_to_read(run: MatchRun) -> MatchRunRead:
         purchase_order_id=run.purchase_order_id,
         extraction_run_id=run.extraction_run_id,
         policy_version=run.policy_version,
-        policy_snapshot=MatchingPolicy.model_validate(run.policy_snapshot),
+        policy_snapshot=policy,
+        matching_mode=run.matching_mode,
+        context_fingerprint=(
+            run.matching_context_fingerprint
+            if run.matching_mode == MatchingMode.THREE_WAY
+            else None
+        ),
+        three_way_context_url=(
+            f"/v1/matches/{run.id}/three-way-context"
+            if run.matching_mode == MatchingMode.THREE_WAY
+            else None
+        ),
         decision=run.decision,
         result=MatchResult.model_validate(run.result_json),
         risk_assessment_id=risk.id if risk is not None else None,
@@ -132,38 +148,104 @@ class PurchaseOrderService:
 
 
 class MatchingService:
-    def __init__(self, session: Session, policy: MatchingPolicy | None = None) -> None:
+    def __init__(
+        self,
+        session: Session,
+        policy: MatchingPolicy | None = None,
+        three_way_policy: ThreeWayMatchingPolicy | None = None,
+    ) -> None:
         self.session = session
         self.policy = policy or MatchingPolicy()
+        self.three_way_policy = three_way_policy or ThreeWayMatchingPolicy()
 
     def match(
-        self, document_id: uuid.UUID, purchase_order_id: uuid.UUID
+        self,
+        document_id: uuid.UUID,
+        purchase_order_id: uuid.UUID,
+        mode: MatchingMode = MatchingMode.TWO_WAY,
     ) -> MatchServiceResult:
         if self.session.get(Document, document_id) is None:
             raise DocumentNotFoundError
-        purchase_order = PurchaseOrderService(self.session).get(purchase_order_id)
+        purchase_order = self._locked_purchase_order(purchase_order_id, mode)
         extraction_run = self._latest_successful_extraction(document_id)
-        existing = self._find_existing(document_id, purchase_order_id, extraction_run.id)
+        if extraction_run.output_json is None:
+            raise ExtractionNotReadyError
+        invoice = Invoice.model_validate(extraction_run.output_json)
+        policy_version = (
+            self.three_way_policy.version if mode == MatchingMode.THREE_WAY else self.policy.version
+        )
+        snapshot = None
+        if mode == MatchingMode.THREE_WAY:
+            builder = ThreeWayContextBuilder(self.session)
+            for prior in self._find_prior_candidates(
+                document_id, purchase_order_id, extraction_run.id, mode, policy_version
+            ):
+                _, retry_fingerprint = builder.build(
+                    purchase_order, self.three_way_policy, exclude_match_run_id=prior.id
+                )
+                if retry_fingerprint == prior.matching_context_fingerprint:
+                    self._ensure_case_for_existing(prior)
+                    return MatchServiceResult(prior, created=False)
+            snapshot, context_fingerprint = builder.build(purchase_order, self.three_way_policy)
+        else:
+            context_fingerprint = TWO_WAY_CONTEXT_FINGERPRINT
+        existing = self._find_existing(
+            document_id,
+            purchase_order_id,
+            extraction_run.id,
+            mode,
+            policy_version,
+            context_fingerprint,
+        )
         if existing is not None:
             self._ensure_case_for_existing(existing)
             return MatchServiceResult(existing, created=False)
 
-        if extraction_run.output_json is None:
-            raise ExtractionNotReadyError
-        invoice = Invoice.model_validate(extraction_run.output_json)
-        result = match_invoice(invoice, purchase_order_to_read(purchase_order), self.policy)
+        if mode == MatchingMode.THREE_WAY:
+            assert snapshot is not None
+            result, allocations = match_invoice_three_way(
+                invoice,
+                purchase_order_to_read(purchase_order),
+                snapshot,
+                self.three_way_policy,
+            )
+            policy_snapshot = self.three_way_policy.model_dump(mode="json")
+        else:
+            result = match_invoice(invoice, purchase_order_to_read(purchase_order), self.policy)
+            allocations = []
+            policy_snapshot = self.policy.model_dump(mode="json")
         run = MatchRun(
             document_id=document_id,
             purchase_order_id=purchase_order_id,
             extraction_run_id=extraction_run.id,
-            policy_version=self.policy.version,
-            policy_snapshot=self.policy.model_dump(mode="json"),
+            policy_version=policy_version,
+            policy_snapshot=policy_snapshot,
+            matching_mode=mode,
+            matching_context_fingerprint=context_fingerprint,
+            risk_policy_version="duplicate-risk-v1",
             decision=result.decision,
             result_json=result.model_dump(mode="json"),
         )
         self.session.add(run)
         try:
             self.session.flush()
+            if snapshot is not None:
+                self.session.add(
+                    ThreeWayContext(
+                        match_run_id=run.id,
+                        context_fingerprint=context_fingerprint,
+                        snapshot=snapshot.model_dump(mode="json"),
+                    )
+                )
+                self.session.add_all(
+                    ThreeWayAllocation(
+                        match_run_id=run.id,
+                        purchase_order_line_id=item.purchase_order_line_id,
+                        invoice_line_index=item.invoice_line_index,
+                        allocated_quantity=item.quantity,
+                    )
+                    for item in allocations
+                )
             risk = DuplicateRiskService(self.session).ensure(run, purchase_order, invoice)
             ensure_review_case(self.session, run, risk.assessment)
             self.session.commit()
@@ -172,7 +254,12 @@ class MatchingService:
         except IntegrityError:
             self.session.rollback()
             concurrent = self._find_existing(
-                document_id, purchase_order_id, extraction_run.id
+                document_id,
+                purchase_order_id,
+                extraction_run.id,
+                mode,
+                policy_version,
+                context_fingerprint,
             )
             if concurrent is None:
                 raise
@@ -196,15 +283,57 @@ class MatchingService:
         document_id: uuid.UUID,
         purchase_order_id: uuid.UUID,
         extraction_run_id: uuid.UUID,
+        mode: MatchingMode,
+        policy_version: str,
+        context_fingerprint: str,
     ) -> MatchRun | None:
         return self.session.scalar(
             select(MatchRun).where(
                 MatchRun.document_id == document_id,
                 MatchRun.purchase_order_id == purchase_order_id,
                 MatchRun.extraction_run_id == extraction_run_id,
-                MatchRun.policy_version == self.policy.version,
+                MatchRun.policy_version == policy_version,
+                MatchRun.matching_mode == mode,
+                MatchRun.matching_context_fingerprint == context_fingerprint,
             )
         )
+
+    def _find_prior_candidates(
+        self,
+        document_id: uuid.UUID,
+        purchase_order_id: uuid.UUID,
+        extraction_run_id: uuid.UUID,
+        mode: MatchingMode,
+        policy_version: str,
+    ) -> list[MatchRun]:
+        return list(
+            self.session.scalars(
+                select(MatchRun)
+                .where(
+                    MatchRun.document_id == document_id,
+                    MatchRun.purchase_order_id == purchase_order_id,
+                    MatchRun.extraction_run_id == extraction_run_id,
+                    MatchRun.matching_mode == mode,
+                    MatchRun.policy_version == policy_version,
+                )
+                .order_by(MatchRun.created_at.desc(), MatchRun.id.desc())
+            )
+        )
+
+    def _locked_purchase_order(
+        self, purchase_order_id: uuid.UUID, mode: MatchingMode
+    ) -> PurchaseOrder:
+        query = (
+            select(PurchaseOrder)
+            .where(PurchaseOrder.id == purchase_order_id)
+            .options(selectinload(PurchaseOrder.lines))
+        )
+        if mode == MatchingMode.THREE_WAY:
+            query = query.with_for_update()
+        purchase_order = self.session.scalar(query)
+        if purchase_order is None:
+            raise PurchaseOrderNotFoundError
+        return purchase_order
 
     def _ensure_case_for_existing(self, run: MatchRun) -> None:
         try:
@@ -220,9 +349,7 @@ class MatchingService:
             # Another retry repaired the same historical run first.
             self.session.rollback()
             assessment = DuplicateRiskService(self.session).get_for_match(run.id)
-            case = self.session.scalar(
-                select(ReviewCase).where(ReviewCase.match_run_id == run.id)
-            )
+            case = self.session.scalar(select(ReviewCase).where(ReviewCase.match_run_id == run.id))
             requires_case = run.decision == MatchDecision.NEEDS_REVIEW or (
                 assessment.disposition == RiskDisposition.NEEDS_REVIEW
             )

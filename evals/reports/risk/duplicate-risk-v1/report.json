@@ -7,11 +7,12 @@
   "clean_invoice_false_review_count": 0,
   "incomplete_assessment_accuracy": 1.0,
   "duplicate_assessment_count": 0,
-  "p50_risk_latency_ms": 0.026,
-  "p95_risk_latency_ms": 0.0423,
+  "p50_risk_latency_ms": 0.039,
+  "p95_risk_latency_ms": 0.0805,
   "policy_version": "duplicate-risk-v1",
   "scenario_set_version": "duplicate-risk-synthetic-v1",
-  "source_revision": "b77e2c22a749f3b99237237432d943bf6cef3d48",
-  "evaluated_at": "2026-09-23T20:20:06.596321Z",
+  "source_revision": "271cc5b277a6ee8f660eb4bee907c2b4c50ff1a4",
+  "source_tree_fingerprint": "ebbd5719a7c0168e5e8ea2d20ef4bbdfc76326c39155d74656ca0463db6329ca",
+  "evaluated_at": "2026-09-24T06:24:55.748355Z",
   "python_version": "3.12.11"
 }

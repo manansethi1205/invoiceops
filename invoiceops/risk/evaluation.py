@@ -1,3 +1,4 @@
+import hashlib
 import math
 import platform
 import subprocess
@@ -46,6 +47,7 @@ class DuplicateRiskEvaluationReport(BaseModel):
     policy_version: str
     scenario_set_version: str
     source_revision: str
+    source_tree_fingerprint: str
     evaluated_at: datetime
     python_version: str
 
@@ -132,9 +134,7 @@ def synthetic_duplicate_risk_scenarios() -> list[DuplicateRiskScenario]:
         scenarios.append(
             DuplicateRiskScenario(
                 f"po-replay-{index}",
-                _feature(
-                    f"po-{index}", "current", total="200.00", po_key=po_key
-                ),
+                _feature(f"po-{index}", "current", total="200.00", po_key=po_key),
                 (_feature(f"po-{index}", "prior", po_key=po_key),),
                 RiskDisposition.NEEDS_REVIEW,
                 frozenset(
@@ -237,10 +237,9 @@ def run_duplicate_risk_evaluation(
             clean_false_review += 1
         if RiskSignalCode.DUPLICATE_CHECK_INCOMPLETE in scenario.expected_signals:
             incomplete_count += 1
-            incomplete_correct += (
-                result.disposition == scenario.expected_disposition
-                and {signal.code for signal in result.signals} == set(scenario.expected_signals)
-            )
+            incomplete_correct += result.disposition == scenario.expected_disposition and {
+                signal.code for signal in result.signals
+            } == set(scenario.expected_signals)
     denominator_precision = true_positive + false_positive
     denominator_recall = true_positive + false_negative
     return DuplicateRiskEvaluationReport(
@@ -249,9 +248,7 @@ def run_duplicate_risk_evaluation(
         duplicate_signal_precision=(
             true_positive / denominator_precision if denominator_precision else 1.0
         ),
-        duplicate_signal_recall=(
-            true_positive / denominator_recall if denominator_recall else 1.0
-        ),
+        duplicate_signal_recall=(true_positive / denominator_recall if denominator_recall else 1.0),
         known_duplicate_false_clear_count=known_false_clear,
         clean_invoice_false_review_count=clean_false_review,
         incomplete_assessment_accuracy=(
@@ -263,6 +260,7 @@ def run_duplicate_risk_evaluation(
         policy_version=effective_policy.version,
         scenario_set_version=SCENARIO_SET_VERSION,
         source_revision=_git_revision(),
+        source_tree_fingerprint=source_tree_fingerprint(),
         evaluated_at=datetime.now(UTC),
         python_version=platform.python_version(),
     )
@@ -287,6 +285,43 @@ def _git_revision() -> str:
         return "unknown"
 
 
+def source_tree_fingerprint() -> str:
+    """Hash tracked source/config inputs while excluding generated reports."""
+    try:
+        names = subprocess.run(
+            ["git", "ls-files", "--cached", "--others", "--exclude-standard"],
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=2,
+        ).stdout.splitlines()
+    except (OSError, subprocess.SubprocessError):
+        names = [
+            path.as_posix()
+            for root in (Path("apps"), Path("invoiceops"), Path("scripts"), Path("tests"))
+            if root.exists()
+            for path in root.rglob("*")
+            if path.is_file()
+        ]
+    selected = sorted(
+        name.replace("\\", "/")
+        for name in names
+        if not name.replace("\\", "/").startswith(
+            ("evals/reports/", "tmp/", "work/", "outputs/", ".uv-cache/")
+        )
+    )
+    digest = hashlib.sha256()
+    for name in selected:
+        path = Path(name)
+        if not path.is_file():
+            continue
+        digest.update(name.encode("utf-8"))
+        digest.update(b"\0")
+        digest.update(path.read_bytes())
+        digest.update(b"\0")
+    return digest.hexdigest()
+
+
 def render_duplicate_risk_report(report: DuplicateRiskEvaluationReport) -> str:
     return "\n".join(
         [
@@ -299,6 +334,7 @@ def render_duplicate_risk_report(report: DuplicateRiskEvaluationReport) -> str:
             f"- Policy version: `{report.policy_version}`",
             f"- Scenario set: `{report.scenario_set_version}`",
             f"- Source revision: `{report.source_revision}`",
+            f"- Source-tree fingerprint: `{report.source_tree_fingerprint}`",
             f"- Expected disposition accuracy: {report.expected_disposition_accuracy:.4f}",
             f"- Duplicate-signal precision: {report.duplicate_signal_precision:.4f}",
             f"- Duplicate-signal recall: {report.duplicate_signal_recall:.4f}",
@@ -316,11 +352,7 @@ def render_duplicate_risk_report(report: DuplicateRiskEvaluationReport) -> str:
     )
 
 
-def write_duplicate_risk_report(
-    path: Path, report: DuplicateRiskEvaluationReport
-) -> None:
+def write_duplicate_risk_report(path: Path, report: DuplicateRiskEvaluationReport) -> None:
     path.mkdir(parents=True, exist_ok=True)
-    (path / "report.json").write_text(
-        report.model_dump_json(indent=2) + "\n", encoding="utf-8"
-    )
+    (path / "report.json").write_text(report.model_dump_json(indent=2) + "\n", encoding="utf-8")
     (path / "report.md").write_text(render_duplicate_risk_report(report), encoding="utf-8")

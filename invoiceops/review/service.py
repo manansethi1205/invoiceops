@@ -205,7 +205,12 @@ def _trigger_snapshot(
             }
             for signal in risk_assessment.signals
         )
-    return sorted(triggers, key=lambda item: (item["type"], item["code"], item["source_id"]))
+    unique = {
+        (item["type"], item["code"], item["source_id"]): item for item in triggers
+    }
+    return sorted(
+        unique.values(), key=lambda item: (item["type"], item["code"], item["source_id"])
+    )
 
 
 def _ensure_review_triggers(

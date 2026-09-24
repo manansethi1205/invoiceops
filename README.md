@@ -13,6 +13,7 @@ decisions. Only synthetic or de-identified financial documents belong in this re
 | Two-way matching v1 | 18 synthetic business scenarios | 100% expected-decision accuracy, 0 false auto-matches |
 | Review workflow v1 | 17 synthetic state/concurrency scenarios | 100% category accuracy, 0 false automatic resolutions |
 | Duplicate risk v1 | 25 synthetic business scenarios | 100% disposition/signal accuracy, 0 known-duplicate false clears |
+| Three-way matching v1 | 26 synthetic receiving scenarios | 100% expected-decision accuracy, 0 false auto-matches |
 | DocILE external context | Fixed 100-document validation sample | supported LIR F1 18.49% end-to-end / 22.28% precomputed OCR; supported KILE F1 0% |
 
 Synthetic results are project measurements, not production claims. DocILE results are reported
@@ -47,11 +48,13 @@ embedded-text/OCR tokens. Grounded conflicts become `AMBIGUOUS`; provider failur
 deterministic invoice. The VLM is disabled and model-less by default, and confidence never
 authorizes matching, approval, or payment.
 
-The deterministic two-way matching slice accepts typed purchase orders, validates invoice
+The deterministic matching slice accepts typed purchase orders, validates invoice
 arithmetic, and compares an explicitly selected PO with a successful extraction. Matching is
 synchronous and returns only `MATCHED` or `NEEDS_REVIEW`, with versioned tolerances, reason codes,
 line assignments, and invoice evidence. Ambiguous, incomplete, or inconsistent observations can
-never produce `MATCHED`; no model makes arithmetic or approval decisions.
+never produce `MATCHED`; no model makes arithmetic or approval decisions. Explicit `THREE_WAY`
+mode adds immutable goods receipts, reversals, cumulative receipt allocations and a fingerprinted
+historical context. Existing requests remain two-way by default.
 
 Every `NEEDS_REVIEW` result now opens exactly one evidence-linked case and opening audit event in
 the same transaction as the immutable match run. Reviewers can claim, comment, release and resolve
@@ -128,6 +131,16 @@ Get-Content evals/reports/matching/matching-v1/report.md
 
 The 18 scenarios are synthetic. Their aggregate result is engineering evidence, not a production
 accuracy claim. The safety invariant is `false_auto_match_count == 0`.
+
+Run the deterministic three-way matching evaluation:
+
+```powershell
+uv run python scripts/run_three_way_evaluation.py
+Get-Content evals/reports/matching/three-way-v1/report.md
+```
+
+It covers fully/partially received goods, multiple receipts, cumulative invoicing, reversals,
+receipt timing, missing receipts, over-receipt, over-invoicing and policy boundaries.
 
 Run the network-free hybrid replay evaluation:
 
@@ -208,6 +221,8 @@ See [architecture](docs/architecture.md) and [ADR-001](docs/adr/001-ingestion-bo
 See [hybrid extraction](docs/hybrid-extraction.md) for routing, grounding, fusion, and privacy.
 See [two-way matching](docs/matching.md) for policy definitions, reason codes, API behavior, and
 known limitations.
+See [three-way matching](docs/three-way-matching.md) for receipt idempotency, context fingerprints,
+allocation and concurrency behavior.
 See [human review](docs/review.md) for state transitions, concurrency, identity limitations,
 evidence navigation, reconciliation and audit verification.
 The delivery sequence is captured in [the roadmap](docs/roadmap.md).

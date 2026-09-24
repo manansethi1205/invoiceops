@@ -1,5 +1,9 @@
 # Local implementation and test runbook (Windows PowerShell)
 
+For a three-way smoke test, create a PO, post its immutable receipt to
+`POST /v1/goods-receipts`, then match with `"mode":"THREE_WAY"`. Corrections use
+`POST /v1/goods-receipts/{receipt_id}/reverse` with development-only `X-Actor-ID`.
+
 These instructions run the ingestion slice implemented today: upload document, store object,
 create and dispatch a job, return its identifier, and poll its status.
 
@@ -78,7 +82,7 @@ The checked-in example contains local-only credentials. Never reuse them in a de
 ## 4. Run the fast feedback checks
 
 ```powershell
-uv run pytest -q -p no:cacheprovider
+uv run pytest -m "not docker and not docile" -q -p no:cacheprovider
 uv run ruff check .
 uv run mypy apps invoiceops workers
 ```
@@ -284,7 +288,7 @@ synthetic PDF in the repository is unaffected and can be deleted normally when n
 The reliable loop after editing code is:
 
 ```powershell
-uv run pytest -q -p no:cacheprovider
+uv run pytest -m "not docker and not docile" -q -p no:cacheprovider
 uv run ruff check .
 uv run mypy apps invoiceops workers
 docker compose up --build -d

@@ -1,5 +1,9 @@
 # Evidence-linked human review
 
+Three-way `MATCH_REASON` triggers share the same case as duplicate-risk `RISK_SIGNAL` triggers.
+Case detail embeds matching mode, policy, context URL, receipt-linked checks and risk disposition.
+Resolving a case never creates a receipt allocation or authorizes payment.
+
 `NEEDS_REVIEW` match runs open exactly one durable review case. `MATCHED` runs never open a case.
 The match run, case, and `CASE_OPENED` event are committed atomically. Historical `NEEDS_REVIEW`
 runs can be repaired idempotently with:

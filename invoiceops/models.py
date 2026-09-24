@@ -1,5 +1,6 @@
+import hashlib
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 from enum import StrEnum
 
@@ -22,9 +23,11 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from invoiceops.db import Base
-from invoiceops.schemas.matching import MatchDecision
+from invoiceops.schemas.matching import MatchDecision, MatchingMode
 from invoiceops.schemas.review import ReviewEventType, ReviewResolution, ReviewStatus
 from invoiceops.schemas.risk import RiskDisposition, RiskSeverity, RiskSignalCode
+
+TWO_WAY_CONTEXT_FINGERPRINT = hashlib.sha256(b"invoiceops:two-way-context:v1").hexdigest()
 
 
 class JobStatus(StrEnum):
@@ -56,9 +59,7 @@ class Document(Base):
     byte_size: Mapped[int] = mapped_column(BigInteger)
     sha256: Mapped[str] = mapped_column(String(64), unique=True, index=True)
     object_key: Mapped[str] = mapped_column(String(512), unique=True)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     job: Mapped["IngestionJob"] = relationship(back_populates="document")
     extraction_runs: Mapped[list["ExtractionRun"]] = relationship(
         back_populates="document", cascade="all, delete-orphan"
@@ -80,9 +81,7 @@ class IngestionJob(Base):
     )
     error_code: Mapped[str | None] = mapped_column(String(100), nullable=True)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
@@ -116,9 +115,7 @@ class ExtractionRun(Base):
     latency_ms: Mapped[float | None] = mapped_column(Float, nullable=True)
     error_code: Mapped[str | None] = mapped_column(String(100), nullable=True)
     error_message: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     document: Mapped[Document] = relationship(back_populates="extraction_runs")
     match_runs: Mapped[list["MatchRun"]] = relationship(back_populates="extraction_run")
@@ -159,9 +156,7 @@ class ModelCall(Base):
     candidate_json: Mapped[dict[str, object] | None] = mapped_column(JSON, nullable=True)
     grounding_fusion_json: Mapped[dict[str, object] | None] = mapped_column(JSON, nullable=True)
     error_code: Mapped[str | None] = mapped_column(String(100), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     extraction_run: Mapped[ExtractionRun] = relationship(back_populates="model_calls")
 
@@ -173,15 +168,16 @@ class PurchaseOrder(Base):
     external_po_number: Mapped[str] = mapped_column(String(100), index=True)
     vendor_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     currency: Mapped[str] = mapped_column(String(3))
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     lines: Mapped[list["PurchaseOrderLine"]] = relationship(
         back_populates="purchase_order",
         cascade="all, delete-orphan",
         order_by="PurchaseOrderLine.line_number",
     )
     match_runs: Mapped[list["MatchRun"]] = relationship(back_populates="purchase_order")
+    goods_receipts: Mapped[list["GoodsReceipt"]] = relationship(
+        back_populates="purchase_order", cascade="all, delete-orphan"
+    )
 
 
 class PurchaseOrderLine(Base):
@@ -201,6 +197,89 @@ class PurchaseOrderLine(Base):
     ordered_quantity: Mapped[Decimal] = mapped_column(Numeric(24, 8))
     unit_price: Mapped[Decimal] = mapped_column(Numeric(24, 8))
     purchase_order: Mapped[PurchaseOrder] = relationship(back_populates="lines")
+    receipt_lines: Mapped[list["GoodsReceiptLine"]] = relationship(
+        back_populates="purchase_order_line"
+    )
+    three_way_allocations: Mapped[list["ThreeWayAllocation"]] = relationship(
+        back_populates="purchase_order_line"
+    )
+
+
+class GoodsReceipt(Base):
+    __tablename__ = "goods_receipts"
+    __table_args__ = (
+        UniqueConstraint(
+            "purchase_order_id",
+            "external_receipt_number",
+            name="uq_goods_receipt_po_external_number",
+        ),
+        CheckConstraint(
+            "length(trim(external_receipt_number)) > 0",
+            name="ck_goods_receipt_number_nonblank",
+        ),
+        CheckConstraint(
+            "length(request_fingerprint) = 64",
+            name="ck_goods_receipt_fingerprint_length",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    purchase_order_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("purchase_orders.id", ondelete="RESTRICT"), index=True
+    )
+    external_receipt_number: Mapped[str] = mapped_column(String(100))
+    received_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    request_fingerprint: Mapped[str] = mapped_column(String(64))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    purchase_order: Mapped[PurchaseOrder] = relationship(back_populates="goods_receipts")
+    lines: Mapped[list["GoodsReceiptLine"]] = relationship(
+        back_populates="goods_receipt",
+        cascade="all, delete-orphan",
+        order_by="GoodsReceiptLine.purchase_order_line_id",
+    )
+    reversal: Mapped["GoodsReceiptReversal | None"] = relationship(
+        back_populates="goods_receipt", cascade="all, delete-orphan", uselist=False
+    )
+
+
+class GoodsReceiptLine(Base):
+    __tablename__ = "goods_receipt_lines"
+    __table_args__ = (
+        UniqueConstraint(
+            "goods_receipt_id",
+            "purchase_order_line_id",
+            name="uq_goods_receipt_line_receipt_po_line",
+        ),
+        CheckConstraint("accepted_quantity > 0", name="ck_goods_receipt_line_positive_quantity"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    goods_receipt_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("goods_receipts.id", ondelete="CASCADE"), index=True
+    )
+    purchase_order_line_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("purchase_order_lines.id", ondelete="RESTRICT"), index=True
+    )
+    accepted_quantity: Mapped[Decimal] = mapped_column(Numeric(24, 8))
+    goods_receipt: Mapped[GoodsReceipt] = relationship(back_populates="lines")
+    purchase_order_line: Mapped[PurchaseOrderLine] = relationship(back_populates="receipt_lines")
+
+
+class GoodsReceiptReversal(Base):
+    __tablename__ = "goods_receipt_reversals"
+    __table_args__ = (
+        CheckConstraint("length(trim(actor_id)) > 0", name="ck_receipt_reversal_actor_nonblank"),
+        CheckConstraint("length(trim(reason)) > 0", name="ck_receipt_reversal_reason_nonblank"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    goods_receipt_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("goods_receipts.id", ondelete="RESTRICT"), unique=True, index=True
+    )
+    actor_id: Mapped[str] = mapped_column(String(100))
+    reason: Mapped[str] = mapped_column(Text)
+    reversed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    goods_receipt: Mapped[GoodsReceipt] = relationship(back_populates="reversal")
 
 
 class MatchRun(Base):
@@ -211,6 +290,8 @@ class MatchRun(Base):
             "purchase_order_id",
             "extraction_run_id",
             "policy_version",
+            "matching_mode",
+            "matching_context_fingerprint",
             name="uq_match_run_idempotency",
         ),
     )
@@ -227,13 +308,19 @@ class MatchRun(Base):
     )
     policy_version: Mapped[str] = mapped_column(String(50))
     policy_snapshot: Mapped[dict[str, object]] = mapped_column(JSON)
+    matching_mode: Mapped[MatchingMode] = mapped_column(
+        Enum(MatchingMode, name="matching_mode", native_enum=False),
+        default=MatchingMode.TWO_WAY,
+    )
+    matching_context_fingerprint: Mapped[str] = mapped_column(
+        String(64), default=TWO_WAY_CONTEXT_FINGERPRINT
+    )
+    risk_policy_version: Mapped[str] = mapped_column(String(50), default="duplicate-risk-v1")
     decision: Mapped[MatchDecision] = mapped_column(
         Enum(MatchDecision, name="match_decision", native_enum=False)
     )
     result_json: Mapped[dict[str, object]] = mapped_column(JSON)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     document: Mapped[Document] = relationship(back_populates="match_runs")
     purchase_order: Mapped[PurchaseOrder] = relationship(back_populates="match_runs")
     extraction_run: Mapped[ExtractionRun] = relationship(back_populates="match_runs")
@@ -243,14 +330,49 @@ class MatchRun(Base):
     risk_assessments: Mapped[list["RiskAssessment"]] = relationship(
         back_populates="match_run", cascade="all, delete-orphan"
     )
+    risk_feature_record: Mapped["RiskFeatureRecord | None"] = relationship(
+        back_populates="match_run", cascade="all, delete-orphan", uselist=False
+    )
+    three_way_context: Mapped["ThreeWayContext | None"] = relationship(
+        back_populates="match_run", cascade="all, delete-orphan", uselist=False
+    )
+    three_way_allocations: Mapped[list["ThreeWayAllocation"]] = relationship(
+        back_populates="match_run", cascade="all, delete-orphan"
+    )
+
+
+class RiskFeatureRecord(Base):
+    __tablename__ = "risk_feature_records"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    match_run_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("match_runs.id", ondelete="CASCADE"), unique=True, index=True
+    )
+    normalized_vendor: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
+    normalized_invoice_number: Mapped[str | None] = mapped_column(
+        String(255), nullable=True, index=True
+    )
+    invoice_date: Mapped[date | None] = mapped_column(nullable=True, index=True)
+    currency: Mapped[str | None] = mapped_column(String(3), nullable=True, index=True)
+    total: Mapped[Decimal | None] = mapped_column(Numeric(24, 8), nullable=True, index=True)
+    purchase_order_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("purchase_orders.id", ondelete="CASCADE"), index=True
+    )
+    document_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("documents.id", ondelete="CASCADE"), index=True
+    )
+    extraction_run_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("extraction_runs.id", ondelete="RESTRICT"), index=True
+    )
+    missing_fields: Mapped[list[str]] = mapped_column(JSON)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    match_run: Mapped[MatchRun] = relationship(back_populates="risk_feature_record")
 
 
 class RiskAssessment(Base):
     __tablename__ = "risk_assessments"
     __table_args__ = (
-        UniqueConstraint(
-            "match_run_id", "policy_version", name="uq_risk_assessment_match_policy"
-        ),
+        UniqueConstraint("match_run_id", "policy_version", name="uq_risk_assessment_match_policy"),
         CheckConstraint(
             "length(trim(policy_version)) > 0", name="ck_risk_assessment_policy_nonblank"
         ),
@@ -266,9 +388,8 @@ class RiskAssessment(Base):
         Enum(RiskDisposition, name="risk_disposition", native_enum=False)
     )
     feature_snapshot: Mapped[dict[str, object]] = mapped_column(JSON)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
+    candidate_metrics: Mapped[dict[str, object]] = mapped_column(JSON)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     match_run: Mapped[MatchRun] = relationship(back_populates="risk_assessments")
     signals: Mapped[list["RiskSignal"]] = relationship(
         back_populates="risk_assessment",
@@ -307,10 +428,49 @@ class RiskSignal(Base):
     observed: Mapped[dict[str, object]] = mapped_column(JSON)
     reference: Mapped[dict[str, object]] = mapped_column(JSON)
     explanation: Mapped[str] = mapped_column(Text)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     risk_assessment: Mapped[RiskAssessment] = relationship(back_populates="signals")
+
+
+class ThreeWayContext(Base):
+    __tablename__ = "three_way_contexts"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    match_run_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("match_runs.id", ondelete="CASCADE"), unique=True, index=True
+    )
+    context_fingerprint: Mapped[str] = mapped_column(String(64))
+    snapshot: Mapped[dict[str, object]] = mapped_column(JSON)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    match_run: Mapped[MatchRun] = relationship(back_populates="three_way_context")
+
+
+class ThreeWayAllocation(Base):
+    __tablename__ = "three_way_allocations"
+    __table_args__ = (
+        UniqueConstraint(
+            "match_run_id",
+            "purchase_order_line_id",
+            "invoice_line_index",
+            name="uq_three_way_allocation_logical",
+        ),
+        CheckConstraint("allocated_quantity > 0", name="ck_three_way_allocation_positive_quantity"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    match_run_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("match_runs.id", ondelete="CASCADE"), index=True
+    )
+    purchase_order_line_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("purchase_order_lines.id", ondelete="RESTRICT"), index=True
+    )
+    invoice_line_index: Mapped[int] = mapped_column(Integer)
+    allocated_quantity: Mapped[Decimal] = mapped_column(Numeric(24, 8))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    match_run: Mapped[MatchRun] = relationship(back_populates="three_way_allocations")
+    purchase_order_line: Mapped[PurchaseOrderLine] = relationship(
+        back_populates="three_way_allocations"
+    )
 
 
 class ReviewCase(Base):
@@ -361,9 +521,7 @@ class ReviewCase(Base):
 class ReviewEvent(Base):
     __tablename__ = "review_events"
     __table_args__ = (
-        UniqueConstraint(
-            "review_case_id", "sequence_number", name="uq_review_event_case_sequence"
-        ),
+        UniqueConstraint("review_case_id", "sequence_number", name="uq_review_event_case_sequence"),
         CheckConstraint("sequence_number >= 1", name="ck_review_event_positive_sequence"),
         CheckConstraint("length(event_hash) = 64", name="ck_review_event_hash_length"),
         CheckConstraint("event_hash = lower(event_hash)", name="ck_review_event_hash_lowercase"),

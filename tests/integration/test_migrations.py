@@ -33,6 +33,12 @@ def test_workflow_migrations_upgrade_clean_and_existing_schema(
         "review_case_triggers",
         "risk_assessments",
         "risk_signals",
+        "risk_feature_records",
+        "goods_receipts",
+        "goods_receipt_lines",
+        "goods_receipt_reversals",
+        "three_way_contexts",
+        "three_way_allocations",
     }.issubset(inspect(engine).get_table_names())
 
     # Simulate an existing repository at the pre-review schema, then apply only this slice.
@@ -185,11 +191,15 @@ def test_audit_v2_migration_preserves_v1_events_and_backfills_triggers(
                 migrated.tables["review_events"].c.id == event_id.hex
             )
         )
-        trigger = connection.execute(
-            select(migrated.tables["review_case_triggers"]).where(
-                migrated.tables["review_case_triggers"].c.review_case_id == case_id.hex
+        trigger = (
+            connection.execute(
+                select(migrated.tables["review_case_triggers"]).where(
+                    migrated.tables["review_case_triggers"].c.review_case_id == case_id.hex
+                )
             )
-        ).mappings().one()
+            .mappings()
+            .one()
+        )
     assert version == AUDIT_HASH_V1
     assert trigger["id"] is not None
     assert trigger["trigger_type"] == "MATCH_REASON"

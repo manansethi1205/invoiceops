@@ -38,9 +38,7 @@ class DuplicateRiskPolicy(BaseModel):
     version: str = "duplicate-risk-v1"
     amount_absolute_tolerance: Decimal = Field(default=Decimal("0.02"), ge=0)
     date_window_days: int = Field(default=7, ge=0)
-    invoice_number_similarity_threshold: Decimal = Field(
-        default=Decimal("0.92"), ge=0, le=1
-    )
+    invoice_number_similarity_threshold: Decimal = Field(default=Decimal("0.92"), ge=0, le=1)
     route_incomplete_to_review: bool = True
 
     @field_validator(
@@ -95,6 +93,19 @@ class RiskAssessmentResult(BaseModel):
     signals: tuple[RiskSignalDraft, ...]
 
 
+class RiskCandidateMetrics(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    historical_record_count: int = Field(default=0, ge=0)
+    candidate_record_count: int = Field(default=0, ge=0)
+    candidate_reduction_rate: Decimal = Field(default=Decimal("0"), ge=0, le=1)
+    comparison_count: int = Field(default=0, ge=0)
+
+    @field_serializer("candidate_reduction_rate")
+    def serialize_rate(self, value: Decimal) -> str:
+        return format(value, "f")
+
+
 class RiskSignalRead(BaseModel):
     id: uuid.UUID
     code: RiskSignalCode
@@ -111,6 +122,7 @@ class RiskAssessmentRead(BaseModel):
     match_run_id: uuid.UUID
     policy_version: str
     policy_snapshot: DuplicateRiskPolicy
+    candidate_metrics: RiskCandidateMetrics
     disposition: RiskDisposition
     feature_snapshot: RiskFeatureSnapshot
     feature_complete: bool

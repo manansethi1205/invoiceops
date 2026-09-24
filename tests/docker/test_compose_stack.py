@@ -1,6 +1,7 @@
 import os
 import time
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from typing import cast
 
 import httpx
@@ -141,6 +142,62 @@ def test_real_stack_upload_is_idempotent_and_worker_completes() -> None:
         assert reencoded["deduplicated"] is False
         assert reencoded["document_id"] != first["document_id"]
         assert wait_for_terminal_status(client, reencoded["status_url"])["status"] == "succeeded"
+
+        concurrency_po_response = client.post(
+            "/v1/purchase-orders",
+            json={
+                "external_po_number": f"PO-RECEIPT-{invoice_number}",
+                "vendor_name": "Synthetic Compose Vendor",
+                "currency": "INR",
+                "lines": purchase_order["lines"],
+            },
+        )
+        concurrency_po_response.raise_for_status()
+        concurrency_po = concurrency_po_response.json()
+        receipt_response = client.post(
+            "/v1/goods-receipts",
+            json={
+                "purchase_order_id": concurrency_po["id"],
+                "external_receipt_number": f"GRN-{invoice_number}",
+                "received_at": "2026-09-18T12:00:00Z",
+                "lines": [
+                    {
+                        "purchase_order_line_id": line["id"],
+                        "accepted_quantity": line["ordered_quantity"],
+                    }
+                    for line in concurrency_po["lines"]
+                ],
+            },
+        )
+        receipt_response.raise_for_status()
+
+        def concurrent_match(document_id: str) -> dict[str, object]:
+            with httpx.Client(base_url=base_url, timeout=20) as concurrent_client:
+                response = concurrent_client.post(
+                    f"/v1/documents/{document_id}/matches",
+                    json={
+                        "purchase_order_id": concurrency_po["id"],
+                        "mode": "THREE_WAY",
+                    },
+                )
+                response.raise_for_status()
+                return cast(dict[str, object], response.json())
+
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            concurrent_results = list(
+                executor.map(concurrent_match, [first["document_id"], reencoded["document_id"]])
+            )
+        assert sorted(item["decision"] for item in concurrent_results) == [
+            "MATCHED",
+            "NEEDS_REVIEW",
+        ]
+        reviewed = next(
+            item for item in concurrent_results if item["decision"] == "NEEDS_REVIEW"
+        )
+        assert "CUMULATIVE_QUANTITY_EXCEEDS_RECEIVED" in cast(
+            dict[str, object], reviewed["result"]
+        )["reason_codes"]
+
         reencoded_match = client.post(
             f"/v1/documents/{reencoded['document_id']}/matches",
             json={"purchase_order_id": purchase_order["id"]},

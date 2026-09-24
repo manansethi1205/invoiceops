@@ -28,6 +28,11 @@ class MatchDecision(StrEnum):
     NEEDS_REVIEW = "NEEDS_REVIEW"
 
 
+class MatchingMode(StrEnum):
+    TWO_WAY = "TWO_WAY"
+    THREE_WAY = "THREE_WAY"
+
+
 class CheckStatus(StrEnum):
     PASSED = "passed"
     FAILED = "failed"
@@ -53,6 +58,16 @@ class ReasonCode(StrEnum):
     EXTRA_INVOICE_LINE = "EXTRA_INVOICE_LINE"
     LINE_AMOUNT_MISMATCH = "LINE_AMOUNT_MISMATCH"
     NEGATIVE_AMOUNT = "NEGATIVE_AMOUNT"
+    NO_GOODS_RECEIPT = "NO_GOODS_RECEIPT"
+    RECEIPT_LINE_MISSING = "RECEIPT_LINE_MISSING"
+    GOODS_RECEIPT_REVERSED = "GOODS_RECEIPT_REVERSED"
+    INVOICE_QUANTITY_EXCEEDS_RECEIVED = "INVOICE_QUANTITY_EXCEEDS_RECEIVED"
+    CUMULATIVE_QUANTITY_EXCEEDS_RECEIVED = "CUMULATIVE_QUANTITY_EXCEEDS_RECEIVED"
+    RECEIVED_QUANTITY_EXCEEDS_ORDERED = "RECEIVED_QUANTITY_EXCEEDS_ORDERED"
+    RECEIPT_AFTER_INVOICE = "RECEIPT_AFTER_INVOICE"
+    THREE_WAY_UNIT_PRICE_MISMATCH = "THREE_WAY_UNIT_PRICE_MISMATCH"
+    THREE_WAY_LINE_AMOUNT_MISMATCH = "THREE_WAY_LINE_AMOUNT_MISMATCH"
+    RECEIPT_CONTEXT_CHANGED = "RECEIPT_CONTEXT_CHANGED"
 
 
 class MatchingPolicy(BaseModel):
@@ -62,6 +77,33 @@ class MatchingPolicy(BaseModel):
     amount_absolute_tolerance: Decimal = Field(default=Decimal("0.02"), ge=0)
     quantity_absolute_tolerance: Decimal = Field(default=Decimal("0"), ge=0)
     unit_price_relative_tolerance: Decimal = Field(default=Decimal("0.01"), ge=0)
+    description_similarity_threshold: float = Field(default=0.85, ge=0, le=1)
+    ambiguity_margin: float = Field(default=0.05, ge=0, le=1)
+
+    @field_validator(
+        "amount_absolute_tolerance",
+        "quantity_absolute_tolerance",
+        "unit_price_relative_tolerance",
+        mode="before",
+    )
+    @classmethod
+    def reject_float_tolerances(cls, value: object) -> object:
+        return _reject_float(value)
+
+    @field_validator("version")
+    @classmethod
+    def validate_version(cls, value: str) -> str:
+        return _non_blank(value)
+
+
+class ThreeWayMatchingPolicy(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    version: str = "three-way-v1"
+    amount_absolute_tolerance: Decimal = Field(default=Decimal("0.02"), ge=0)
+    quantity_absolute_tolerance: Decimal = Field(default=Decimal("0"), ge=0)
+    unit_price_relative_tolerance: Decimal = Field(default=Decimal("0.01"), ge=0)
+    allow_partial_invoice: bool = True
     description_similarity_threshold: float = Field(default=0.85, ge=0, le=1)
     ambiguity_margin: float = Field(default=0.05, ge=0, le=1)
 
@@ -163,6 +205,12 @@ class ValidationCheck(BaseModel):
     invoice_line_index: int | None = Field(default=None, ge=0)
     po_line_id: uuid.UUID | None = None
     evidence: list[EvidenceSpan] = Field(default_factory=list)
+    receipt_ids: list[uuid.UUID] = Field(default_factory=list)
+    ordered_quantity: str | None = None
+    received_quantity: str | None = None
+    previously_invoiced_quantity: str | None = None
+    available_quantity: str | None = None
+    invoice_quantity: str | None = None
 
 
 class LineAssignment(BaseModel):
@@ -201,15 +249,14 @@ class MatchResult(BaseModel):
         )
         if self.decision == MatchDecision.MATCHED and (failures or self.reason_codes):
             raise ValueError("MATCHED cannot contain failures or reason codes")
-        if self.decision == MatchDecision.NEEDS_REVIEW and (
-            not failures or not self.reason_codes
-        ):
+        if self.decision == MatchDecision.NEEDS_REVIEW and (not failures or not self.reason_codes):
             raise ValueError("NEEDS_REVIEW requires failed checks and reason codes")
         return self
 
 
 class MatchCreate(BaseModel):
     purchase_order_id: uuid.UUID
+    mode: MatchingMode = MatchingMode.TWO_WAY
 
 
 class MatchRunRead(BaseModel):
@@ -218,7 +265,10 @@ class MatchRunRead(BaseModel):
     purchase_order_id: uuid.UUID
     extraction_run_id: uuid.UUID
     policy_version: str
-    policy_snapshot: MatchingPolicy
+    policy_snapshot: MatchingPolicy | ThreeWayMatchingPolicy
+    matching_mode: MatchingMode
+    context_fingerprint: str | None
+    three_way_context_url: str | None
     decision: MatchDecision
     result: MatchResult
     risk_assessment_id: uuid.UUID | None
