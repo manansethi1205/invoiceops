@@ -1,6 +1,8 @@
+import uuid
 from datetime import UTC, datetime
 from decimal import Decimal
 
+import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, sessionmaker
@@ -163,6 +165,101 @@ def test_later_receipt_creates_new_immutable_context(
     ).json()
     assert second["id"] != first["id"]
     assert second["context_fingerprint"] != first["context_fingerprint"]
+    with db_session_factory() as session:
+        assert session.scalar(select(func.count()).select_from(ThreeWayAllocation)) == 2
+
+
+def test_later_receipt_does_not_allocate_the_same_invoice_twice(
+    client: TestClient, db_session_factory: sessionmaker[Session]
+) -> None:
+    payload = po_payload()
+    payload["lines"] = [
+        {
+            "line_number": "1",
+            "description": "Industrial Filter",
+            "ordered_quantity": "10",
+            "unit_price": "500.00",
+        }
+    ]
+    po = client.post("/v1/purchase-orders", json=payload).json()
+
+    def receive(number: str, quantity: str) -> None:
+        response = client.post(
+            "/v1/goods-receipts",
+            json={
+                "purchase_order_id": po["id"],
+                "external_receipt_number": number,
+                "received_at": datetime(2026, 9, 20, 12, tzinfo=UTC).isoformat(),
+                "lines": [
+                    {
+                        "purchase_order_line_id": po["lines"][0]["id"],
+                        "accepted_quantity": quantity,
+                    }
+                ],
+            },
+        )
+        assert response.status_code == 201
+
+    receive("GRN-FIRST", "4")
+    with db_session_factory() as session:
+        document, extraction = create_document_with_extraction(session)
+        extraction.output_json = invoice(
+            subtotal="2000",
+            tax="0",
+            total="2000",
+            lines=[invoice_line("Industrial Filter", "4", "500", "2000")],
+        ).model_dump(mode="json")
+        session.commit()
+
+    first = client.post(
+        f"/v1/documents/{document.id}/matches",
+        json={"purchase_order_id": po["id"], "mode": "THREE_WAY"},
+    )
+    assert first.status_code == 201
+    assert first.json()["decision"] == "MATCHED"
+
+    receive("GRN-LATER", "4")
+    reevaluated = client.post(
+        f"/v1/documents/{document.id}/matches",
+        json={"purchase_order_id": po["id"], "mode": "THREE_WAY"},
+    )
+    assert reevaluated.status_code == 201
+    assert reevaluated.json()["id"] != first.json()["id"]
+    assert reevaluated.json()["decision"] == "MATCHED"
+    with db_session_factory() as session:
+        allocations = list(session.scalars(select(ThreeWayAllocation)))
+        assert len(allocations) == 1
+        assert allocations[0].document_id == document.id
+        assert allocations[0].allocated_quantity == Decimal("4")
+
+
+def test_receipt_mutations_use_the_shared_purchase_order_lock(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from invoiceops import po_locking
+    from invoiceops.receipts import service as receipts_service
+
+    po = client.post("/v1/purchase-orders", json=po_payload()).json()
+    calls: list[str] = []
+
+    def recording_lock(
+        session: Session, purchase_order_id: uuid.UUID, *, include_lines: bool = False
+    ) -> object:
+        calls.append(str(purchase_order_id))
+        return po_locking.lock_purchase_order(
+            session, purchase_order_id, include_lines=include_lines
+        )
+
+    monkeypatch.setattr(receipts_service, "lock_purchase_order", recording_lock)
+    receipt = client.post("/v1/goods-receipts", json=_receipt_payload(po))
+    assert receipt.status_code == 201
+    reversal = client.post(
+        f"/v1/goods-receipts/{receipt.json()['id']}/reverse",
+        headers={"X-Actor-ID": "synthetic-receiver"},
+        json={"reason": "Synthetic receiving correction"},
+    )
+    assert reversal.status_code == 200
+    assert calls == [po["id"], po["id"]]
 
 
 def test_receipt_requires_unverified_development_actor_for_reversal(

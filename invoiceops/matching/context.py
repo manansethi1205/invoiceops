@@ -30,7 +30,7 @@ class ThreeWayContextBuilder:
         purchase_order: PurchaseOrder,
         policy: ThreeWayMatchingPolicy,
         *,
-        exclude_match_run_id: uuid.UUID | None = None,
+        exclude_document_id: uuid.UUID | None = None,
     ) -> tuple[ThreeWayContextSnapshot, str]:
         receipts = list(
             self.session.scalars(
@@ -44,9 +44,9 @@ class ThreeWayContextBuilder:
         allocation_query = select(ThreeWayAllocation).where(
             ThreeWayAllocation.purchase_order_line_id.in_(line_ids)
         )
-        if exclude_match_run_id is not None:
+        if exclude_document_id is not None:
             allocation_query = allocation_query.where(
-                ThreeWayAllocation.match_run_id != exclude_match_run_id
+                ThreeWayAllocation.document_id != exclude_document_id
             )
         allocations = list(
             self.session.scalars(

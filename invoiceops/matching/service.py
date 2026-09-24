@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session, selectinload
 from invoiceops.extraction.selection import current_successful_extraction
 from invoiceops.matching.context import ThreeWayContextBuilder
 from invoiceops.matching.engine import match_invoice
-from invoiceops.matching.three_way import match_invoice_three_way
+from invoiceops.matching.three_way import AllocationDraft, match_invoice_three_way
 from invoiceops.models import (
     TWO_WAY_CONTEXT_FINGERPRINT,
     Document,
@@ -20,6 +20,7 @@ from invoiceops.models import (
     ThreeWayAllocation,
     ThreeWayContext,
 )
+from invoiceops.po_locking import lock_purchase_order
 from invoiceops.review.service import ensure_review_case
 from invoiceops.risk.service import DuplicateRiskService, select_effective_assessment
 from invoiceops.schemas.extraction import Invoice
@@ -181,12 +182,18 @@ class MatchingService:
                 document_id, purchase_order_id, extraction_run.id, mode, policy_version
             ):
                 _, retry_fingerprint = builder.build(
-                    purchase_order, self.three_way_policy, exclude_match_run_id=prior.id
+                    purchase_order,
+                    self.three_way_policy,
+                    exclude_document_id=document_id,
                 )
                 if retry_fingerprint == prior.matching_context_fingerprint:
                     self._ensure_case_for_existing(prior)
                     return MatchServiceResult(prior, created=False)
-            snapshot, context_fingerprint = builder.build(purchase_order, self.three_way_policy)
+            snapshot, context_fingerprint = builder.build(
+                purchase_order,
+                self.three_way_policy,
+                exclude_document_id=document_id,
+            )
         else:
             context_fingerprint = TWO_WAY_CONTEXT_FINGERPRINT
         existing = self._find_existing(
@@ -240,11 +247,12 @@ class MatchingService:
                 self.session.add_all(
                     ThreeWayAllocation(
                         match_run_id=run.id,
+                        document_id=document_id,
                         purchase_order_line_id=item.purchase_order_line_id,
                         invoice_line_index=item.invoice_line_index,
                         allocated_quantity=item.quantity,
                     )
-                    for item in allocations
+                    for item in self._new_allocations(document_id, allocations)
                 )
             risk = DuplicateRiskService(self.session).ensure(run, purchase_order, invoice)
             ensure_review_case(self.session, run, risk.assessment)
@@ -323,17 +331,33 @@ class MatchingService:
     def _locked_purchase_order(
         self, purchase_order_id: uuid.UUID, mode: MatchingMode
     ) -> PurchaseOrder:
-        query = (
-            select(PurchaseOrder)
-            .where(PurchaseOrder.id == purchase_order_id)
-            .options(selectinload(PurchaseOrder.lines))
-        )
         if mode == MatchingMode.THREE_WAY:
-            query = query.with_for_update()
-        purchase_order = self.session.scalar(query)
+            purchase_order = lock_purchase_order(
+                self.session, purchase_order_id, include_lines=True
+            )
+        else:
+            purchase_order = self.session.scalar(
+                select(PurchaseOrder)
+                .where(PurchaseOrder.id == purchase_order_id)
+                .options(selectinload(PurchaseOrder.lines))
+            )
         if purchase_order is None:
             raise PurchaseOrderNotFoundError
         return purchase_order
+
+    def _new_allocations(
+        self,
+        document_id: uuid.UUID,
+        allocations: list[AllocationDraft],
+    ) -> list[AllocationDraft]:
+        existing = set(
+            self.session.scalars(
+                select(ThreeWayAllocation.invoice_line_index).where(
+                    ThreeWayAllocation.document_id == document_id
+                )
+            )
+        )
+        return [item for item in allocations if item.invoice_line_index not in existing]
 
     def _ensure_case_for_existing(self, run: MatchRun) -> None:
         try:

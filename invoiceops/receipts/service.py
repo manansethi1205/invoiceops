@@ -12,9 +12,8 @@ from invoiceops.models import (
     GoodsReceipt,
     GoodsReceiptLine,
     GoodsReceiptReversal,
-    PurchaseOrder,
-    PurchaseOrderLine,
 )
+from invoiceops.po_locking import lock_purchase_order
 from invoiceops.schemas.receipts import GoodsReceiptCreate, GoodsReceiptRead
 
 
@@ -78,17 +77,13 @@ class GoodsReceiptService:
         self.session = session
 
     def create(self, command: GoodsReceiptCreate) -> GoodsReceiptServiceResult:
-        if self.session.get(PurchaseOrder, command.purchase_order_id) is None:
+        purchase_order = lock_purchase_order(
+            self.session, command.purchase_order_id, include_lines=True
+        )
+        if purchase_order is None:
             raise ReceiptPurchaseOrderNotFoundError
         line_ids = {line.purchase_order_line_id for line in command.lines}
-        found = set(
-            self.session.scalars(
-                select(PurchaseOrderLine.id).where(
-                    PurchaseOrderLine.purchase_order_id == command.purchase_order_id,
-                    PurchaseOrderLine.id.in_(line_ids),
-                )
-            )
-        )
+        found = {line.id for line in purchase_order.lines if line.id in line_ids}
         if found != line_ids:
             raise ReceiptLineNotFoundError
         fingerprint = receipt_request_fingerprint(command)
@@ -145,6 +140,10 @@ class GoodsReceiptService:
         return list(self.session.scalars(query.order_by(GoodsReceipt.created_at, GoodsReceipt.id)))
 
     def reverse(self, receipt_id: uuid.UUID, actor_id: str, reason: str) -> GoodsReceipt:
+        receipt = self.get(receipt_id)
+        if lock_purchase_order(self.session, receipt.purchase_order_id) is None:
+            raise ReceiptPurchaseOrderNotFoundError
+        self.session.expire(receipt)
         receipt = self.get(receipt_id)
         if receipt.reversal is not None:
             raise GoodsReceiptAlreadyReversedError

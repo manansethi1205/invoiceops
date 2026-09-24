@@ -1,3 +1,4 @@
+import uuid
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
@@ -21,7 +22,7 @@ from invoiceops.schemas.three_way import ReceiptLineContextRead, ThreeWayContext
 
 @dataclass(frozen=True)
 class AllocationDraft:
-    purchase_order_line_id: object
+    purchase_order_line_id: uuid.UUID
     invoice_line_index: int
     quantity: Decimal
 

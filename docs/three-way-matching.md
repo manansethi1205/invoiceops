@@ -19,17 +19,21 @@ not production authentication.
 ## Context, concurrency and allocation
 
 The context fingerprint covers active receipt IDs/quantities/timestamps, reversal IDs, prior
-allocation IDs/quantities and the complete `three-way-v1` policy. A retry computes the fingerprint
-without its own allocation and reuses the original run. A later receipt or reversal therefore
-creates a new immutable match run. `GET /v1/matches/{id}/three-way-context` returns the historical
-snapshot used for that decision.
+allocation IDs/quantities and the complete `three-way-v1` policy. A retry and re-evaluation exclude
+the current document's allocation, so an invoice never competes with its own reserved quantity.
+A later receipt or reversal can therefore create a new immutable match run without allocating the
+same uploaded invoice twice. `GET /v1/matches/{id}/three-way-context` returns the historical snapshot
+used for that decision.
 
-PostgreSQL matching locks the selected PO row while the context, match, allocations, duplicate-risk
-assessment and any review case/event are written atomically. SQLite ignores `FOR UPDATE`; local
-SQLite tests validate behavior but do not prove production concurrency serialization.
+PostgreSQL matching, receipt creation and receipt reversal all acquire the same selected-PO row
+lock. This serializes receipt-state changes with context construction and the atomic match,
+allocation, duplicate-risk and review writes. SQLite ignores `FOR UPDATE`; local SQLite tests
+validate lock-protocol participation but do not prove production concurrency serialization.
 
-Allocations are written only for `MATCHED` runs. `NEEDS_REVIEW` creates no allocation, and accepting
-a review exception does not retroactively create one. The policy permits partial invoices while
+An allocation is a document-level reservation created by the first `MATCHED` run. Its database key
+is unique across document and invoice-line index; later immutable evaluations reuse that
+reservation instead of inserting another. `NEEDS_REVIEW` creates no allocation, and accepting a
+review exception does not retroactively create one. The policy permits partial invoices while
 preventing the cumulative allocated quantity from exceeding effective received quantity.
 
 ## Explainable failures

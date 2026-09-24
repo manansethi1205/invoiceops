@@ -5,10 +5,12 @@
 .pytest_cache
 .ruff_cache
 .venv
+.uv-cache
 __pycache__
 *.py[cod]
 minio-data
 outputs
 postgres-data
 work
+tmp
 

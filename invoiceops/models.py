@@ -67,6 +67,9 @@ class Document(Base):
     match_runs: Mapped[list["MatchRun"]] = relationship(
         back_populates="document", cascade="all, delete-orphan"
     )
+    three_way_allocations: Mapped[list["ThreeWayAllocation"]] = relationship(
+        back_populates="document", cascade="all, delete-orphan"
+    )
 
 
 class IngestionJob(Base):
@@ -454,12 +457,20 @@ class ThreeWayAllocation(Base):
             "invoice_line_index",
             name="uq_three_way_allocation_logical",
         ),
+        UniqueConstraint(
+            "document_id",
+            "invoice_line_index",
+            name="uq_three_way_allocation_document_invoice_line",
+        ),
         CheckConstraint("allocated_quantity > 0", name="ck_three_way_allocation_positive_quantity"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     match_run_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("match_runs.id", ondelete="CASCADE"), index=True
+    )
+    document_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("documents.id", ondelete="CASCADE"), index=True
     )
     purchase_order_line_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("purchase_order_lines.id", ondelete="RESTRICT"), index=True
@@ -468,6 +479,7 @@ class ThreeWayAllocation(Base):
     allocated_quantity: Mapped[Decimal] = mapped_column(Numeric(24, 8))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     match_run: Mapped[MatchRun] = relationship(back_populates="three_way_allocations")
+    document: Mapped[Document] = relationship(back_populates="three_way_allocations")
     purchase_order_line: Mapped[PurchaseOrderLine] = relationship(
         back_populates="three_way_allocations"
     )

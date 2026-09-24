@@ -40,6 +40,15 @@ def test_workflow_migrations_upgrade_clean_and_existing_schema(
         "three_way_contexts",
         "three_way_allocations",
     }.issubset(inspect(engine).get_table_names())
+    allocation_columns = {
+        column["name"] for column in inspect(engine).get_columns("three_way_allocations")
+    }
+    assert "document_id" in allocation_columns
+    allocation_unique_constraints = {
+        constraint["name"]
+        for constraint in inspect(engine).get_unique_constraints("three_way_allocations")
+    }
+    assert "uq_three_way_allocation_document_invoice_line" in allocation_unique_constraints
 
     # Simulate an existing repository at the pre-review schema, then apply only this slice.
     command.downgrade(config, "20260921_0005")
