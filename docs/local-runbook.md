@@ -119,7 +119,7 @@ docker compose logs api
 docker compose logs worker
 ```
 
-The migration log should show upgrades through `20260924_0008`. The worker log should list
+The migration log should show upgrades through `20260924_0011`. The worker log should list
 `invoiceops.process_document` as a registered task.
 
 Repair historical matches that predate duplicate-risk persistence, then inspect aggregate counts:

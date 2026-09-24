@@ -5,9 +5,10 @@ from decimal import Decimal
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
-from invoiceops.models import MatchRun, ThreeWayAllocation
+from invoiceops.models import ExtractionRun, ExtractionRunStatus, MatchRun, ThreeWayAllocation
 from tests.integration.test_matching_api import (
     create_document_with_extraction,
     po_payload,
@@ -107,6 +108,28 @@ def test_missing_receipt_routes_to_review_without_allocation(
     assert "NO_GOODS_RECEIPT" in body["result"]["reason_codes"]
     with db_session_factory() as session:
         assert session.scalar(select(func.count()).select_from(ThreeWayAllocation)) == 0
+
+
+def test_reviewed_invoice_allocates_once_when_receipt_arrives(
+    client: TestClient, db_session_factory: sessionmaker[Session]
+) -> None:
+    po = client.post("/v1/purchase-orders", json=po_payload()).json()
+    with db_session_factory() as session:
+        document, _ = create_document_with_extraction(session)
+    reviewed = client.post(
+        f"/v1/documents/{document.id}/matches",
+        json={"purchase_order_id": po["id"], "mode": "THREE_WAY"},
+    ).json()
+    assert reviewed["decision"] == "NEEDS_REVIEW"
+    assert client.post("/v1/goods-receipts", json=_receipt_payload(po)).status_code == 201
+    matched = client.post(
+        f"/v1/documents/{document.id}/matches",
+        json={"purchase_order_id": po["id"], "mode": "THREE_WAY"},
+    ).json()
+    assert matched["id"] != reviewed["id"]
+    assert matched["decision"] == "MATCHED"
+    with db_session_factory() as session:
+        assert session.scalar(select(func.count()).select_from(ThreeWayAllocation)) == 2
 
 
 def test_reversal_changes_context_and_is_not_repeatable(
@@ -231,6 +254,120 @@ def test_later_receipt_does_not_allocate_the_same_invoice_twice(
         assert len(allocations) == 1
         assert allocations[0].document_id == document.id
         assert allocations[0].allocated_quantity == Decimal("4")
+    context = client.get(reevaluated.json()["three_way_context_url"]).json()["snapshot"]
+    assert context["lines"][0]["prior_allocations"] == []
+    assert len(context["lines"][0]["current_invoice_allocations"]) == 1
+    receive("GRN-FINAL", "2")
+    third = client.post(
+        f"/v1/documents/{document.id}/matches",
+        json={"purchase_order_id": po["id"], "mode": "THREE_WAY"},
+    )
+    replay = client.post(
+        f"/v1/documents/{document.id}/matches",
+        json={"purchase_order_id": po["id"], "mode": "THREE_WAY"},
+    )
+    assert third.status_code == 201
+    assert replay.status_code == 200
+    assert replay.json()["id"] == third.json()["id"]
+    with db_session_factory() as session:
+        assert session.scalar(select(func.count()).select_from(ThreeWayAllocation)) == 1
+        assert session.scalar(
+            select(func.sum(ThreeWayAllocation.allocated_quantity))
+        ) == Decimal("4")
+
+
+def test_changed_extraction_allocation_requires_reconciliation(
+    client: TestClient, db_session_factory: sessionmaker[Session]
+) -> None:
+    payload = po_payload()
+    payload["lines"] = [
+        {
+            "line_number": "1",
+            "description": "Industrial Filter",
+            "ordered_quantity": "10",
+            "unit_price": "500.00",
+        }
+    ]
+    po = client.post("/v1/purchase-orders", json=payload).json()
+    receipt_payload = {
+        "purchase_order_id": po["id"],
+        "external_receipt_number": "GRN-RECONCILE",
+        "received_at": datetime(2026, 9, 20, 12, tzinfo=UTC).isoformat(),
+        "lines": [{"purchase_order_line_id": po["lines"][0]["id"], "accepted_quantity": "10"}],
+    }
+    assert client.post("/v1/goods-receipts", json=receipt_payload).status_code == 201
+    with db_session_factory() as session:
+        document, extraction = create_document_with_extraction(session)
+        extraction.output_json = invoice(
+            subtotal="1000",
+            tax="0",
+            total="1000",
+            lines=[invoice_line("Industrial Filter", "2", "500", "1000")],
+        ).model_dump(mode="json")
+        session.commit()
+    first = client.post(
+        f"/v1/documents/{document.id}/matches",
+        json={"purchase_order_id": po["id"], "mode": "THREE_WAY"},
+    ).json()
+    assert first["decision"] == "MATCHED"
+
+    changed = invoice(
+        subtotal="1500",
+        tax="0",
+        total="1500",
+        lines=[invoice_line("Industrial Filter", "3", "500", "1500")],
+    )
+    with db_session_factory() as session:
+        session.add(
+            ExtractionRun(
+                document_id=document.id,
+                extractor_name="hybrid-routed",
+                extractor_version="0.3.0",
+                schema_version="invoice-v1",
+                status=ExtractionRunStatus.SUCCEEDED,
+                output_json=changed.model_dump(mode="json"),
+            )
+        )
+        session.commit()
+    reconciled = client.post(
+        f"/v1/documents/{document.id}/matches",
+        json={"purchase_order_id": po["id"], "mode": "THREE_WAY"},
+    ).json()
+    assert reconciled["decision"] == "NEEDS_REVIEW"
+    assert "ALLOCATION_RECONCILIATION_REQUIRED" in reconciled["result"]["reason_codes"]
+    with db_session_factory() as session:
+        allocations = list(session.scalars(select(ThreeWayAllocation)))
+        assert len(allocations) == 1
+        assert allocations[0].allocated_quantity == Decimal("2")
+
+
+def test_database_rejects_duplicate_logical_allocation(
+    client: TestClient, db_session_factory: sessionmaker[Session]
+) -> None:
+    po = client.post("/v1/purchase-orders", json=po_payload()).json()
+    client.post("/v1/goods-receipts", json=_receipt_payload(po))
+    with db_session_factory() as session:
+        document, extraction = create_document_with_extraction(session)
+    run = client.post(
+        f"/v1/documents/{document.id}/matches",
+        json={"purchase_order_id": po["id"], "mode": "THREE_WAY"},
+    ).json()
+    with db_session_factory() as session:
+        original = session.scalar(select(ThreeWayAllocation).limit(1))
+        assert original is not None
+        session.add(
+            ThreeWayAllocation(
+                match_run_id=uuid.UUID(run["id"]),
+                document_id=document.id,
+                purchase_order_id=uuid.UUID(po["id"]),
+                extraction_run_id=extraction.id,
+                purchase_order_line_id=original.purchase_order_line_id,
+                invoice_line_index=original.invoice_line_index,
+                allocated_quantity=original.allocated_quantity,
+            )
+        )
+        with pytest.raises(IntegrityError):
+            session.commit()
 
 
 def test_receipt_mutations_use_the_shared_purchase_order_lock(

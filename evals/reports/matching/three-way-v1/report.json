@@ -9,12 +9,12 @@
   "allocation_correctness_rate": 1.0,
   "cumulative_overbilling_detection_rate": 1.0,
   "idempotency_accuracy": 1.0,
-  "concurrency_conflict_accuracy": 1.0,
-  "p50_latency_ms": 0.3168,
-  "p95_latency_ms": 0.5973,
+  "serialized_overbilling_scenario_accuracy": 1.0,
+  "p50_latency_ms": 0.2304,
+  "p95_latency_ms": 0.3122,
   "policy_version": "three-way-v1",
   "scenario_set_version": "three-way-synthetic-v1",
   "scenario_fingerprint": "1038bb6dc168c74dd2d1419c1af231c21d75a0fb387809bce79eff137d7ed8da",
-  "source_tree_fingerprint": "ebbd5719a7c0168e5e8ea2d20ef4bbdfc76326c39155d74656ca0463db6329ca",
+  "source_tree_fingerprint": "2aaaad1b3b8ba60e0f165b21043d0e59458e110cefb852319ca74c7bd7c8fa0c",
   "python_version": "3.12.11"
 }

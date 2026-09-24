@@ -117,6 +117,7 @@ services:
     command: pytest -q -m docker tests/docker
     environment:
       API_BASE_URL: http://api:8000
+      TEST_DATABASE_URL: postgresql+psycopg://invoiceops:invoiceops@postgres:5432/invoiceops
     depends_on:
       api: {condition: service_healthy}
       worker: {condition: service_started}
@@ -132,6 +133,7 @@ services:
     environment:
       API_BASE_URL: http://api:8000
       EXPECT_EXTRACTION_STRATEGY: hybrid-routed
+      TEST_DATABASE_URL: postgresql+psycopg://invoiceops:invoiceops@postgres:5432/invoiceops
     depends_on:
       api: {condition: service_healthy}
       worker-hybrid-fake: {condition: service_started}

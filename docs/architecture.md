@@ -21,7 +21,8 @@ flowchart LR
     I[Invoice extraction + evidence] --> M{Matching mode}
     PO[Selected purchase order] --> M
     GR[Immutable receipts + reversals] --> C[Versioned receipt context]
-    A[Prior matched allocations] --> C
+    A[Other-invoice allocations] --> C
+    CA[Current invoice allocation] --> C
     C --> M
     M -->|TWO_WAY| D[Deterministic checks]
     M -->|THREE_WAY| D
@@ -46,9 +47,12 @@ successful versioned extraction + explicitly selected purchase order
         -> versioned, append-only hash-chained events + state reconstruction
 ```
 
-In `THREE_WAY` mode, immutable goods receipts and reversals are reduced into a fingerprinted
-context before deterministic checks run. Only a `MATCHED` result creates cumulative receipt
-allocations. Match, context, allocations, risk, review case and opening event share one transaction.
+In `THREE_WAY` mode, immutable goods receipts, reversals, other-invoice consumption and the current
+invoice's reusable reservation are reduced into a fingerprinted context. A `MATCHED` result creates
+an allocation only when none exists; an exact reservation is reused, while any changed assignment
+or quantity routes to reconciliation review. Match, context, new allocations, risk, review case and
+opening event share one transaction. Matching and receipt mutations serialize by locking the PO
+before dependent receipt or allocation state.
 
 Extraction supplies observations and evidence. Matching code alone performs arithmetic and applies
 the versioned policy. Match runs reference the exact extraction row and are idempotent across

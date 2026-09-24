@@ -6,6 +6,7 @@ from typing import cast
 
 import httpx
 import pytest
+from sqlalchemy import create_engine, text
 
 from tests.synthetic_documents import generated_incomplete_invoice_pdf, generated_invoice_pdf
 
@@ -28,6 +29,134 @@ def wait_for_terminal_status(client: httpx.Client, status_url: str) -> dict[str,
             return cast(dict[str, object], job)
         time.sleep(0.25)
     pytest.fail("job did not reach a terminal state within 20 seconds")
+
+
+def test_match_and_reversal_share_the_postgresql_po_lock() -> None:
+    base_url = os.environ["API_BASE_URL"]
+    database_url = os.environ["TEST_DATABASE_URL"]
+    invoice_number = f"SYN-LOCK-{uuid.uuid4()}"
+    with httpx.Client(base_url=base_url, timeout=20) as client:
+        upload = client.post(
+            "/v1/invoices",
+            files={
+                "file": (
+                    "lock-test.pdf",
+                    generated_invoice_pdf(invoice_number),
+                    "application/pdf",
+                )
+            },
+        )
+        upload.raise_for_status()
+        document = upload.json()
+        assert wait_for_terminal_status(client, document["status_url"])["status"] == "succeeded"
+        po_response = client.post(
+            "/v1/purchase-orders",
+            json={
+                "external_po_number": f"PO-{invoice_number}",
+                "vendor_name": "Synthetic Lock Vendor",
+                "currency": "INR",
+                "lines": [
+                    {
+                        "line_number": "1",
+                        "description": "Industrial Filter",
+                        "ordered_quantity": "2",
+                        "unit_price": "500.00",
+                    },
+                    {
+                        "line_number": "2",
+                        "description": "Mounting Bracket",
+                        "ordered_quantity": "4",
+                        "unit_price": "50.00",
+                    },
+                ],
+            },
+        )
+        po_response.raise_for_status()
+        po = po_response.json()
+        receipt_response = client.post(
+            "/v1/goods-receipts",
+            json={
+                "purchase_order_id": po["id"],
+                "external_receipt_number": f"GRN-{invoice_number}",
+                "received_at": "2026-09-18T12:00:00Z",
+                "lines": [
+                    {
+                        "purchase_order_line_id": line["id"],
+                        "accepted_quantity": line["ordered_quantity"],
+                    }
+                    for line in po["lines"]
+                ],
+            },
+        )
+        receipt_response.raise_for_status()
+        receipt = receipt_response.json()
+
+    engine = create_engine(database_url)
+    lock_connection = engine.connect()
+    transaction = lock_connection.begin()
+    lock_connection.execute(
+        text("SELECT id FROM purchase_orders WHERE id = CAST(:id AS uuid) FOR UPDATE"),
+        {"id": po["id"]},
+    )
+
+    def match_request() -> httpx.Response:
+        with httpx.Client(base_url=base_url, timeout=20) as concurrent_client:
+            return concurrent_client.post(
+                f"/v1/documents/{document['document_id']}/matches",
+                json={"purchase_order_id": po["id"], "mode": "THREE_WAY"},
+            )
+
+    def reversal_request() -> httpx.Response:
+        with httpx.Client(base_url=base_url, timeout=20) as concurrent_client:
+            return concurrent_client.post(
+                f"/v1/goods-receipts/{receipt['id']}/reverse",
+                headers={"X-Actor-ID": "synthetic-lock-test"},
+                json={"reason": "Synthetic contention verification"},
+            )
+
+    try:
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            match_future = executor.submit(match_request)
+            reversal_future = executor.submit(reversal_request)
+            deadline = time.monotonic() + 10
+            blocked = 0
+            while time.monotonic() < deadline:
+                with engine.connect() as observer:
+                    blocked = int(
+                        observer.scalar(
+                            text(
+                                "SELECT count(*) FROM pg_stat_activity "
+                                "WHERE datname = current_database() "
+                                "AND wait_event_type = 'Lock'"
+                            )
+                        )
+                        or 0
+                    )
+                if blocked >= 2:
+                    break
+                time.sleep(0.05)
+            assert blocked >= 2, "matching and reversal did not both wait on the PO lock"
+            transaction.commit()
+            match_response = match_future.result()
+            reversal_response = reversal_future.result()
+    finally:
+        if transaction.is_active:
+            transaction.rollback()
+        lock_connection.close()
+        engine.dispose()
+
+    match_response.raise_for_status()
+    reversal_response.raise_for_status()
+    match = match_response.json()
+    with httpx.Client(base_url=base_url, timeout=10) as client:
+        context = client.get(match["three_way_context_url"])
+        context.raise_for_status()
+    lines = context.json()["snapshot"]["lines"]
+    if match["decision"] == "MATCHED":
+        assert all(line["active_receipts"] for line in lines)
+    else:
+        assert "GOODS_RECEIPT_REVERSED" in match["result"]["reason_codes"]
+        assert any(line["reversed_receipts"] for line in lines)
 
 
 def test_real_stack_upload_is_idempotent_and_worker_completes() -> None:

@@ -25,6 +25,8 @@ from invoiceops.review.service import ensure_review_case
 from invoiceops.risk.service import DuplicateRiskService, select_effective_assessment
 from invoiceops.schemas.extraction import Invoice
 from invoiceops.schemas.matching import (
+    CheckSeverity,
+    CheckStatus,
     MatchDecision,
     MatchingMode,
     MatchingPolicy,
@@ -33,7 +35,9 @@ from invoiceops.schemas.matching import (
     PurchaseOrderCreate,
     PurchaseOrderLineRead,
     PurchaseOrderRead,
+    ReasonCode,
     ThreeWayMatchingPolicy,
+    ValidationCheck,
 )
 from invoiceops.schemas.risk import RiskDisposition
 
@@ -178,22 +182,20 @@ class MatchingService:
         snapshot = None
         if mode == MatchingMode.THREE_WAY:
             builder = ThreeWayContextBuilder(self.session)
+            snapshot, context_fingerprint, replay_fingerprint = builder.build(
+                purchase_order,
+                self.three_way_policy,
+                current_document_id=document_id,
+            )
             for prior in self._find_prior_candidates(
                 document_id, purchase_order_id, extraction_run.id, mode, policy_version
             ):
-                _, retry_fingerprint = builder.build(
-                    purchase_order,
-                    self.three_way_policy,
-                    exclude_document_id=document_id,
-                )
-                if retry_fingerprint == prior.matching_context_fingerprint:
+                if (
+                    prior.three_way_context is not None
+                    and replay_fingerprint == prior.three_way_context.replay_fingerprint
+                ):
                     self._ensure_case_for_existing(prior)
                     return MatchServiceResult(prior, created=False)
-            snapshot, context_fingerprint = builder.build(
-                purchase_order,
-                self.three_way_policy,
-                exclude_document_id=document_id,
-            )
         else:
             context_fingerprint = TWO_WAY_CONTEXT_FINGERPRINT
         existing = self._find_existing(
@@ -215,6 +217,13 @@ class MatchingService:
                 purchase_order_to_read(purchase_order),
                 snapshot,
                 self.three_way_policy,
+            )
+            result, allocations = self._reconcile_allocations(
+                document_id,
+                purchase_order_id,
+                invoice,
+                result,
+                allocations,
             )
             policy_snapshot = self.three_way_policy.model_dump(mode="json")
         else:
@@ -241,6 +250,7 @@ class MatchingService:
                     ThreeWayContext(
                         match_run_id=run.id,
                         context_fingerprint=context_fingerprint,
+                        replay_fingerprint=replay_fingerprint,
                         snapshot=snapshot.model_dump(mode="json"),
                     )
                 )
@@ -248,11 +258,13 @@ class MatchingService:
                     ThreeWayAllocation(
                         match_run_id=run.id,
                         document_id=document_id,
+                        purchase_order_id=purchase_order_id,
+                        extraction_run_id=extraction_run.id,
                         purchase_order_line_id=item.purchase_order_line_id,
                         invoice_line_index=item.invoice_line_index,
                         allocated_quantity=item.quantity,
                     )
-                    for item in self._new_allocations(document_id, allocations)
+                    for item in allocations
                 )
             risk = DuplicateRiskService(self.session).ensure(run, purchase_order, invoice)
             ensure_review_case(self.session, run, risk.assessment)
@@ -345,19 +357,70 @@ class MatchingService:
             raise PurchaseOrderNotFoundError
         return purchase_order
 
-    def _new_allocations(
+    def _reconcile_allocations(
         self,
         document_id: uuid.UUID,
+        purchase_order_id: uuid.UUID,
+        invoice: Invoice,
+        result: MatchResult,
         allocations: list[AllocationDraft],
-    ) -> list[AllocationDraft]:
-        existing = set(
+    ) -> tuple[MatchResult, list[AllocationDraft]]:
+        existing = list(
             self.session.scalars(
-                select(ThreeWayAllocation.invoice_line_index).where(
-                    ThreeWayAllocation.document_id == document_id
+                select(ThreeWayAllocation).where(
+                    ThreeWayAllocation.document_id == document_id,
+                    ThreeWayAllocation.purchase_order_id == purchase_order_id,
                 )
             )
         )
-        return [item for item in allocations if item.invoice_line_index not in existing]
+        if not existing:
+            return result, allocations
+
+        proposals: dict[int, AllocationDraft] = {}
+        for assignment in result.line_assignments:
+            quantity = invoice.line_items[assignment.invoice_line_index].quantity.value
+            if quantity is not None:
+                proposals[assignment.invoice_line_index] = AllocationDraft(
+                    purchase_order_line_id=assignment.po_line_id,
+                    invoice_line_index=assignment.invoice_line_index,
+                    quantity=quantity,
+                )
+        existing_by_line = {item.invoice_line_index: item for item in existing}
+        conflict = set(proposals) != set(existing_by_line) or any(
+            proposal.purchase_order_line_id
+            != existing_by_line[index].purchase_order_line_id
+            or proposal.quantity != existing_by_line[index].allocated_quantity
+            for index, proposal in proposals.items()
+            if index in existing_by_line
+        )
+        if not conflict:
+            return result, []
+
+        check = ValidationCheck(
+            code=ReasonCode.ALLOCATION_RECONCILIATION_REQUIRED,
+            status=CheckStatus.FAILED,
+            severity=CheckSeverity.ERROR,
+            message=(
+                "The proposed allocation differs from this invoice's existing immutable "
+                "allocation and requires explicit reconciliation."
+            ),
+        )
+        reason_codes = list(result.reason_codes)
+        if check.code not in reason_codes:
+            reason_codes.append(check.code)
+        return (
+            result.model_copy(
+                update={
+                    "decision": MatchDecision.NEEDS_REVIEW,
+                    "checks": [*result.checks, check],
+                    "reason_codes": reason_codes,
+                    "summary": result.summary.model_copy(
+                        update={"failed_check_count": result.summary.failed_check_count + 1}
+                    ),
+                }
+            ),
+            [],
+        )
 
     def _ensure_case_for_existing(self, run: MatchRun) -> None:
         try:

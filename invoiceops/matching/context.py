@@ -30,8 +30,8 @@ class ThreeWayContextBuilder:
         purchase_order: PurchaseOrder,
         policy: ThreeWayMatchingPolicy,
         *,
-        exclude_document_id: uuid.UUID | None = None,
-    ) -> tuple[ThreeWayContextSnapshot, str]:
+        current_document_id: uuid.UUID | None = None,
+    ) -> tuple[ThreeWayContextSnapshot, str, str]:
         receipts = list(
             self.session.scalars(
                 select(GoodsReceipt)
@@ -40,23 +40,35 @@ class ThreeWayContextBuilder:
                 .order_by(GoodsReceipt.received_at, GoodsReceipt.id)
             )
         )
-        line_ids = [line.id for line in purchase_order.lines]
-        allocation_query = select(ThreeWayAllocation).where(
-            ThreeWayAllocation.purchase_order_line_id.in_(line_ids)
-        )
-        if exclude_document_id is not None:
-            allocation_query = allocation_query.where(
-                ThreeWayAllocation.document_id != exclude_document_id
-            )
         allocations = list(
             self.session.scalars(
-                allocation_query.order_by(ThreeWayAllocation.created_at, ThreeWayAllocation.id)
+                select(ThreeWayAllocation)
+                .where(ThreeWayAllocation.purchase_order_id == purchase_order.id)
+                .order_by(ThreeWayAllocation.created_at, ThreeWayAllocation.id)
             )
         )
         allocations = sorted(allocations, key=lambda item: str(item.id))
+        current_allocations = [
+            item for item in allocations if item.document_id == current_document_id
+        ]
+        prior_allocations = [
+            item for item in allocations if item.document_id != current_document_id
+        ]
         prior_by_line: dict[uuid.UUID, Decimal] = defaultdict(lambda: Decimal("0"))
-        for allocation in allocations:
+        for allocation in prior_allocations:
             prior_by_line[allocation.purchase_order_line_id] += allocation.allocated_quantity
+
+        def allocation_read(item: ThreeWayAllocation) -> PriorAllocationRead:
+            return PriorAllocationRead(
+                allocation_id=item.id,
+                match_run_id=item.match_run_id,
+                document_id=item.document_id,
+                extraction_run_id=item.extraction_run_id,
+                purchase_order_id=item.purchase_order_id,
+                purchase_order_line_id=item.purchase_order_line_id,
+                invoice_line_index=item.invoice_line_index,
+                allocated_quantity=decimal_text(item.allocated_quantity),
+            )
 
         contexts: list[ReceiptLineContextRead] = []
         for po_line in purchase_order.lines:
@@ -99,12 +111,13 @@ class ThreeWayContextBuilder:
                     ),
                     reversal_ids=sorted(reversal_ids, key=str),
                     prior_allocations=[
-                        PriorAllocationRead(
-                            allocation_id=item.id,
-                            match_run_id=item.match_run_id,
-                            allocated_quantity=decimal_text(item.allocated_quantity),
-                        )
-                        for item in allocations
+                        allocation_read(item)
+                        for item in prior_allocations
+                        if item.purchase_order_line_id == po_line.id
+                    ],
+                    current_invoice_allocations=[
+                        allocation_read(item)
+                        for item in current_allocations
                         if item.purchase_order_line_id == po_line.id
                     ],
                     effective_received_quantity=decimal_text(received),
@@ -118,10 +131,48 @@ class ThreeWayContextBuilder:
             lines=contexts,
         )
         envelope = {
-            "context_version": "three-way-context-v1",
+            "context_version": "three-way-context-v2",
             "snapshot": snapshot.model_dump(mode="json"),
-            "allocation_ids": [str(item.id) for item in allocations],
+            "prior_allocation_ids": [str(item.id) for item in prior_allocations],
+            "current_invoice_allocation_ids": [
+                str(item.id) for item in current_allocations
+            ],
             "policy": policy.model_dump(mode="json"),
         }
         canonical = json.dumps(envelope, sort_keys=True, separators=(",", ":")).encode()
-        return snapshot, hashlib.sha256(canonical).hexdigest()
+        replay_lines: list[dict[str, object]] = []
+        for line in snapshot.model_dump(mode="json")["lines"]:
+            assert isinstance(line, dict)
+            replay_line = dict(line)
+            replay_line.pop("current_invoice_allocations", None)
+            replay_prior = replay_line["prior_allocations"]
+            assert isinstance(replay_prior, list)
+            replay_line["prior_allocations"] = [
+                {
+                    "allocation_id": item["allocation_id"],
+                    "match_run_id": item["match_run_id"],
+                    "allocated_quantity": item["allocated_quantity"],
+                }
+                for item in replay_prior
+                if isinstance(item, dict)
+            ]
+            replay_lines.append(replay_line)
+        replay_snapshot = {
+            "purchase_order_id": str(snapshot.purchase_order_id),
+            "policy_version": snapshot.policy_version,
+            "lines": replay_lines,
+        }
+        replay_envelope = {
+            "context_version": "three-way-context-v1",
+            "snapshot": replay_snapshot,
+            "allocation_ids": [str(item.id) for item in prior_allocations],
+            "policy": policy.model_dump(mode="json"),
+        }
+        replay_canonical = json.dumps(
+            replay_envelope, sort_keys=True, separators=(",", ":")
+        ).encode()
+        return (
+            snapshot,
+            hashlib.sha256(canonical).hexdigest(),
+            hashlib.sha256(replay_canonical).hexdigest(),
+        )

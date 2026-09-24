@@ -140,7 +140,8 @@ Get-Content evals/reports/matching/three-way-v1/report.md
 ```
 
 It covers fully/partially received goods, multiple receipts, cumulative invoicing, reversals,
-receipt timing, missing receipts, over-receipt, over-invoicing and policy boundaries.
+receipt timing, missing receipts, over-receipt, over-invoicing and policy boundaries. The offline
+metric is sequential; real PostgreSQL contention is exercised by the Compose integration suite.
 
 Run the network-free hybrid replay evaluation:
 
@@ -223,6 +224,8 @@ See [two-way matching](docs/matching.md) for policy definitions, reason codes, A
 known limitations.
 See [three-way matching](docs/three-way-matching.md) for receipt idempotency, context fingerprints,
 allocation and concurrency behavior.
+
+This project is available under the [MIT License](LICENSE).
 See [human review](docs/review.md) for state transitions, concurrency, identity limitations,
 evidence navigation, reconciliation and audit verification.
 The delivery sequence is captured in [the roadmap](docs/roadmap.md).

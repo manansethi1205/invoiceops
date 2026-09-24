@@ -254,7 +254,7 @@ jobs:
           for metric in (
               "allocation_correctness_rate",
               "cumulative_overbilling_detection_rate",
-              "concurrency_conflict_accuracy",
+              "serialized_overbilling_scenario_accuracy",
           ):
               if report[metric] != 1.0:
                   raise SystemExit(f"CI invariant failed: {metric}={report[metric]}")

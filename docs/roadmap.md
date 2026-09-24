@@ -1,7 +1,8 @@
 # Delivery roadmap
 
 The explainable three-way slice is implemented: immutable/idempotent receipts, append-only
-reversals, versioned context, cumulative allocations, review/risk integration and evaluation.
+reversals, reconciliation-safe allocation reuse, shared PO serialization, versioned context,
+cumulative allocations, review/risk integration and evaluation.
 ERP integration, payments, production authentication and generic anomaly models remain out of
 scope.
 

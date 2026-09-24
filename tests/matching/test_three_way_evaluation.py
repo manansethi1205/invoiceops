@@ -11,4 +11,4 @@ def test_three_way_evaluation_safety_invariants() -> None:
     assert report.allocation_correctness_rate == 1
     assert report.cumulative_overbilling_detection_rate == 1
     assert report.idempotency_accuracy == 1
-    assert report.concurrency_conflict_accuracy == 1
+    assert report.serialized_overbilling_scenario_accuracy == 1

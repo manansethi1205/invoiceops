@@ -140,10 +140,13 @@ class GoodsReceiptService:
         return list(self.session.scalars(query.order_by(GoodsReceipt.created_at, GoodsReceipt.id)))
 
     def reverse(self, receipt_id: uuid.UUID, actor_id: str, reason: str) -> GoodsReceipt:
-        receipt = self.get(receipt_id)
-        if lock_purchase_order(self.session, receipt.purchase_order_id) is None:
+        purchase_order_id = self.session.scalar(
+            select(GoodsReceipt.purchase_order_id).where(GoodsReceipt.id == receipt_id)
+        )
+        if purchase_order_id is None:
+            raise GoodsReceiptNotFoundError
+        if lock_purchase_order(self.session, purchase_order_id) is None:
             raise ReceiptPurchaseOrderNotFoundError
-        self.session.expire(receipt)
         receipt = self.get(receipt_id)
         if receipt.reversal is not None:
             raise GoodsReceiptAlreadyReversedError

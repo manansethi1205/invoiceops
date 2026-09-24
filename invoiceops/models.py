@@ -443,6 +443,7 @@ class ThreeWayContext(Base):
         ForeignKey("match_runs.id", ondelete="CASCADE"), unique=True, index=True
     )
     context_fingerprint: Mapped[str] = mapped_column(String(64))
+    replay_fingerprint: Mapped[str] = mapped_column(String(64), index=True)
     snapshot: Mapped[dict[str, object]] = mapped_column(JSON)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     match_run: Mapped[MatchRun] = relationship(back_populates="three_way_context")
@@ -459,8 +460,9 @@ class ThreeWayAllocation(Base):
         ),
         UniqueConstraint(
             "document_id",
+            "purchase_order_id",
             "invoice_line_index",
-            name="uq_three_way_allocation_document_invoice_line",
+            name="uq_three_way_allocation_document_po_invoice_line",
         ),
         CheckConstraint("allocated_quantity > 0", name="ck_three_way_allocation_positive_quantity"),
     )
@@ -471,6 +473,12 @@ class ThreeWayAllocation(Base):
     )
     document_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("documents.id", ondelete="CASCADE"), index=True
+    )
+    purchase_order_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("purchase_orders.id", ondelete="RESTRICT"), index=True
+    )
+    extraction_run_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("extraction_runs.id", ondelete="RESTRICT"), index=True
     )
     purchase_order_line_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("purchase_order_lines.id", ondelete="RESTRICT"), index=True

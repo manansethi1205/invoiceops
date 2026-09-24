@@ -48,7 +48,107 @@ def test_workflow_migrations_upgrade_clean_and_existing_schema(
         constraint["name"]
         for constraint in inspect(engine).get_unique_constraints("three_way_allocations")
     }
-    assert "uq_three_way_allocation_document_invoice_line" in allocation_unique_constraints
+    assert "uq_three_way_allocation_document_po_invoice_line" in allocation_unique_constraints
+
+    # Prove the committed 0010 allocation shape upgrades without losing provenance.
+    command.downgrade(config, "20260924_0010")
+    pre_reconciliation = MetaData()
+    pre_reconciliation.reflect(engine)
+    now = datetime(2026, 9, 24, 9, 0, tzinfo=UTC)
+    document_id = uuid.uuid4()
+    extraction_id = uuid.uuid4()
+    purchase_order_id = uuid.uuid4()
+    purchase_order_line_id = uuid.uuid4()
+    match_run_id = uuid.uuid4()
+    allocation_id = uuid.uuid4()
+    with engine.begin() as connection:
+        connection.execute(
+            pre_reconciliation.tables["documents"].insert(),
+            {
+                "id": document_id.hex,
+                "original_filename": "synthetic-reconciliation.pdf",
+                "content_type": "application/pdf",
+                "byte_size": 1,
+                "sha256": "b" * 64,
+                "object_key": "synthetic/reconciliation.pdf",
+                "created_at": now,
+            },
+        )
+        connection.execute(
+            pre_reconciliation.tables["extraction_runs"].insert(),
+            {
+                "id": extraction_id.hex,
+                "document_id": document_id.hex,
+                "extractor_name": "deterministic-baseline",
+                "extractor_version": "0.2.0",
+                "schema_version": "invoice-v1",
+                "status": "SUCCEEDED",
+                "created_at": now,
+            },
+        )
+        connection.execute(
+            pre_reconciliation.tables["purchase_orders"].insert(),
+            {
+                "id": purchase_order_id.hex,
+                "external_po_number": "PO-RECONCILIATION",
+                "vendor_name": "Synthetic Vendor",
+                "currency": "INR",
+                "created_at": now,
+            },
+        )
+        connection.execute(
+            pre_reconciliation.tables["purchase_order_lines"].insert(),
+            {
+                "id": purchase_order_line_id.hex,
+                "purchase_order_id": purchase_order_id.hex,
+                "line_number": "1",
+                "description": "Synthetic item",
+                "ordered_quantity": "2",
+                "unit_price": "10",
+            },
+        )
+        connection.execute(
+            pre_reconciliation.tables["match_runs"].insert(),
+            {
+                "id": match_run_id.hex,
+                "document_id": document_id.hex,
+                "purchase_order_id": purchase_order_id.hex,
+                "extraction_run_id": extraction_id.hex,
+                "policy_version": "three-way-v1",
+                "policy_snapshot": {},
+                "matching_mode": "THREE_WAY",
+                "matching_context_fingerprint": "c" * 64,
+                "risk_policy_version": "duplicate-risk-v1",
+                "decision": "MATCHED",
+                "result_json": {},
+                "created_at": now,
+            },
+        )
+        connection.execute(
+            pre_reconciliation.tables["three_way_allocations"].insert(),
+            {
+                "id": allocation_id.hex,
+                "match_run_id": match_run_id.hex,
+                "document_id": document_id.hex,
+                "purchase_order_line_id": purchase_order_line_id.hex,
+                "invoice_line_index": 0,
+                "allocated_quantity": "2",
+                "created_at": now,
+            },
+        )
+    command.upgrade(config, "head")
+    reconciled = MetaData()
+    reconciled.reflect(engine)
+    with engine.connect() as connection:
+        allocation = connection.execute(
+            select(reconciled.tables["three_way_allocations"]).where(
+                reconciled.tables["three_way_allocations"].c.id == allocation_id.hex
+            )
+        ).mappings().one()
+    assert str(allocation["document_id"]).replace("-", "") == document_id.hex
+    assert str(allocation["purchase_order_id"]).replace("-", "") == purchase_order_id.hex
+    assert str(allocation["extraction_run_id"]).replace("-", "") == extraction_id.hex
+    assert str(allocation["match_run_id"]).replace("-", "") == match_run_id.hex
 
     # Simulate an existing repository at the pre-review schema, then apply only this slice.
     command.downgrade(config, "20260921_0005")

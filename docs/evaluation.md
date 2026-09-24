@@ -2,7 +2,8 @@
 
 The three-way suite contains 26 synthetic receipt/allocation scenarios and reports decision and
 routing metrics, cumulative-overbilling detection, allocation correctness, idempotency,
-serialized-contention behavior, latency and source-tree provenance. Run
+serialized overbilling scenarios, latency and source-tree provenance. The offline suite does not
+execute concurrent transactions; the PostgreSQL Compose test is the contention proof. Run
 `uv run python scripts/run_three_way_evaluation.py`; its aggregate report is under
 `evals/reports/matching/three-way-v1/`.
 

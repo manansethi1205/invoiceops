@@ -50,7 +50,7 @@ class ThreeWayEvaluationReport(BaseModel):
     allocation_correctness_rate: float = Field(ge=0, le=1)
     cumulative_overbilling_detection_rate: float = Field(ge=0, le=1)
     idempotency_accuracy: float = Field(ge=0, le=1)
-    concurrency_conflict_accuracy: float = Field(ge=0, le=1)
+    serialized_overbilling_scenario_accuracy: float = Field(ge=0, le=1)
     p50_latency_ms: float = Field(ge=0)
     p95_latency_ms: float = Field(ge=0)
     policy_version: str
@@ -308,7 +308,7 @@ def run_evaluation() -> ThreeWayEvaluationReport:
             cumulative_detected / cumulative_total if cumulative_total else 1
         ),
         idempotency_accuracy=idempotent / len(selected),
-        concurrency_conflict_accuracy=(
+        serialized_overbilling_scenario_accuracy=(
             cumulative_detected / cumulative_total if cumulative_total else 1
         ),
         p50_latency_ms=round(ordered[len(ordered) // 2], 4),
@@ -345,8 +345,8 @@ def write_report(output_dir: Path, report: ThreeWayEvaluationReport) -> None:
                 "- Cumulative-overbilling detection rate: "
                 f"{report.cumulative_overbilling_detection_rate:.4f}",
                 f"- Idempotency accuracy: {report.idempotency_accuracy:.4f}",
-                "- Serialized-contention conflict accuracy: "
-                f"{report.concurrency_conflict_accuracy:.4f}",
+                "- Serialized overbilling scenario accuracy: "
+                f"{report.serialized_overbilling_scenario_accuracy:.4f}",
                 f"- p50 latency: {report.p50_latency_ms:.4f} ms",
                 f"- p95 latency: {report.p95_latency_ms:.4f} ms",
                 f"- Scenario fingerprint: `{report.scenario_fingerprint}`",
@@ -354,6 +354,7 @@ def write_report(output_dir: Path, report: ThreeWayEvaluationReport) -> None:
                 "",
                 "A match result, duplicate-risk disposition, human resolution and "
                 "payment authorization remain separate decisions.",
+                "The offline suite is sequential; PostgreSQL contention is tested in Compose.",
                 "",
             ]
         ),
