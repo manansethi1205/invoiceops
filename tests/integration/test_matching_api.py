@@ -14,6 +14,7 @@ from invoiceops.models import (
     ExtractionRunStatus,
     MatchRun,
 )
+from invoiceops.observability.metrics import metrics
 from invoiceops.schemas.matching import MatchingPolicy, PurchaseOrderCreate
 from tests.matching.helpers import invoice
 
@@ -119,6 +120,32 @@ def test_match_api_is_idempotent_and_retrievable(
     fetched = client.get(f"/v1/matches/{first.json()['id']}")
     assert fetched.status_code == 200
     assert fetched.json() == first.json()
+    with db_session_factory() as session:
+        assert session.scalar(select(func.count()).select_from(MatchRun)) == 1
+
+
+def test_matching_commits_when_telemetry_recorder_raises(
+    monkeypatch: pytest.MonkeyPatch,
+    client: TestClient,
+    db_session_factory: sessionmaker[Session],
+) -> None:
+    class BrokenCounter:
+        def add(self, amount: int, labels: object) -> None:
+            del amount, labels
+            raise RuntimeError("synthetic telemetry failure")
+
+    po = client.post("/v1/purchase-orders", json=po_payload()).json()
+    with db_session_factory() as session:
+        document, _ = create_document_with_extraction(session)
+    metrics.initialize()
+    monkeypatch.setattr(metrics, "matching", BrokenCounter())
+
+    response = client.post(
+        f"/v1/documents/{document.id}/matches",
+        json={"purchase_order_id": po["id"]},
+    )
+
+    assert response.status_code == 201
     with db_session_factory() as session:
         assert session.scalar(select(func.count()).select_from(MatchRun)) == 1
 

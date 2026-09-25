@@ -1,3 +1,4 @@
+import time
 import uuid
 from dataclasses import dataclass
 
@@ -20,6 +21,8 @@ from invoiceops.models import (
     ThreeWayAllocation,
     ThreeWayContext,
 )
+from invoiceops.observability.metrics import metrics
+from invoiceops.observability.tracing import span
 from invoiceops.po_locking import lock_purchase_order
 from invoiceops.review.service import ensure_review_case
 from invoiceops.risk.service import DuplicateRiskService, select_effective_assessment
@@ -169,9 +172,20 @@ class MatchingService:
         purchase_order_id: uuid.UUID,
         mode: MatchingMode = MatchingMode.TWO_WAY,
     ) -> MatchServiceResult:
+        started = time.perf_counter()
+
+        def observed(result: MatchServiceResult) -> MatchServiceResult:
+            labels = {"mode": mode.value, "decision": result.run.decision.value}
+            metrics.add("matching", "matching", **labels)
+            metrics.observe(
+                "matching_duration", time.perf_counter() - started, "matching", **labels
+            )
+            return result
+
         if self.session.get(Document, document_id) is None:
             raise DocumentNotFoundError
-        purchase_order = self._locked_purchase_order(purchase_order_id, mode)
+        with span("matching.lock_purchase_order", mode=mode.value):
+            purchase_order = self._locked_purchase_order(purchase_order_id, mode)
         extraction_run = self._latest_successful_extraction(document_id)
         if extraction_run.output_json is None:
             raise ExtractionNotReadyError
@@ -182,11 +196,12 @@ class MatchingService:
         snapshot = None
         if mode == MatchingMode.THREE_WAY:
             builder = ThreeWayContextBuilder(self.session)
-            snapshot, context_fingerprint, replay_fingerprint = builder.build(
-                purchase_order,
-                self.three_way_policy,
-                current_document_id=document_id,
-            )
+            with span("matching.context", mode=mode.value):
+                snapshot, context_fingerprint, replay_fingerprint = builder.build(
+                    purchase_order,
+                    self.three_way_policy,
+                    current_document_id=document_id,
+                )
             for prior in self._find_prior_candidates(
                 document_id, purchase_order_id, extraction_run.id, mode, policy_version
             ):
@@ -195,7 +210,7 @@ class MatchingService:
                     and replay_fingerprint == prior.three_way_context.replay_fingerprint
                 ):
                     self._ensure_case_for_existing(prior)
-                    return MatchServiceResult(prior, created=False)
+                    return observed(MatchServiceResult(prior, created=False))
         else:
             context_fingerprint = TWO_WAY_CONTEXT_FINGERPRINT
         existing = self._find_existing(
@@ -208,26 +223,31 @@ class MatchingService:
         )
         if existing is not None:
             self._ensure_case_for_existing(existing)
-            return MatchServiceResult(existing, created=False)
+            return observed(MatchServiceResult(existing, created=False))
 
         if mode == MatchingMode.THREE_WAY:
             assert snapshot is not None
-            result, allocations = match_invoice_three_way(
-                invoice,
-                purchase_order_to_read(purchase_order),
-                snapshot,
-                self.three_way_policy,
-            )
-            result, allocations = self._reconcile_allocations(
-                document_id,
-                purchase_order_id,
-                invoice,
-                result,
-                allocations,
-            )
+            with span("matching.engine", mode=mode.value):
+                result, allocations = match_invoice_three_way(
+                    invoice,
+                    purchase_order_to_read(purchase_order),
+                    snapshot,
+                    self.three_way_policy,
+                )
+            with span("matching.allocation_reconciliation", mode=mode.value):
+                result, allocations = self._reconcile_allocations(
+                    document_id,
+                    purchase_order_id,
+                    invoice,
+                    result,
+                    allocations,
+                )
             policy_snapshot = self.three_way_policy.model_dump(mode="json")
         else:
-            result = match_invoice(invoice, purchase_order_to_read(purchase_order), self.policy)
+            with span("matching.engine", mode=mode.value):
+                result = match_invoice(
+                    invoice, purchase_order_to_read(purchase_order), self.policy
+                )
             allocations = []
             policy_snapshot = self.policy.model_dump(mode="json")
         run = MatchRun(
@@ -266,11 +286,17 @@ class MatchingService:
                     )
                     for item in allocations
                 )
-            risk = DuplicateRiskService(self.session).ensure(run, purchase_order, invoice)
-            ensure_review_case(self.session, run, risk.assessment)
-            self.session.commit()
+            with span("matching.duplicate_risk", mode=mode.value):
+                risk = DuplicateRiskService(self.session).ensure(run, purchase_order, invoice)
+            metrics.add(
+                "risk", "risk", disposition=risk.assessment.disposition.value
+            )
+            with span("matching.review_case", mode=mode.value):
+                ensure_review_case(self.session, run, risk.assessment)
+            with span("matching.transaction_commit", mode=mode.value):
+                self.session.commit()
             self.session.refresh(run)
-            return MatchServiceResult(run, created=True)
+            return observed(MatchServiceResult(run, created=True))
         except IntegrityError:
             self.session.rollback()
             concurrent = self._find_existing(
@@ -284,7 +310,7 @@ class MatchingService:
             if concurrent is None:
                 raise
             self._ensure_case_for_existing(concurrent)
-            return MatchServiceResult(concurrent, created=False)
+            return observed(MatchServiceResult(concurrent, created=False))
 
     def get(self, match_run_id: uuid.UUID) -> MatchRun:
         run = self.session.get(MatchRun, match_run_id)

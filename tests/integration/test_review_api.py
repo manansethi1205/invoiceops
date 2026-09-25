@@ -14,6 +14,7 @@ from invoiceops.models import (
     ReviewEvent,
     RiskAssessment,
 )
+from invoiceops.observability.metrics import metrics
 from invoiceops.review.audit import AUDIT_HASH_V1, event_hash
 from invoiceops.review.service import MATCH_REASON_TRIGGER, ReviewService
 from invoiceops.review.state import ReviewTransitionError
@@ -162,6 +163,34 @@ def test_claim_comment_release_reclaim_and_resolve_with_auditable_history(
     assert detail["events_url"].endswith(f"/v1/review-cases/{case_id}/events")
     assert client.delete(f"/v1/review-cases/{case_id}/events").status_code == 405
     assert client.put(f"/v1/review-cases/{case_id}/events", json=[]).status_code == 405
+
+
+def test_review_transition_commits_when_telemetry_recorder_raises(
+    monkeypatch: pytest.MonkeyPatch,
+    client: TestClient,
+    db_session_factory: sessionmaker[Session],
+) -> None:
+    class BrokenCounter:
+        def add(self, amount: int, labels: object) -> None:
+            del amount, labels
+            raise RuntimeError("synthetic telemetry failure")
+
+    case = create_review_case(client, db_session_factory)
+    metrics.initialize()
+    monkeypatch.setattr(metrics, "review", BrokenCounter())
+
+    response = client.post(
+        f"/v1/review-cases/{case['id']}/claim",
+        json={"expected_version": 1},
+        headers={"X-Reviewer-ID": "reviewer-telemetry-test"},
+    )
+
+    assert response.status_code == 200
+    with db_session_factory() as session:
+        stored = session.get(ReviewCase, uuid.UUID(str(case["id"])))
+        assert stored is not None
+        assert stored.status.value == "CLAIMED"
+        assert stored.version == 2
 
 
 def test_concurrency_ownership_identity_and_terminal_guards(

@@ -9,6 +9,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
 from invoiceops.models import ExtractionRun, ExtractionRunStatus, MatchRun, ThreeWayAllocation
+from invoiceops.observability.metrics import metrics
 from tests.integration.test_matching_api import (
     create_document_with_extraction,
     po_payload,
@@ -58,6 +59,28 @@ def test_receipt_replay_is_idempotent_and_conflicting_payload_is_rejected(
     assert [item["id"] for item in listed.json()] == [first.json()["id"]]
 
 
+def test_receipt_creation_remains_idempotent_when_telemetry_recorder_raises(
+    monkeypatch: pytest.MonkeyPatch,
+    client: TestClient,
+) -> None:
+    class BrokenCounter:
+        def add(self, amount: int, labels: object) -> None:
+            del amount, labels
+            raise RuntimeError("synthetic telemetry failure")
+
+    po = client.post("/v1/purchase-orders", json=po_payload()).json()
+    payload = _receipt_payload(po, number="GRN-TELEMETRY-FAILURE")
+    metrics.initialize()
+    monkeypatch.setattr(metrics, "receipt", BrokenCounter())
+
+    first = client.post("/v1/goods-receipts", json=payload)
+    replay = client.post("/v1/goods-receipts", json=payload)
+
+    assert first.status_code == 201
+    assert replay.status_code == 200
+    assert replay.json()["id"] == first.json()["id"]
+
+
 def test_three_way_match_persists_context_and_allocates_once(
     client: TestClient, db_session_factory: sessionmaker[Session]
 ) -> None:
@@ -87,6 +110,34 @@ def test_three_way_match_persists_context_and_allocates_once(
     context = client.get(body["three_way_context_url"])
     assert context.status_code == 200
     assert context.json()["context_fingerprint"] == body["context_fingerprint"]
+    with db_session_factory() as session:
+        assert session.scalar(select(func.count()).select_from(MatchRun)) == 1
+        assert session.scalar(select(func.count()).select_from(ThreeWayAllocation)) == 2
+
+
+def test_three_way_matching_persists_one_run_and_allocations_when_telemetry_raises(
+    monkeypatch: pytest.MonkeyPatch,
+    client: TestClient,
+    db_session_factory: sessionmaker[Session],
+) -> None:
+    class BrokenCounter:
+        def add(self, amount: int, labels: object) -> None:
+            del amount, labels
+            raise RuntimeError("synthetic telemetry failure")
+
+    po = client.post("/v1/purchase-orders", json=po_payload()).json()
+    assert client.post("/v1/goods-receipts", json=_receipt_payload(po)).status_code == 201
+    with db_session_factory() as session:
+        document, _ = create_document_with_extraction(session)
+    metrics.initialize()
+    monkeypatch.setattr(metrics, "matching", BrokenCounter())
+
+    response = client.post(
+        f"/v1/documents/{document.id}/matches",
+        json={"purchase_order_id": po["id"], "mode": "THREE_WAY"},
+    )
+
+    assert response.status_code == 201
     with db_session_factory() as session:
         assert session.scalar(select(func.count()).select_from(MatchRun)) == 1
         assert session.scalar(select(func.count()).select_from(ThreeWayAllocation)) == 2

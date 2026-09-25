@@ -1,4 +1,5 @@
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Iterator, Sequence
+from contextlib import AbstractContextManager, contextmanager
 from typing import cast
 
 import pymupdf
@@ -20,11 +21,17 @@ from invoiceops.schemas.extraction import (
 
 type RawWord = tuple[float, float, float, float, str, int, int, int]
 type OcrWordExtractor = Callable[[pymupdf.Page], Sequence[object]]
+type StageContextFactory = Callable[[str], AbstractContextManager[object]]
 SUPPORTED_CONTENT_TYPES = {
     "application/pdf": "pdf",
     "image/jpeg": "jpeg",
     "image/png": "png",
 }
+
+
+@contextmanager
+def _noop_stage(_: str) -> Iterator[object]:
+    yield None
 
 
 class DocumentTextExtractor:
@@ -34,12 +41,14 @@ class DocumentTextExtractor:
         minimum_meaningful_words: int = 8,
         minimum_non_whitespace_characters: int = 40,
         ocr_word_extractor: OcrWordExtractor | None = None,
+        stage_context: StageContextFactory = _noop_stage,
     ) -> None:
         if minimum_meaningful_words < 0 or minimum_non_whitespace_characters < 0:
             raise ValueError("text sufficiency thresholds must be non-negative")
         self.minimum_meaningful_words = minimum_meaningful_words
         self.minimum_non_whitespace_characters = minimum_non_whitespace_characters
         self.ocr_word_extractor = ocr_word_extractor or self._extract_ocr_words
+        self.stage_context = stage_context
 
     def extract(self, body: bytes, content_type: str) -> DocumentText:
         filetype = SUPPORTED_CONTENT_TYPES.get(content_type)
@@ -66,7 +75,8 @@ class DocumentTextExtractor:
 
     def _extract_page(self, page_number: int, page: pymupdf.Page) -> PageText:
         try:
-            embedded_words = self._coerce_words(page.get_text("words", sort=True))
+            with self.stage_context("pdf_embedded_text"):
+                embedded_words = self._coerce_words(page.get_text("words", sort=True))
         except RuntimeError as exc:
             raise UnreadableDocumentError(
                 f"embedded text could not be read from page {page_number}"
@@ -75,7 +85,8 @@ class DocumentTextExtractor:
         source = TextSource.EMBEDDED
         raw_words = embedded_words
         if reason != OcrReason.EMBEDDED_TEXT_SUFFICIENT:
-            raw_words = self._coerce_words(self.ocr_word_extractor(page))
+            with self.stage_context("ocr_fallback"):
+                raw_words = self._coerce_words(self.ocr_word_extractor(page))
             source = TextSource.OCR
 
         rect = page.rect

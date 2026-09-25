@@ -4,7 +4,7 @@ import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
-from sqlalchemy import Select, and_, or_, select, update
+from sqlalchemy import Select, and_, func, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
@@ -16,6 +16,7 @@ from invoiceops.models import (
     ReviewEvent,
     RiskAssessment,
 )
+from invoiceops.observability.metrics import metrics
 from invoiceops.review.audit import (
     AUDIT_HASH_V2,
     ReconstructedState,
@@ -69,6 +70,18 @@ class ReconciliationResult:
 
 def _now() -> datetime:
     return datetime.now(UTC)
+
+
+def _record_review_backlog(session: Session) -> None:
+    count, oldest = session.execute(
+        select(func.count(ReviewCase.id), func.min(ReviewCase.opened_at)).where(
+            ReviewCase.status != ReviewStatus.RESOLVED
+        )
+    ).one()
+    if oldest is not None and oldest.tzinfo is None:
+        oldest = oldest.replace(tzinfo=UTC)
+    age = max(0.0, (_now() - oldest).total_seconds()) if oldest is not None else 0.0
+    metrics.set_review_backlog(int(count), age)
 
 
 def _reason_codes(run: MatchRun) -> list[ReasonCode]:
@@ -182,6 +195,8 @@ def ensure_review_case(
     session.add_all((case, event))
     _ensure_review_triggers(session, case, run, risk_assessment)
     session.flush()
+    metrics.add("review", "review", event=ReviewEventType.CASE_OPENED.value)
+    _record_review_backlog(session)
     return case, True
 
 
@@ -294,6 +309,7 @@ class ReviewService:
         cursor: str | None = None,
         limit: int = 50,
     ) -> ReviewCasePage:
+        _record_review_backlog(self.session)
         statement: Select[tuple[ReviewCase]] = select(ReviewCase).options(
             selectinload(ReviewCase.match_run), selectinload(ReviewCase.triggers)
         )
@@ -544,6 +560,8 @@ class ReviewService:
             raise ReviewTransitionError(
                 "STALE_VERSION", "The review case version is stale"
             ) from exc
+        metrics.add("review", "review", event=transition.event_type.value)
+        _record_review_backlog(self.session)
         return self.get(case.id)
 
 

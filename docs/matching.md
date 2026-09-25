@@ -110,7 +110,10 @@ uv run pytest -m "not docker and not docile" -q -p no:cacheprovider
 uv run ruff check .
 uv run mypy apps invoiceops workers
 uv run python scripts/run_matching_evaluation.py
-docker compose --profile test up --build --abort-on-container-exit --exit-code-from integration-tests integration-tests
+docker compose build api
+docker compose --profile test build integration-tests
+docker compose up --no-build -d api worker
+docker compose --profile test run --rm --no-deps integration-tests
 ```
 
 The synthetic scenario report is not a claim about production accuracy. Vendor identity is not

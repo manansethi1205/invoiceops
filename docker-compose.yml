@@ -1,5 +1,7 @@
 services:
   api:
+    image: invoiceops-app:local
+    pull_policy: never
     build:
       context: .
       dockerfile: infrastructure/docker/Dockerfile
@@ -7,18 +9,21 @@ services:
     env_file: .env
     environment:
       DATABASE_URL: postgresql+psycopg://invoiceops:invoiceops@postgres:5432/invoiceops
+      S3_ENDPOINT_URL: http://object-storage:9090
+      OTEL_ENABLED: ${OTEL_ENABLED:-false}
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
     ports: ["127.0.0.1:8000:8000"]
     depends_on:
       migrate: {condition: service_completed_successfully}
       redis: {condition: service_healthy}
-      minio-init: {condition: service_completed_successfully}
+      object-storage: {condition: service_healthy}
     healthcheck:
       test:
         [
           "CMD",
           "python",
           "-c",
-          "import urllib.request; urllib.request.urlopen('http://localhost:8000/healthz')",
+          "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/ready')",
         ]
       interval: 10s
       timeout: 3s
@@ -26,38 +31,39 @@ services:
       start_period: 5s
 
   worker:
-    build:
-      context: .
-      dockerfile: infrastructure/docker/Dockerfile
+    image: invoiceops-app:local
+    pull_policy: never
     command: celery -A workers.extraction.celery_app:celery_app worker --loglevel=INFO --concurrency=2
     env_file: .env
     environment:
       DATABASE_URL: postgresql+psycopg://invoiceops:invoiceops@postgres:5432/invoiceops
+      S3_ENDPOINT_URL: http://object-storage:9090
+      OTEL_ENABLED: ${OTEL_ENABLED:-false}
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
     depends_on:
       migrate: {condition: service_completed_successfully}
       redis: {condition: service_healthy}
-      minio-init: {condition: service_completed_successfully}
+      object-storage: {condition: service_healthy}
 
   worker-hybrid-fake:
     profiles: ["hybrid-test"]
-    build:
-      context: .
-      dockerfile: infrastructure/docker/Dockerfile
+    image: invoiceops-app:local
+    pull_policy: never
     command: celery -A workers.extraction.celery_app:celery_app worker --loglevel=INFO --concurrency=2
     env_file: .env
     environment:
+      S3_ENDPOINT_URL: http://object-storage:9090
       VLM_ENABLED: "true"
       VLM_PROVIDER: fake
       VLM_MODEL: fake-vision
     depends_on:
       migrate: {condition: service_completed_successfully}
       redis: {condition: service_healthy}
-      minio-init: {condition: service_completed_successfully}
+      object-storage: {condition: service_healthy}
 
   migrate:
-    build:
-      context: .
-      dockerfile: infrastructure/docker/Dockerfile
+    image: invoiceops-app:local
+    pull_policy: never
     command: alembic upgrade head
     env_file: .env
     environment:
@@ -88,27 +94,26 @@ services:
       timeout: 3s
       retries: 10
 
-  minio:
-    # Legacy community binary for synthetic local development only. Keep it loopback-bound.
-    image: quay.io/minio/minio:RELEASE.2025-04-08T15-41-24Z
-    command: server /data --console-address :9001
+  object-storage:
+    # S3-compatible local test storage. It is not a production object store.
+    image: adobe/s3mock:5.1.0
     environment:
-      MINIO_ROOT_USER: invoiceops
-      MINIO_ROOT_PASSWORD: change-me-in-real-deployments
-    ports: ["127.0.0.1:9000:9000", "127.0.0.1:9001:9001"]
-    volumes: ["minio-data:/data"]
-
-  minio-init:
-    image: quay.io/minio/mc:RELEASE.2024-11-21T17-21-54Z
-    env_file: .env
-    entrypoint: >
-      /bin/sh -c "until mc alias set local http://minio:9000 $$S3_ACCESS_KEY_ID $$S3_SECRET_ACCESS_KEY; do sleep 1; done &&
-      mc mb --ignore-existing local/$$S3_BUCKET"
-    depends_on:
-      minio: {condition: service_started}
+      COM_ADOBE_TESTING_S3MOCK_STORE_INITIAL_BUCKETS: invoice-documents
+      COM_ADOBE_TESTING_S3MOCK_STORE_ROOT: /containers3root
+      COM_ADOBE_TESTING_S3MOCK_STORE_RETAIN_FILES_ON_EXIT: "true"
+    ports: ["127.0.0.1:9000:9090"]
+    volumes: ["object-storage-data:/containers3root"]
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:9090/favicon.ico"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
 
   integration-tests:
     profiles: ["test"]
+    image: invoiceops-tests:local
+    pull_policy: never
     build:
       context: .
       dockerfile: infrastructure/docker/Dockerfile
@@ -124,6 +129,8 @@ services:
 
   integration-tests-hybrid:
     profiles: ["hybrid-test"]
+    image: invoiceops-tests:local
+    pull_policy: never
     build:
       context: .
       dockerfile: infrastructure/docker/Dockerfile
@@ -156,6 +163,105 @@ services:
         read_only: true
     entrypoint: ["python", "-m", "invoiceops.evaluation"]
 
+  otel-collector:
+    profiles: ["observability"]
+    image: otel/opentelemetry-collector-contrib:0.135.0
+    command: ["--config=/etc/otelcol-contrib/config.yml"]
+    volumes:
+      - ./infrastructure/observability/otel-collector.yml:/etc/otelcol-contrib/config.yml:ro
+    depends_on:
+      tempo: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD", "/otelcol-contrib", "validate", "--config=/etc/otelcol-contrib/config.yml"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+
+  tempo:
+    profiles: ["observability"]
+    image: grafana/tempo:2.8.2
+    command: ["-config.file=/etc/tempo.yml"]
+    volumes:
+      - ./infrastructure/observability/tempo.yml:/etc/tempo.yml:ro
+      - tempo-data:/var/tempo
+    healthcheck:
+      # The pinned Tempo image is distroless, so it cannot call its own HTTP readiness endpoint.
+      test: ["CMD", "/tempo", "-version"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+
+  prometheus:
+    profiles: ["observability"]
+    image: prom/prometheus:v3.5.0
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+    ports: ["127.0.0.1:9090:9090"]
+    volumes:
+      - ./infrastructure/observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./infrastructure/observability/prometheus-rules.yml:/etc/prometheus/prometheus-rules.yml:ro
+      - prometheus-data:/prometheus
+    depends_on:
+      otel-collector: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:9090/-/healthy"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+
+  grafana:
+    profiles: ["observability"]
+    image: grafana/grafana:12.1.1
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_USERS_DEFAULT_THEME: light
+    ports: ["127.0.0.1:3000:3000"]
+    volumes:
+      - ./infrastructure/observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./infrastructure/observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      prometheus: {condition: service_healthy}
+      tempo: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+
+  observability-tests:
+    profiles: ["observability"]
+    image: invoiceops-tests:local
+    pull_policy: never
+    build:
+      context: .
+      dockerfile: infrastructure/docker/Dockerfile
+      args:
+        INSTALL_DEV: "true"
+    command: pytest -q tests/docker/test_observability_stack.py
+    environment:
+      API_BASE_URL: http://api:8000
+      PROMETHEUS_URL: http://prometheus:9090
+      TEMPO_URL: http://tempo:3200
+      GRAFANA_URL: http://grafana:3000
+      OBSERVABILITY_STACK_ENABLED: ${OTEL_ENABLED:-false}
+    depends_on:
+      api: {condition: service_healthy}
+      worker: {condition: service_started}
+      otel-collector: {condition: service_healthy}
+      prometheus: {condition: service_healthy}
+      tempo: {condition: service_healthy}
+      grafana: {condition: service_healthy}
+
 volumes:
   postgres-data:
-  minio-data:
+  object-storage-data:
+  tempo-data:
+  prometheus-data:
+  grafana-data:

@@ -54,14 +54,22 @@ deterministic code handles arithmetic, policy, matching, and approval.
 - Route risk signals through normalized review triggers without changing match decisions.
 - Treat missing comparison features explicitly and gate behavior with stored policy.
 
-## 8. Broader risk and approval policy — planned
+## 8. Three-way matching — implemented
+
+- Persist immutable receipts and append-only reversals under shared PO-level locking.
+- Match against received quantities and reconcile one reusable allocation per invoice.
+- Preserve fingerprinted receiving context and route changed allocations to review.
+
+## 9. Broader risk and approval policy — planned
 
 - Detect altered bank details and other calibrated anomaly signals after measured error analysis.
 - Keep payment authorization outside model and risk-engine authority.
 - Model company-specific escalation and approval evidence as deterministic policy.
 
-## 9. Observability and deployment — planned
+## 10. Observability and deployment — observability implemented, deployment planned
 
-- Add MLflow lineage, OpenTelemetry, Prometheus, and Grafana.
+- Export privacy-bounded OpenTelemetry traces and metrics to local Tempo and Prometheus.
+- Provision an InvoiceOps operations dashboard and demonstration SLOs in Grafana.
+- Add MLflow only when experiment lineage becomes a measured requirement.
 - Add Terraform for one real cloud path using S3, SQS, RDS, and a container service.
 - Publish measured service and business metrics separately from external benchmarks.

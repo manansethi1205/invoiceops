@@ -61,6 +61,12 @@ event commit together. Database uniqueness prevents duplicate cases and event se
 The hash chain is tamper-evident at application level, not immutable against a database
 administrator. Later slices add anomaly scoring and evaluation lineage.
 
+Operational telemetry follows the same separation boundary. API and worker processes send safe,
+low-cardinality traces and metrics over OTLP to a local Collector; traces go to Tempo and metrics
+to Prometheus. Grafana reads both. Request and trace context crosses Celery, while extracted text,
+evidence quotes, business identifiers, filenames and provider prompts are excluded. `/health/live`
+checks only the process; `/health/ready` separately probes PostgreSQL, Redis and object storage.
+
 Matching and duplicate risk are independent deterministic decisions. A `MATCHED` invoice can be
 routed for duplicate review without mutating the match result, and neither decision authorizes
 payment. See [risk.md](risk.md).

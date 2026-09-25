@@ -34,6 +34,8 @@ from invoiceops.models import (
     ModelCall,
     ModelCallStatus,
 )
+from invoiceops.observability.metrics import metrics
+from invoiceops.observability.tracing import span
 from invoiceops.schemas.extraction import Invoice
 
 ProviderFactory = Callable[[], VisionExtractionProvider]
@@ -80,9 +82,20 @@ class HybridExtractionService:
             document_text = self.text_extractor.extract(body, document.content_type)
         except (DocumentExtractionError, ValidationError) as exc:
             self._mark_terminal_failure(run.id, exc)
+            metrics.add(
+                "extraction", "extraction", strategy="hybrid-routed", status="FAILED"
+            )
+            metrics.observe(
+                "extraction_duration",
+                time.perf_counter() - started,
+                "extraction",
+                strategy="hybrid-routed",
+                status="FAILED",
+            )
             raise
 
-        routing = route_extraction(baseline, document_text)
+        with span("extraction.hybrid_routing"):
+            routing = route_extraction(baseline, document_text)
         fingerprint = self._fingerprint(document.sha256, routing.model_dump(mode="json"))
         model_call = self._get_or_create_call(run.id, fingerprint, routing.model_dump(mode="json"))
         invoice = baseline
@@ -90,11 +103,13 @@ class HybridExtractionService:
 
         if not routing.invoke_vlm:
             self._finish_call(model_call.id, status=ModelCallStatus.SKIPPED, summary=summary)
+            metrics.add("vlm_calls", "vlm", provider=self.provider_name, outcome="SKIPPED")
         elif model_call.status == ModelCallStatus.SUCCEEDED and model_call.candidate_json:
             candidate = VisionInvoiceCandidate.model_validate(model_call.candidate_json)
-            fused = fuse_invoice(
-                baseline, candidate, document_text, fuzzy_threshold=self.fuzzy_threshold
-            )
+            with span("extraction.grounding_fusion"):
+                fused = fuse_invoice(
+                    baseline, candidate, document_text, fuzzy_threshold=self.fuzzy_threshold
+                )
             invoice = fused.invoice
             summary = self._summary(fused)
         elif model_call.status == ModelCallStatus.FAILED:
@@ -103,15 +118,32 @@ class HybridExtractionService:
             try:
                 pages = self.renderer.render(body, document.content_type)
                 provider = self.provider_factory()
-                provider_response = provider.extract(pages, document_text)
-                fused = fuse_invoice(
-                    baseline,
-                    provider_response.candidate,
-                    document_text,
-                    fuzzy_threshold=self.fuzzy_threshold,
+                provider_started = time.perf_counter()
+                with span("extraction.provider_call", provider=self.provider_name):
+                    provider_response = provider.extract(pages, document_text)
+                metrics.add(
+                    "vlm_calls", "vlm", provider=self.provider_name, outcome="SUCCEEDED"
                 )
+                metrics.observe(
+                    "vlm_duration",
+                    time.perf_counter() - provider_started,
+                    "vlm",
+                    provider=self.provider_name,
+                    outcome="SUCCEEDED",
+                )
+                with span("extraction.grounding_fusion"):
+                    fused = fuse_invoice(
+                        baseline,
+                        provider_response.candidate,
+                        document_text,
+                        fuzzy_threshold=self.fuzzy_threshold,
+                    )
                 invoice = fused.invoice
                 summary = self._summary(fused)
+                grounding_outcome = (
+                    "PROMOTED" if any(fused.grounding.values()) else "ABSTAINED"
+                )
+                metrics.add("grounding", "grounding", outcome=grounding_outcome)
                 self._finish_call(
                     model_call.id,
                     status=ModelCallStatus.SUCCEEDED,
@@ -125,6 +157,17 @@ class HybridExtractionService:
                     summary=summary,
                 )
             except (VisionProviderError, DocumentRenderingError) as exc:
+                if isinstance(exc, VisionProviderError):
+                    metrics.add(
+                        "vlm_calls", "vlm", provider=self.provider_name, outcome="FAILED"
+                    )
+                    metrics.observe(
+                        "vlm_duration",
+                        time.perf_counter() - provider_started,
+                        "vlm",
+                        provider=self.provider_name,
+                        outcome="FAILED",
+                    )
                 self._finish_call(
                     model_call.id,
                     status=ModelCallStatus.FAILED,
@@ -132,20 +175,31 @@ class HybridExtractionService:
                     summary=summary,
                 )
 
-        self.session.execute(
-            update(ExtractionRun)
-            .where(ExtractionRun.id == run.id)
-            .values(
-                status=ExtractionRunStatus.SUCCEEDED,
-                output_json=invoice.model_dump(mode="json"),
-                used_ocr=document_text.used_ocr,
-                latency_ms=round((time.perf_counter() - started) * 1000, 2),
-                error_code=None,
-                error_message=None,
-                completed_at=datetime.now(UTC),
+        with span("extraction.persistence", strategy="hybrid-routed"):
+            self.session.execute(
+                update(ExtractionRun)
+                .where(ExtractionRun.id == run.id)
+                .values(
+                    status=ExtractionRunStatus.SUCCEEDED,
+                    output_json=invoice.model_dump(mode="json"),
+                    used_ocr=document_text.used_ocr,
+                    latency_ms=round((time.perf_counter() - started) * 1000, 2),
+                    error_code=None,
+                    error_message=None,
+                    completed_at=datetime.now(UTC),
+                )
             )
+            self.session.commit()
+        metrics.add(
+            "extraction", "extraction", strategy="hybrid-routed", status="SUCCEEDED"
         )
-        self.session.commit()
+        metrics.observe(
+            "extraction_duration",
+            time.perf_counter() - started,
+            "extraction",
+            strategy="hybrid-routed",
+            status="SUCCEEDED",
+        )
         return self._require_run(run.id)
 
     def _fingerprint(self, document_sha256: str, routing: dict[str, object]) -> str:

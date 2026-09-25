@@ -13,6 +13,8 @@ from invoiceops.models import (
     GoodsReceiptLine,
     GoodsReceiptReversal,
 )
+from invoiceops.observability.metrics import metrics
+from invoiceops.observability.tracing import span
 from invoiceops.po_locking import lock_purchase_order
 from invoiceops.schemas.receipts import GoodsReceiptCreate, GoodsReceiptRead
 
@@ -77,9 +79,10 @@ class GoodsReceiptService:
         self.session = session
 
     def create(self, command: GoodsReceiptCreate) -> GoodsReceiptServiceResult:
-        purchase_order = lock_purchase_order(
-            self.session, command.purchase_order_id, include_lines=True
-        )
+        with span("receipt.lock_purchase_order"):
+            purchase_order = lock_purchase_order(
+                self.session, command.purchase_order_id, include_lines=True
+            )
         if purchase_order is None:
             raise ReceiptPurchaseOrderNotFoundError
         line_ids = {line.purchase_order_line_id for line in command.lines}
@@ -93,6 +96,7 @@ class GoodsReceiptService:
         if existing is not None:
             if existing.request_fingerprint != fingerprint:
                 raise ConflictingReceiptReplayError
+            metrics.add("receipt", "receipt", event="REPLAYED")
             return GoodsReceiptServiceResult(existing, False)
         receipt = GoodsReceipt(
             purchase_order_id=command.purchase_order_id,
@@ -119,6 +123,7 @@ class GoodsReceiptService:
                 raise ConflictingReceiptReplayError from None
             return GoodsReceiptServiceResult(concurrent, False)
         self.session.expire_all()
+        metrics.add("receipt", "receipt", event="CREATED")
         return GoodsReceiptServiceResult(self.get(receipt.id), True)
 
     def get(self, receipt_id: uuid.UUID) -> GoodsReceipt:
@@ -163,6 +168,7 @@ class GoodsReceiptService:
         except IntegrityError as exc:
             self.session.rollback()
             raise GoodsReceiptAlreadyReversedError from exc
+        metrics.add("receipt", "receipt", event="REVERSED")
         return self.get(receipt_id)
 
     def _find_by_business_key(

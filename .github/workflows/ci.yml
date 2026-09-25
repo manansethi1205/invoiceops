@@ -94,6 +94,21 @@ jobs:
       - name: Mypy
         run: uv run mypy apps invoiceops workers
 
+      - name: Validate observability configuration
+        run: |
+          docker compose --profile observability config --quiet
+          python -m json.tool \
+            infrastructure/observability/grafana/dashboards/invoiceops-operations.json \
+            >/dev/null
+          docker run --rm \
+            -v "$PWD/infrastructure/observability:/etc/invoiceops-observability:ro" \
+            prom/prometheus:v3.5.0 \
+            promtool check rules /etc/invoiceops-observability/prometheus-rules.yml
+          docker run --rm \
+            -v "$PWD/infrastructure/observability/otel-collector.yml:/etc/otelcol-contrib/config.yml:ro" \
+            otel/opentelemetry-collector-contrib:0.135.0 \
+            validate --config=/etc/otelcol-contrib/config.yml
+
       - name: Pytest
         run: uv run pytest -m "not docker and not docile"
 
@@ -312,14 +327,50 @@ jobs:
         run: cp .env.example .env
 
       - name: Run real-stack integration tests
-        run: >-
-          docker compose --profile test up --build --abort-on-container-exit
-          --exit-code-from integration-tests integration-tests
+        env:
+          COMPOSE_PARALLEL_LIMIT: "1"
+          COMPOSE_BAKE: "false"
+        run: |
+          docker compose build api
+          docker compose --profile test build integration-tests
+          docker compose up --no-build -d api worker
+          docker compose --profile test run --rm --no-deps integration-tests
 
       - name: Show service logs on failure
         if: failure()
-        run: docker compose logs api worker migrate postgres redis minio
+        run: docker compose logs api worker migrate postgres redis object-storage
 
       - name: Tear down stack
         if: always()
         run: docker compose --profile test down --volumes
+
+  compose-observability:
+    name: Docker Compose Telemetry Smoke
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure synthetic local environment
+        run: cp .env.example .env
+
+      - name: Run telemetry smoke test
+        env:
+          OTEL_ENABLED: "true"
+          COMPOSE_PARALLEL_LIMIT: "1"
+          COMPOSE_BAKE: "false"
+        run: |
+          docker compose --profile observability build api
+          docker compose --profile observability build observability-tests
+          docker compose --profile observability up --no-build -d --wait --wait-timeout 180 \
+            api worker otel-collector tempo prometheus grafana
+          docker compose --profile observability run --rm --no-deps observability-tests
+
+      - name: Show telemetry logs on failure
+        if: failure()
+        run: docker compose logs api worker otel-collector tempo prometheus grafana
+
+      - name: Tear down stack
+        if: always()
+        run: docker compose --profile observability down --volumes

@@ -8,7 +8,7 @@ from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from invoiceops.extraction.errors import DocumentExtractionError
+from invoiceops.extraction.errors import DocumentExtractionError, OcrUnavailableError
 from invoiceops.extraction.failures import (
     extraction_error_code,
     safe_extraction_error_message,
@@ -17,6 +17,8 @@ from invoiceops.extraction.pipeline import InvoiceExtractor
 from invoiceops.extraction.version import SCHEMA_VERSION
 from invoiceops.ingestion.storage import ObjectStore
 from invoiceops.models import Document, ExtractionRun, ExtractionRunStatus
+from invoiceops.observability.metrics import metrics
+from invoiceops.observability.tracing import span
 from invoiceops.schemas.extraction import DocumentText, Invoice
 
 
@@ -45,31 +47,67 @@ class ExtractionService:
         if run.status == ExtractionRunStatus.SUCCEEDED:
             return run
 
+        started = time.perf_counter()
         try:
-            body = self.object_store.get(document.object_key)
-            started = time.perf_counter()
-            document_text = self.text_extractor.extract(body, document.content_type)
-            extracted = self.invoice_extractor.extract(document_text)
+            with span("extraction.object_store_download"):
+                body = self.object_store.get(document.object_key)
+            with span("extraction.preprocessing"):
+                document_text = self.text_extractor.extract(body, document.content_type)
+            with span(
+                "extraction.deterministic",
+                {"invoiceops.strategy": self.invoice_extractor.name},
+            ):
+                extracted = self.invoice_extractor.extract(document_text)
             invoice = Invoice.model_validate(extracted)
             latency_ms = round((time.perf_counter() - started) * 1000, 2)
         except (DocumentExtractionError, ValidationError) as exc:
             self._mark_terminal_failure(run.id, exc)
+            metrics.add(
+                "extraction",
+                "extraction",
+                strategy=self.invoice_extractor.name,
+                status="FAILED",
+            )
+            metrics.observe(
+                "extraction_duration",
+                time.perf_counter() - started,
+                "extraction",
+                strategy=self.invoice_extractor.name,
+                status="FAILED",
+            )
+            if isinstance(exc, OcrUnavailableError):
+                metrics.add("ocr", "ocr", outcome="FAILED")
             raise
 
-        self.session.execute(
-            update(ExtractionRun)
-            .where(ExtractionRun.id == run.id)
-            .values(
-                status=ExtractionRunStatus.SUCCEEDED,
-                output_json=invoice.model_dump(mode="json"),
-                used_ocr=document_text.used_ocr,
-                latency_ms=latency_ms,
-                error_code=None,
-                error_message=None,
-                completed_at=datetime.now(UTC),
+        with span("extraction.persistence"):
+            self.session.execute(
+                update(ExtractionRun)
+                .where(ExtractionRun.id == run.id)
+                .values(
+                    status=ExtractionRunStatus.SUCCEEDED,
+                    output_json=invoice.model_dump(mode="json"),
+                    used_ocr=document_text.used_ocr,
+                    latency_ms=latency_ms,
+                    error_code=None,
+                    error_message=None,
+                    completed_at=datetime.now(UTC),
+                )
             )
+            self.session.commit()
+        metrics.add(
+            "extraction",
+            "extraction",
+            strategy=self.invoice_extractor.name,
+            status="SUCCEEDED",
         )
-        self.session.commit()
+        metrics.observe(
+            "extraction_duration",
+            latency_ms / 1000,
+            "extraction",
+            strategy=self.invoice_extractor.name,
+            status="SUCCEEDED",
+        )
+        metrics.add("ocr", "ocr", outcome="USED" if document_text.used_ocr else "NOT_USED")
         return self._require_run(run.id)
 
     def _find_run(self, document_id: uuid.UUID) -> ExtractionRun | None:

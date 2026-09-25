@@ -16,7 +16,7 @@ Create `pyproject.toml` for Python 3.12 with these runtime concerns:
 - FastAPI, Uvicorn, and `python-multipart` for the HTTP upload API.
 - Pydantic Settings for environment configuration.
 - SQLAlchemy, psycopg, and Alembic for PostgreSQL persistence and migrations.
-- boto3 for S3/MinIO object storage.
+- boto3 for S3-compatible object storage.
 - Celery with Redis support for asynchronous dispatch.
 - pytest, HTTPX, Ruff, and mypy as development dependencies.
 
@@ -64,7 +64,7 @@ a one-shot service before the API and worker start.
 
 In `invoiceops/ingestion/storage.py`, define an `ObjectStore` protocol with `put` and `delete`.
 Implement `S3ObjectStore` with boto3. Its endpoint remains configurable so the same application
-works with local MinIO and AWS S3. Enable server-side encryption only when the target storage is
+works with local S3Mock and AWS S3. Enable server-side encryption only when the target storage is
 configured for it.
 
 In `invoiceops/ingestion/dispatch.py`, define a `JobDispatcher` protocol and a Celery implementation
@@ -98,7 +98,8 @@ public responses.
 
 Implement `apps/api/main.py`:
 
-- `GET /healthz` returns a shallow process health response;
+- `GET /health/live` returns shallow process health, `/health/ready` probes required dependencies,
+  and deprecated `/healthz` remains a compatibility liveness alias;
 - `POST /v1/invoices` performs a bounded read of `max_upload_bytes + 1`, invokes the service,
   maps known validation failures to 400/413/415, and returns 202 with job ID and status URL;
 - `GET /v1/jobs/{job_id}` validates the UUID, returns the database representation, and produces
@@ -124,8 +125,7 @@ Define these Compose services:
 
 - `postgres`: metadata and job source of truth;
 - `redis`: Celery broker/backend;
-- `minio`: local S3-compatible storage;
-- `minio-init`: idempotently creates the bucket;
+- `object-storage`: local S3Mock storage with a pre-created synthetic-data bucket;
 - `migrate`: upgrades the schema and exits successfully;
 - `api`: starts only after migration, Redis, and bucket initialization;
 - `worker`: starts with the same dependencies.
@@ -133,9 +133,9 @@ Define these Compose services:
 Do not bind-mount the Windows repository onto `/app`: that hides the Linux `.venv` in the image.
 Rebuild after code changes.
 
-MinIO community binaries are pinned from Quay for reproducible local development. This is a
-legacy, loopback-bound synthetic-data dependency. A deployed environment uses managed S3 and must
-not inherit the local credentials or image choice.
+Adobe S3Mock is pinned for reproducible, loopback-bound synthetic local development. It is not a
+production object store. A deployed environment uses managed S3 and must not inherit the local
+credentials or image choice.
 
 ## 10. Test without external services
 
@@ -160,8 +160,8 @@ uv run ruff check .
 uv run mypy apps invoiceops workers
 ```
 
-Then follow `docs/local-runbook.md` to prove the real PostgreSQL, Redis, MinIO, migration, API, and
-worker integration from end to end.
+Then follow `docs/local-runbook.md` to prove the real PostgreSQL, Redis, S3-compatible storage,
+migration, API, and worker integration from end to end.
 
 ## Definition of done for this slice
 

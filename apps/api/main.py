@@ -2,6 +2,7 @@ import logging
 import time
 import uuid
 from collections.abc import Awaitable, Callable
+from contextlib import nullcontext
 from datetime import datetime
 from typing import Annotated
 
@@ -16,14 +17,17 @@ from fastapi import (
     UploadFile,
     status,
 )
+from opentelemetry import trace
+from opentelemetry.instrumentation.utils import suppress_instrumentation
 from sqlalchemy import select
 from sqlalchemy.orm import Session
-from starlette.responses import Response
+from starlette.responses import JSONResponse, Response
 
 from apps.api.dependencies import get_dispatcher, get_object_store
 from invoiceops.config import Settings, get_settings
-from invoiceops.db import get_db
+from invoiceops.db import engine, get_db
 from invoiceops.extraction.selection import current_successful_extraction
+from invoiceops.health import dependency_status
 from invoiceops.ingestion.dispatch import JobDispatcher
 from invoiceops.ingestion.service import (
     DocumentTooLargeError,
@@ -53,6 +57,13 @@ from invoiceops.models import (
     ModelCallStatus,
     ThreeWayContext,
 )
+from invoiceops.observability.context import (
+    request_id_or_new,
+    reset_request_id,
+    set_request_id,
+)
+from invoiceops.observability.metrics import metrics
+from invoiceops.observability.setup import setup_observability
 from invoiceops.receipts.service import (
     ConflictingReceiptReplayError,
     GoodsReceiptAlreadyReversedError,
@@ -109,6 +120,9 @@ from invoiceops.schemas.three_way import ThreeWayContextRead, ThreeWayContextSna
 configure_logging(get_settings().log_level)
 logger = logging.getLogger(__name__)
 app = FastAPI(title="InvoiceOps API", version="0.1.0")
+setup_observability(
+    get_settings(), service_name=get_settings().otel_service_name, app=app, engine=engine
+)
 
 
 def get_reviewer_id(
@@ -157,38 +171,119 @@ async def structured_request_log(
     request: Request,
     call_next: Callable[[Request], Awaitable[Response]],
 ) -> Response:
+    settings = get_settings()
+    request_id = request_id_or_new(request.headers.get(settings.request_id_header))
+    token = set_request_id(request_id)
     started = time.perf_counter()
+    is_health = request.url.path in {"/health/live", "/health/ready", "/healthz"}
+    # FastAPIInstrumentor owns the SERVER span. This middleware adds only safe
+    # route/status attributes, correlation IDs, logs, and bounded custom metrics.
+    trace_scope = nullcontext(None if is_health else trace.get_current_span())
     try:
-        response = await call_next(request)
-    except Exception as exc:
-        logger.error(
-            "HTTP request failed",
-            extra={
-                "event": "http.request_failed",
-                "request_method": request.method,
-                "request_path": request.url.path,
-                "duration_ms": round((time.perf_counter() - started) * 1000, 2),
-                "error_type": type(exc).__name__,
-            },
-        )
-        raise
-    if request.url.path != "/healthz":
-        logger.info(
-            "HTTP request completed",
-            extra={
-                "event": "http.request_completed",
-                "request_method": request.method,
-                "request_path": request.url.path,
-                "status_code": response.status_code,
-                "duration_ms": round((time.perf_counter() - started) * 1000, 2),
-            },
-        )
-    return response
+        with trace_scope as request_span:
+            if request_span is not None:
+                # Request IDs are validated, bounded correlation values. They are
+                # intentionally span attributes, never metric labels.
+                request_span.set_attribute("invoiceops.request_id", request_id)
+            try:
+                response = await call_next(request)
+            except Exception as exc:
+                route_template = _route_template(request)
+                if request_span is not None:
+                    request_span.update_name(f"{request.method} {route_template}")
+                    request_span.set_attribute("http.route", route_template)
+                method = _metric_method(request.method)
+                if not is_health:
+                    labels = {
+                        "method": method,
+                        "route": route_template,
+                        "status_class": "5xx",
+                    }
+                    metrics.add("http_requests", "http", **labels)
+                    metrics.observe(
+                        "http_duration",
+                        time.perf_counter() - started,
+                        "http",
+                        **labels,
+                    )
+                logger.error(
+                    "HTTP request failed",
+                    extra={
+                        "event": "http.request_failed",
+                        "request_method": request.method,
+                        "route_template": route_template,
+                        "duration_ms": round((time.perf_counter() - started) * 1000, 2),
+                        "error_type": type(exc).__name__,
+                    },
+                )
+                raise
+            response.headers[settings.request_id_header] = request_id
+            route_template = _route_template(request)
+            if request_span is not None:
+                request_span.update_name(f"{request.method} {route_template}")
+                request_span.set_attribute("http.route", route_template)
+                request_span.set_attribute("http.response.status_code", response.status_code)
+            if not is_health:
+                method = _metric_method(request.method)
+                labels = {
+                    "method": method,
+                    "route": route_template,
+                    "status_class": f"{response.status_code // 100}xx",
+                }
+                metrics.add("http_requests", "http", **labels)
+                metrics.observe(
+                    "http_duration", time.perf_counter() - started, "http", **labels
+                )
+                logger.info(
+                    "HTTP request completed",
+                    extra={
+                        "event": "http.request_completed",
+                        "request_method": request.method,
+                        "route_template": route_template,
+                        "status_code": response.status_code,
+                        "duration_ms": round((time.perf_counter() - started) * 1000, 2),
+                    },
+                )
+            return response
+    finally:
+        reset_request_id(token)
 
 
-@app.get("/healthz", tags=["operations"])
-def health() -> dict[str, str]:
+def _route_template(request: Request) -> str:
+    route = request.scope.get("route")
+    path = getattr(route, "path", None)
+    return str(path) if path else "unmatched"
+
+
+def _metric_method(method: str) -> str:
+    return method if method in {"GET", "POST", "PUT", "PATCH", "DELETE"} else "OTHER"
+
+
+@app.get("/health/live", tags=["operations"])
+def health_live() -> dict[str, str]:
     return {"status": "ok"}
+
+
+@app.get("/healthz", tags=["operations"], deprecated=True)
+def health_compatibility() -> dict[str, str]:
+    return health_live()
+
+
+@app.get("/health/ready", tags=["operations"])
+def health_ready(
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> Response:
+    with suppress_instrumentation():
+        return _readiness_response(settings)
+
+
+def _readiness_response(settings: Settings) -> Response:
+    components = dependency_status(settings)
+    ready = all(value == "ready" for value in components.values())
+    return JSONResponse(
+        status_code=200 if ready else 503,
+        content={"status": "ready" if ready else "unavailable", "components": components},
+    )
 
 
 @app.post(

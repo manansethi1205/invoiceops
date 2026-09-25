@@ -8,6 +8,7 @@ from sqlalchemy.pool import StaticPool
 from invoiceops.db import Base
 from invoiceops.extraction.errors import UnreadableDocumentError
 from invoiceops.models import Document, IngestionJob, JobStatus
+from invoiceops.observability.metrics import metrics
 from workers.extraction import tasks
 from workers.extraction.tasks import process_document, record_failure, run_job
 
@@ -57,6 +58,29 @@ def test_failed_attempt_can_retry_and_completed_redelivery_is_noop() -> None:
 
         assert run_job(session, job.id, lambda document: calls.append(document.id)) is False
         assert calls == [job.document_id]
+
+
+def test_successful_job_commits_when_metric_recorders_raise(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class BrokenCounter:
+        def add(self, value: int, labels: dict[str, object]) -> None:
+            del value, labels
+            raise RuntimeError("synthetic counter failure")
+
+    class BrokenHistogram:
+        def record(self, value: float, labels: dict[str, object]) -> None:
+            del value, labels
+            raise RuntimeError("synthetic histogram failure")
+
+    metrics.initialize()
+    monkeypatch.setattr(metrics, "jobs", BrokenCounter())
+    monkeypatch.setattr(metrics, "queue_duration", BrokenHistogram())
+    with make_session() as session:
+        job = create_job(session)
+        assert run_job(session, job.id, lambda document: document.id) is True
+        session.refresh(job)
+        assert job.status == JobStatus.SUCCEEDED
 
 
 def test_terminal_failure_is_visible_in_job_status() -> None:

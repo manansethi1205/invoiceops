@@ -21,12 +21,13 @@ separately as an external stress benchmark and expose the deterministic baseline
 limits.
 
 ```text
-upload -> extraction + evidence -> deterministic PO matching -> duplicate risk
-                                                               | CLEAR
-                                                               ` NEEDS_REVIEW -> OPEN -> CLAIMED
-                                                                                   | RESOLVED
-                                                                                   ` OPEN (release)
-                                                               -> hash-chained audit reconstruction
+invoice -> extraction + evidence -> TWO_WAY: invoice + PO ---------+
+                                  -> THREE_WAY: + receipts/reversals | -> match decision
+                                                + reconciled allocation
+                                                                     + -> duplicate risk
+                                                                     + -> human review
+                                                                          -> audit chain
+all stages -> correlated logs + OTLP traces/metrics -> Collector -> Tempo/Prometheus -> Grafana
 ```
 
 ## Implemented vertical slice
@@ -80,8 +81,9 @@ Copy-Item .env.example .env
 docker compose up --build
 ```
 
-The API docs are at `http://localhost:8000/docs` and the MinIO console is at
-`http://localhost:9001`. Docker Compose runs Alembic migrations before starting the API or worker.
+The API docs are at `http://localhost:8000/docs`. Docker Compose runs Alembic migrations before
+starting the API or worker and uses S3Mock only for synthetic local object storage.
+For the local telemetry stack, follow [the observability guide](docs/observability.md).
 
 Run local quality checks:
 
@@ -102,11 +104,17 @@ uv run pytest -m docker
 Private DocILE tests require `DOCILE_DATASET_PATH`. Docker tests are normally run through the
 Compose command below, which supplies the real service dependencies and `API_BASE_URL`.
 
-Run the real PostgreSQL/Redis/MinIO/worker black-box tests in Compose:
+Run the real PostgreSQL/Redis/S3-compatible-storage/worker black-box tests in Compose:
 
 ```powershell
-docker compose --profile test up --build --abort-on-container-exit --exit-code-from integration-tests integration-tests
-docker compose --profile hybrid-test up --build --abort-on-container-exit --exit-code-from integration-tests-hybrid integration-tests-hybrid
+docker compose build api
+docker compose --profile test build integration-tests
+docker compose up --no-build -d api worker
+docker compose --profile test run --rm --no-deps integration-tests
+
+docker compose --profile hybrid-test build integration-tests-hybrid
+docker compose --profile hybrid-test up --no-build -d api worker-hybrid-fake
+docker compose --profile hybrid-test run --rm --no-deps integration-tests-hybrid
 docker compose down
 ```
 

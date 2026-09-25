@@ -30,9 +30,22 @@ class Settings(BaseSettings):
     vlm_image_detail: str = "auto"
     vlm_fuzzy_grounding_threshold: float = Field(default=92.0, ge=0, le=100)
     openai_api_key: SecretStr | None = None
+    otel_enabled: bool = False
+    otel_exporter_otlp_endpoint: str = Field(
+        default="http://otel-collector:4318", min_length=1, max_length=2048
+    )
+    otel_service_name: str = Field(default="invoiceops-api", min_length=1, max_length=100)
+    otel_export_interval_seconds: int = Field(default=10, ge=1, le=300)
+    request_id_header: str = Field(
+        default="X-Request-ID", pattern=r"^[A-Za-z0-9-]+$", min_length=1, max_length=100
+    )
 
     @model_validator(mode="after")
     def validate_vlm_configuration(self) -> "Settings":
+        if self.otel_enabled and not self.otel_exporter_otlp_endpoint.startswith(
+            ("http://", "https://")
+        ):
+            raise ValueError("OTEL_EXPORTER_OTLP_ENDPOINT must be an HTTP(S) endpoint")
         if not self.vlm_enabled:
             return self
         if not self.vlm_model.strip():

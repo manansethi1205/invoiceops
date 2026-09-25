@@ -1,0 +1,17 @@
+groups:
+  - name: invoiceops-demo-objectives
+    rules:
+      - alert: InvoiceOpsExtractionFailures
+        expr: sum(rate(invoiceops_extraction_total{status="FAILED"}[5m])) > 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: Synthetic or local extraction failures are occurring
+      - alert: InvoiceOpsReviewBacklogPresent
+        expr: max(invoiceops_review_oldest_case_age_seconds) > 86400
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: The oldest open review case exceeds the 24-hour demo objective

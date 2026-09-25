@@ -25,6 +25,9 @@ class MemoryObjectStore:
     def delete(self, key: str) -> None:
         self.objects.pop(key, None)
 
+    def check_ready(self) -> None:
+        return None
+
 
 class RecordingDispatcher:
     def __init__(self) -> None:

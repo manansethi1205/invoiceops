@@ -93,28 +93,29 @@ All non-Docker tests should pass, followed by `All checks passed!` and
 
 ## 5. Build and start the full stack
 
-The Compose file uses pinned `quay.io/minio/...` images. The former `minio/minio:latest` and
-`minio/mc:latest` Docker Hub coordinates are no longer used. The pinned community server is a
-legacy binary intended only for this loopback-bound, synthetic-data development environment - not
-for deployment or real financial documents.
+The Compose file uses pinned Adobe S3Mock for loopback-bound, synthetic local development. MinIO's
+community edition is now source-only, so its legacy Quay images are no longer a reliable Compose
+dependency. S3Mock is not production object storage and must not be used for real financial
+documents.
 
 ```powershell
 docker compose config --quiet
-docker compose pull
-docker compose up --build -d
+docker compose pull postgres redis object-storage
+docker compose build api
+docker compose up --no-build -d api worker
 docker compose ps -a
 ```
 
 Expected services:
 
-- `postgres`, `redis`, `minio`, `api`, and `worker` are running.
-- `migrate` and `minio-init` have exited with code 0; these are successful one-shot services.
+- `postgres`, `redis`, `object-storage`, `api`, and `worker` are running.
+- `migrate` has exited with code 0; it is a successful one-shot service.
 
 Confirm startup and migrations:
 
 ```powershell
 docker compose logs migrate
-docker compose logs minio-init
+docker compose logs object-storage
 docker compose logs api
 docker compose logs worker
 ```
@@ -135,15 +136,33 @@ The worker should report concurrency `2` and should not display the Celery super
 small amount of plain Celery/Uvicorn lifecycle output is normal; InvoiceOps application and request
 events are JSON.
 
+To include local observability, enable export before startup and activate the profile:
+
+```powershell
+$env:OTEL_ENABLED = "true"
+$env:COMPOSE_PARALLEL_LIMIT = "1"
+$env:COMPOSE_BAKE = "false"
+docker compose --progress plain --profile observability build api
+docker compose --profile observability up --no-build -d api worker otel-collector tempo prometheus grafana
+Invoke-RestMethod http://localhost:8000/health/ready
+Start-Process http://localhost:3000
+```
+
+Grafana is on `http://localhost:3000` and Prometheus on `http://localhost:9090`; both are bound to
+loopback. The dashboard and data sources are provisioned automatically. Clear the session override
+with `Remove-Item Env:OTEL_ENABLED` when finished.
+
 ## 6. Verify the API
 
 ```powershell
-Invoke-RestMethod http://localhost:8000/healthz
+Invoke-RestMethod http://localhost:8000/health/live
+Invoke-RestMethod http://localhost:8000/health/ready
 Start-Process http://localhost:8000/docs
 ```
 
-The health response should contain `status = ok`. Swagger UI should show the invoice/job/extraction
-routes plus purchase-order, matching and review-workflow routes.
+Liveness should contain `status = ok`; readiness should contain `status = ready` and three ready
+components. Swagger UI should show the invoice/job/extraction routes plus purchase-order, matching
+and review-workflow routes.
 
 ## 7. Create safe synthetic test data
 
@@ -251,7 +270,7 @@ Expect HTTP `404`.
 
 ## 11. Stop or reset the stack
 
-Stop containers while keeping PostgreSQL and MinIO data:
+Stop containers while keeping PostgreSQL and local object-storage data:
 
 ```powershell
 docker compose down
@@ -261,8 +280,10 @@ Run the fake-provider path without network access or credentials. It proves both
 initialization for a complete invoice and safe deterministic fallback for an incomplete invoice:
 
 ```powershell
-docker compose --profile hybrid-test up --build --abort-on-container-exit `
-  --exit-code-from integration-tests-hybrid integration-tests-hybrid
+docker compose build api
+docker compose --profile hybrid-test build integration-tests-hybrid
+docker compose --profile hybrid-test up --no-build -d api worker-hybrid-fake
+docker compose --profile hybrid-test run --rm --no-deps integration-tests-hybrid
 docker compose down
 ```
 
@@ -272,7 +293,7 @@ Provider failure records only a safe code and retains the deterministic result.
 
 If the normal stack is already running, Compose will reuse or recreate its services as required.
 For the clearest output, stop it first with `docker compose down`, run the integration command, and
-then restart it with `docker compose up --build -d`.
+then rebuild `api` and restart with the separated build/start commands below.
 
 For a deliberate clean reset of this project's local Docker data only:
 
@@ -280,7 +301,7 @@ For a deliberate clean reset of this project's local Docker data only:
 docker compose down --volumes
 ```
 
-The second command permanently removes this Compose project's PostgreSQL and MinIO volumes. The
+The second command permanently removes this Compose project's PostgreSQL and object-storage volumes. The
 synthetic PDF in the repository is unaffected and can be deleted normally when no longer needed.
 
 ## 12. Development loop
@@ -291,7 +312,8 @@ The reliable loop after editing code is:
 uv run pytest -m "not docker and not docile" -q -p no:cacheprovider
 uv run ruff check .
 uv run mypy apps invoiceops workers
-docker compose up --build -d
+docker compose build api
+docker compose up --no-build -d api worker
 docker compose logs --tail=100 api worker
 ```
 
@@ -300,15 +322,18 @@ code changes prevents a Windows `.venv` from hiding the Linux environment inside
 
 ## 13. Run black-box integration tests in Docker Compose
 
-This command builds a test image with development dependencies, starts PostgreSQL, Redis, MinIO,
+This command builds a test image with development dependencies, starts PostgreSQL, Redis, S3Mock,
 migrations, the API, and the worker, then tests duplicate upload reuse, terminal job status, and a
 clear invalid-file response:
 
 ```powershell
-docker compose --profile test up --build --abort-on-container-exit --exit-code-from integration-tests integration-tests
+docker compose build api
+docker compose --profile test build integration-tests
+docker compose up --no-build -d api worker
+docker compose --profile test run --rm --no-deps integration-tests
 ```
 
-The command must exit with code 0 and report two passing Docker tests. Inspect structured
+The test command must exit with code 0. Inspect structured
 application events with:
 
 ```powershell

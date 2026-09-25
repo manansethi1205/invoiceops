@@ -11,6 +11,8 @@ from sqlalchemy.orm import Session
 from invoiceops.ingestion.dispatch import JobDispatcher
 from invoiceops.ingestion.storage import ObjectStore
 from invoiceops.models import Document, IngestionJob
+from invoiceops.observability.metrics import metrics
+from invoiceops.observability.tracing import span
 
 ALLOWED_CONTENT_TYPES = {"application/pdf", "image/jpeg", "image/png"}
 FILE_SIGNATURES = {
@@ -61,12 +63,18 @@ class IngestionService:
 
     def ingest(self, command: UploadCommand) -> IngestionResult:
         if command.content_type not in ALLOWED_CONTENT_TYPES:
+            metrics.add("ingestion", "ingestion", outcome="unsupported_type", deduplicated=False)
             raise UnsupportedDocumentError(command.content_type)
         if not command.body:
+            metrics.add("ingestion", "ingestion", outcome="empty", deduplicated=False)
             raise EmptyDocumentError
         if len(command.body) > self.max_upload_bytes:
+            metrics.add("ingestion", "ingestion", outcome="too_large", deduplicated=False)
             raise DocumentTooLargeError
         if not command.body.startswith(FILE_SIGNATURES[command.content_type]):
+            metrics.add(
+                "ingestion", "ingestion", outcome="signature_mismatch", deduplicated=False
+            )
             raise UnsupportedDocumentError(
                 f"content does not match declared type {command.content_type}"
             )
@@ -76,6 +84,7 @@ class IngestionService:
         digest = hashlib.sha256(command.body).hexdigest()
         existing = self._find_existing(digest)
         if existing is not None:
+            metrics.add("ingestion", "ingestion", outcome="accepted", deduplicated=True)
             logger.info(
                 "Duplicate upload reused existing job",
                 extra={
@@ -99,10 +108,12 @@ class IngestionService:
         )
         job = IngestionJob(document=document)
 
-        self.object_store.put(object_key, command.body, command.content_type)
+        with span("ingestion.object_store_put"):
+            self.object_store.put(object_key, command.body, command.content_type)
         try:
-            self.session.add(job)
-            self.session.commit()
+            with span("ingestion.transaction"):
+                self.session.add(job)
+                self.session.commit()
         except IntegrityError:
             self.session.rollback()
             self.object_store.delete(object_key)
@@ -110,6 +121,7 @@ class IngestionService:
             existing = self._find_existing(digest)
             if existing is None:
                 raise
+            metrics.add("ingestion", "ingestion", outcome="accepted", deduplicated=True)
             logger.info(
                 "Concurrent duplicate upload reused existing job",
                 extra={
@@ -127,11 +139,12 @@ class IngestionService:
             raise
 
         try:
-            self.dispatcher.enqueue(str(job.id))
-        except Exception:
+            with span("ingestion.dispatch"):
+                self.dispatcher.enqueue(str(job.id))
+        except Exception as exc:
             # The durable queued row lets an operational retry recover dispatch safely.
             self.session.refresh(job)
-            logger.exception(
+            logger.error(
                 "Job dispatch failed; durable job remains queued",
                 extra={
                     "event": "ingestion.dispatch_failed",
@@ -139,6 +152,7 @@ class IngestionService:
                     "document_id": str(document.id),
                     "status": job.status.value,
                     "error_code": "dispatch_failed",
+                    "error_type": type(exc).__name__,
                 },
             )
         logger.info(
@@ -154,6 +168,8 @@ class IngestionService:
                 "content_type": command.content_type,
             },
         )
+        metrics.add("ingestion", "ingestion", outcome="accepted", deduplicated=False)
+        metrics.add("jobs", "jobs", status=job.status.value)
         return IngestionResult(job=job, created=True)
 
     def _find_existing(self, digest: str) -> IngestionJob | None:

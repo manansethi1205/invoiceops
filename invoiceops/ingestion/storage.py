@@ -2,6 +2,7 @@ from typing import Protocol, cast
 
 import boto3
 from botocore.client import BaseClient
+from botocore.config import Config
 
 from invoiceops.config import Settings
 
@@ -24,6 +25,9 @@ class S3ObjectStore:
             aws_access_key_id=settings.s3_access_key_id,
             aws_secret_access_key=settings.s3_secret_access_key,
             region_name=settings.s3_region,
+            config=Config(
+                s3={"addressing_style": "path"},
+            ),
         )
 
     def ensure_bucket(self) -> None:

@@ -1,6 +1,7 @@
 import logging
 import uuid
 from collections.abc import Callable
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy.orm import Session
@@ -12,6 +13,9 @@ from invoiceops.extraction.failures import (
     safe_extraction_error_message,
 )
 from invoiceops.models import Document, IngestionJob, JobStatus
+from invoiceops.observability.context import request_id_or_new, reset_request_id, set_request_id
+from invoiceops.observability.metrics import metrics
+from invoiceops.observability.tracing import span
 from workers.extraction.celery_app import celery_app
 from workers.extraction.factory import build_extraction_service
 
@@ -45,10 +49,17 @@ def run_job(
         )
         return False
 
+    created_at = job.created_at
+    if created_at.tzinfo is None:
+        created_at = created_at.replace(tzinfo=UTC)
+    metrics.observe(
+        "queue_duration", max(0.0, (datetime.now(UTC) - created_at).total_seconds()), "jobs"
+    )
     job.status = JobStatus.PROCESSING
     job.error_code = None
     job.error_message = None
     session.commit()
+    metrics.add("jobs", "jobs", status=JobStatus.PROCESSING.value)
     logger.info(
         "Document processing started",
         extra={
@@ -63,6 +74,7 @@ def run_job(
 
     job.status = JobStatus.SUCCEEDED
     session.commit()
+    metrics.add("jobs", "jobs", status=JobStatus.SUCCEEDED.value)
     logger.info(
         "Document processing succeeded",
         extra={
@@ -101,11 +113,21 @@ def record_failure(
 )
 def process_document(self: Any, job_id: str) -> None:
     """Retry transient failures safely and make terminal failure visible via job status."""
+    headers = getattr(self.request, "headers", None) or {}
+    token = set_request_id(request_id_or_new(headers.get("x-request-id")))
+    try:
+        _process_document(self, job_id)
+    finally:
+        reset_request_id(token)
+
+
+def _process_document(self: Any, job_id: str) -> None:
     parsed_job_id = uuid.UUID(job_id)
     try:
-        with SessionLocal() as session:
-            service = build_extraction_service(session)
-            run_job(session, parsed_job_id, service.process)
+        with span("worker.extract", {"messaging.operation": "process"}):
+            with SessionLocal() as session:
+                service = build_extraction_service(session)
+                run_job(session, parsed_job_id, service.process)
     except TERMINAL_EXTRACTION_ERRORS as exc:
         error_code = extraction_error_code(exc)
         with SessionLocal() as session:
@@ -127,6 +149,7 @@ def process_document(self: Any, job_id: str) -> None:
                 "error_type": type(exc).__name__,
             },
         )
+        metrics.add("jobs", "jobs", status=JobStatus.FAILED.value)
         raise
     except Exception as exc:
         retry_count = int(self.request.retries)
@@ -143,6 +166,11 @@ def process_document(self: Any, job_id: str) -> None:
                 "error_code": "processing_failed" if terminal else "retry_scheduled",
                 "error_type": type(exc).__name__,
             },
+        )
+        metrics.add(
+            "jobs",
+            "jobs",
+            status=JobStatus.FAILED.value if terminal else JobStatus.QUEUED.value,
         )
         if terminal:
             raise

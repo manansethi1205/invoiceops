@@ -1,6 +1,7 @@
 import hashlib
 import uuid
 
+import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
@@ -12,6 +13,7 @@ from invoiceops.models import (
     ModelCall,
     ModelCallStatus,
 )
+from invoiceops.observability.metrics import metrics
 from invoiceops.schemas.extraction import ExtractionStatus, Invoice
 from tests.conftest import MemoryObjectStore, RecordingDispatcher
 
@@ -59,6 +61,28 @@ def test_upload_stores_document_creates_job_and_returns_status(
     assert duplicate["deduplicated"] is True
     assert dispatcher.job_ids == [accepted["job_id"]]
     assert len(object_store.objects) == 1
+
+
+def test_upload_commits_when_metric_recorder_raises(
+    client: TestClient,
+    db_session_factory: sessionmaker[Session],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class BrokenCounter:
+        def add(self, value: int, labels: dict[str, object]) -> None:
+            del value, labels
+            raise RuntimeError("synthetic metric failure")
+
+    metrics.initialize()
+    monkeypatch.setattr(metrics, "ingestion", BrokenCounter())
+    response = client.post(
+        "/v1/invoices",
+        files={"file": ("invoice.pdf", b"%PDF-1.7 fail-open", "application/pdf")},
+    )
+
+    assert response.status_code == 202
+    with db_session_factory() as session:
+        assert len(list(session.scalars(select(Document)))) == 1
 
 
 def test_rejects_unsupported_type(client: TestClient) -> None:
