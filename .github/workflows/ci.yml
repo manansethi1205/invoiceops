@@ -96,6 +96,7 @@ jobs:
 
       - name: Validate observability configuration
         run: |
+          cp .env.example .env
           docker compose --profile observability config --quiet
           python -m json.tool \
             infrastructure/observability/grafana/dashboards/invoiceops-operations.json \
