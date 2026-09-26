@@ -102,7 +102,7 @@ documents.
 docker compose config --quiet
 docker compose pull postgres redis object-storage
 docker compose build api
-docker compose up --no-build -d api worker
+docker compose up --no-build -d --wait --wait-timeout 180 api worker
 docker compose ps -a
 ```
 
@@ -143,7 +143,7 @@ $env:OTEL_ENABLED = "true"
 $env:COMPOSE_PARALLEL_LIMIT = "1"
 $env:COMPOSE_BAKE = "false"
 docker compose --progress plain --profile observability build api
-docker compose --profile observability up --no-build -d api worker otel-collector tempo prometheus grafana
+docker compose --profile observability up --no-build -d --wait --wait-timeout 180 api worker otel-collector tempo prometheus grafana
 Invoke-RestMethod http://localhost:8000/health/ready
 Start-Process http://localhost:3000
 ```
@@ -282,7 +282,7 @@ initialization for a complete invoice and safe deterministic fallback for an inc
 ```powershell
 docker compose build api
 docker compose --profile hybrid-test build integration-tests-hybrid
-docker compose --profile hybrid-test up --no-build -d api worker-hybrid-fake
+docker compose --profile hybrid-test up --no-build -d --wait --wait-timeout 180 api worker-hybrid-fake
 docker compose --profile hybrid-test run --rm --no-deps integration-tests-hybrid
 docker compose down
 ```
@@ -313,7 +313,7 @@ uv run pytest -m "not docker and not docile" -q -p no:cacheprovider
 uv run ruff check .
 uv run mypy apps invoiceops workers
 docker compose build api
-docker compose up --no-build -d api worker
+docker compose up --no-build -d --wait --wait-timeout 180 api worker
 docker compose logs --tail=100 api worker
 ```
 
@@ -329,7 +329,7 @@ clear invalid-file response:
 ```powershell
 docker compose build api
 docker compose --profile test build integration-tests
-docker compose up --no-build -d api worker
+docker compose up --no-build -d --wait --wait-timeout 180 api worker
 docker compose --profile test run --rm --no-deps integration-tests
 ```
 

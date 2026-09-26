@@ -112,7 +112,7 @@ uv run mypy apps invoiceops workers
 uv run python scripts/run_matching_evaluation.py
 docker compose build api
 docker compose --profile test build integration-tests
-docker compose up --no-build -d api worker
+docker compose up --no-build -d --wait --wait-timeout 180 api worker
 docker compose --profile test run --rm --no-deps integration-tests
 ```
 

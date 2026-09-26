@@ -109,11 +109,11 @@ Run the real PostgreSQL/Redis/S3-compatible-storage/worker black-box tests in Co
 ```powershell
 docker compose build api
 docker compose --profile test build integration-tests
-docker compose up --no-build -d api worker
+docker compose up --no-build -d --wait --wait-timeout 180 api worker
 docker compose --profile test run --rm --no-deps integration-tests
 
 docker compose --profile hybrid-test build integration-tests-hybrid
-docker compose --profile hybrid-test up --no-build -d api worker-hybrid-fake
+docker compose --profile hybrid-test up --no-build -d --wait --wait-timeout 180 api worker-hybrid-fake
 docker compose --profile hybrid-test run --rm --no-deps integration-tests-hybrid
 docker compose down
 ```

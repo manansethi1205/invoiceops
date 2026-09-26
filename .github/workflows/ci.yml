@@ -102,9 +102,10 @@ jobs:
             infrastructure/observability/grafana/dashboards/invoiceops-operations.json \
             >/dev/null
           docker run --rm \
+            --entrypoint /bin/promtool \
             -v "$PWD/infrastructure/observability:/etc/invoiceops-observability:ro" \
             prom/prometheus:v3.5.0 \
-            promtool check rules /etc/invoiceops-observability/prometheus-rules.yml
+            check rules /etc/invoiceops-observability/prometheus-rules.yml
           docker run --rm \
             -v "$PWD/infrastructure/observability/otel-collector.yml:/etc/otelcol-contrib/config.yml:ro" \
             otel/opentelemetry-collector-contrib:0.135.0 \
@@ -334,7 +335,7 @@ jobs:
         run: |
           docker compose build api
           docker compose --profile test build integration-tests
-          docker compose up --no-build -d api worker
+          docker compose up --no-build -d --wait --wait-timeout 180 api worker
           docker compose --profile test run --rm --no-deps integration-tests
 
       - name: Show service logs on failure
