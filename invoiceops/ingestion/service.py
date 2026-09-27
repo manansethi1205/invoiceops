@@ -10,9 +10,11 @@ from sqlalchemy.orm import Session
 
 from invoiceops.ingestion.dispatch import JobDispatcher
 from invoiceops.ingestion.storage import ObjectStore
+from invoiceops.jobs.events import append_job_event
 from invoiceops.models import Document, IngestionJob
 from invoiceops.observability.metrics import metrics
 from invoiceops.observability.tracing import span
+from invoiceops.schemas.jobs import JobEventType
 
 ALLOWED_CONTENT_TYPES = {"application/pdf", "image/jpeg", "image/png"}
 FILE_SIGNATURES = {
@@ -113,6 +115,27 @@ class IngestionService:
         try:
             with span("ingestion.transaction"):
                 self.session.add(job)
+                self.session.flush()
+                append_job_event(
+                    self.session,
+                    job_id=job.id,
+                    event_key="upload.accepted",
+                    event_type=JobEventType.UPLOAD_ACCEPTED,
+                    stage="upload",
+                    status="completed",
+                    message="Invoice upload accepted",
+                    payload={"deduplicated": False},
+                )
+                append_job_event(
+                    self.session,
+                    job_id=job.id,
+                    event_key="document.validated",
+                    event_type=JobEventType.DOCUMENT_VALIDATED,
+                    stage="validation",
+                    status="completed",
+                    message="Document type and signature validated",
+                    payload={"content_type": command.content_type},
+                )
                 self.session.commit()
         except IntegrityError:
             self.session.rollback()

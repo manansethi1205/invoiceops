@@ -7,7 +7,7 @@ from sqlalchemy.pool import StaticPool
 
 from invoiceops.db import Base
 from invoiceops.extraction.errors import UnreadableDocumentError
-from invoiceops.models import Document, IngestionJob, JobStatus
+from invoiceops.models import Document, IngestionJob, JobEvent, JobStatus
 from invoiceops.observability.metrics import metrics
 from workers.extraction import tasks
 from workers.extraction.tasks import process_document, record_failure, run_job
@@ -55,9 +55,15 @@ def test_failed_attempt_can_retry_and_completed_redelivery_is_noop() -> None:
         session.refresh(job)
         assert job.status == JobStatus.SUCCEEDED
         assert calls == [job.document_id]
+        assert [event.event_type for event in job.events] == [
+            "extraction.started",
+            "extraction.completed",
+            "processing.completed",
+        ]
 
         assert run_job(session, job.id, lambda document: calls.append(document.id)) is False
         assert calls == [job.document_id]
+        assert len(list(session.query(JobEvent).filter_by(job_id=job.id))) == 3
 
 
 def test_successful_job_commits_when_metric_recorders_raise(
@@ -91,6 +97,7 @@ def test_terminal_failure_is_visible_in_job_status() -> None:
         assert job.status == JobStatus.FAILED
         assert job.error_code == "processing_failed"
         assert job.error_message == "Document processing failed"
+        assert [event.event_type for event in job.events] == ["processing.failed"]
 
 
 def task_session_factory() -> tuple[sessionmaker[Session], uuid.UUID]:

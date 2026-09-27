@@ -39,6 +39,9 @@ class Settings(BaseSettings):
     request_id_header: str = Field(
         default="X-Request-ID", pattern=r"^[A-Za-z0-9-]+$", min_length=1, max_length=100
     )
+    sse_poll_interval_seconds: float = Field(default=0.5, ge=0.1, le=5)
+    sse_heartbeat_seconds: int = Field(default=15, ge=5, le=60)
+    sse_batch_size: int = Field(default=50, ge=1, le=100)
 
     @model_validator(mode="after")
     def validate_vlm_configuration(self) -> "Settings":

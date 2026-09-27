@@ -12,16 +12,38 @@ from invoiceops.extraction.failures import (
     extraction_error_code,
     safe_extraction_error_message,
 )
-from invoiceops.models import Document, IngestionJob, JobStatus
+from invoiceops.jobs.events import append_job_event
+from invoiceops.models import Document, ExtractionRun, IngestionJob, JobStatus
 from invoiceops.observability.context import request_id_or_new, reset_request_id, set_request_id
 from invoiceops.observability.metrics import metrics
 from invoiceops.observability.tracing import span
+from invoiceops.schemas.jobs import JobEventType
 from workers.extraction.celery_app import celery_app
 from workers.extraction.factory import build_extraction_service
 
 logger = logging.getLogger(__name__)
 MAX_RETRIES = 3
 DocumentProcessor = Callable[[Document], object]
+
+
+def _safe_extraction_summary(processed: object) -> dict[str, object]:
+    if not isinstance(processed, ExtractionRun):
+        return {}
+    output = processed.output_json if isinstance(processed.output_json, dict) else {}
+    header_names = ("invoice_number", "invoice_date", "currency", "subtotal", "tax", "total")
+    field_count = 0
+    for name in header_names:
+        field = output.get(name)
+        if isinstance(field, dict) and field.get("value") is not None:
+            field_count += 1
+    raw_lines = output.get("line_items", [])
+    line_item_count = len(raw_lines) if isinstance(raw_lines, list) else 0
+    return {
+        "field_count": field_count,
+        "line_item_count": line_item_count,
+        "fallback_used": processed.extractor_name == "hybrid-routed",
+        "used_ocr": bool(processed.used_ocr),
+    }
 
 
 def run_job(
@@ -58,6 +80,15 @@ def run_job(
     job.status = JobStatus.PROCESSING
     job.error_code = None
     job.error_message = None
+    append_job_event(
+        session,
+        job_id=job.id,
+        event_key="extraction.started",
+        event_type=JobEventType.EXTRACTION_STARTED,
+        stage="extraction",
+        status="started",
+        message="Invoice extraction started",
+    )
     session.commit()
     metrics.add("jobs", "jobs", status=JobStatus.PROCESSING.value)
     logger.info(
@@ -70,9 +101,28 @@ def run_job(
         },
     )
 
-    processor(job.document)
+    processed = processor(job.document)
 
     job.status = JobStatus.SUCCEEDED
+    append_job_event(
+        session,
+        job_id=job.id,
+        event_key="extraction.completed",
+        event_type=JobEventType.EXTRACTION_COMPLETED,
+        stage="extraction",
+        status="completed",
+        message="Invoice extraction completed",
+        payload=_safe_extraction_summary(processed),
+    )
+    append_job_event(
+        session,
+        job_id=job.id,
+        event_key="processing.completed",
+        event_type=JobEventType.PROCESSING_COMPLETED,
+        stage="processing",
+        status="completed",
+        message="Invoice processing completed",
+    )
     session.commit()
     metrics.add("jobs", "jobs", status=JobStatus.SUCCEEDED.value)
     logger.info(
@@ -101,6 +151,17 @@ def record_failure(
     job.status = JobStatus.FAILED if terminal else JobStatus.QUEUED
     job.error_code = (error_code or "processing_failed") if terminal else None
     job.error_message = (error_message or "Document processing failed") if terminal else None
+    if terminal:
+        append_job_event(
+            session,
+            job_id=job.id,
+            event_key="processing.failed",
+            event_type=JobEventType.PROCESSING_FAILED,
+            stage="processing",
+            status="failed",
+            message="Invoice processing failed",
+            payload={"error_code": job.error_code},
+        )
     session.commit()
 
 

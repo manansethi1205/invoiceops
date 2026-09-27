@@ -89,6 +89,46 @@ class IngestionJob(Base):
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
     document: Mapped[Document] = relationship(back_populates="job")
+    events: Mapped[list["JobEvent"]] = relationship(
+        back_populates="job",
+        cascade="all, delete-orphan",
+        order_by="JobEvent.sequence_number",
+    )
+
+
+class JobEvent(Base):
+    __tablename__ = "job_events"
+    __table_args__ = (
+        UniqueConstraint("job_id", "sequence_number", name="uq_job_event_job_sequence"),
+        UniqueConstraint("job_id", "event_key", name="uq_job_event_job_key"),
+        CheckConstraint("sequence_number >= 1", name="ck_job_event_positive_sequence"),
+        CheckConstraint("length(trim(event_type)) > 0", name="ck_job_event_type_nonblank"),
+        CheckConstraint("length(trim(event_key)) > 0", name="ck_job_event_key_nonblank"),
+        CheckConstraint("length(trim(stage)) > 0", name="ck_job_event_stage_nonblank"),
+        CheckConstraint("length(trim(status)) > 0", name="ck_job_event_status_nonblank"),
+        CheckConstraint("length(trim(message)) > 0", name="ck_job_event_message_nonblank"),
+        CheckConstraint(
+            "trace_id IS NULL OR length(trace_id) = 32",
+            name="ck_job_event_trace_id_length",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    job_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("ingestion_jobs.id", ondelete="CASCADE"), index=True
+    )
+    sequence_number: Mapped[int] = mapped_column(Integer)
+    event_key: Mapped[str] = mapped_column(String(100))
+    event_type: Mapped[str] = mapped_column(String(100))
+    stage: Mapped[str] = mapped_column(String(50))
+    status: Mapped[str] = mapped_column(String(50))
+    message: Mapped[str] = mapped_column(String(255))
+    payload: Mapped[dict[str, object]] = mapped_column(JSON)
+    trace_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    occurred_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    job: Mapped[IngestionJob] = relationship(back_populates="events")
 
 
 class ExtractionRun(Base):

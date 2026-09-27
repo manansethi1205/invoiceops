@@ -6,15 +6,20 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
+from invoiceops.jobs.events import append_job_event
 from invoiceops.models import (
     Document,
     ExtractionRun,
     ExtractionRunStatus,
+    IngestionJob,
+    JobEvent,
+    JobStatus,
     ModelCall,
     ModelCallStatus,
 )
 from invoiceops.observability.metrics import metrics
 from invoiceops.schemas.extraction import ExtractionStatus, Invoice
+from invoiceops.schemas.jobs import JobEventType
 from tests.conftest import MemoryObjectStore, RecordingDispatcher
 
 
@@ -34,6 +39,7 @@ def test_upload_stores_document_creates_job_and_returns_status(
     assert accepted["status"] == "queued"
     assert accepted["deduplicated"] is False
     assert accepted["job_id"] in accepted["status_url"]
+    assert accepted["job_id"] in accepted["events_url"]
     assert accepted["document_id"] in accepted["extraction_url"]
     assert dispatcher.job_ids == [accepted["job_id"]]
     assert len(object_store.objects) == 1
@@ -41,6 +47,11 @@ def test_upload_stores_document_creates_job_and_returns_status(
         documents = list(session.scalars(select(Document)))
         assert len(documents) == 1
         assert documents[0].sha256 == hashlib.sha256(b"%PDF-1.7 synthetic").hexdigest()
+        events = list(session.scalars(select(JobEvent).order_by(JobEvent.sequence_number)))
+        assert [event.event_type for event in events] == [
+            JobEventType.UPLOAD_ACCEPTED.value,
+            JobEventType.DOCUMENT_VALIDATED.value,
+        ]
     stored_body, stored_type = next(iter(object_store.objects.values()))
     assert stored_body == b"%PDF-1.7 synthetic"
     assert stored_type == "application/pdf"
@@ -121,6 +132,114 @@ def test_rejects_document_over_limit(client: TestClient) -> None:
 def test_missing_job_is_404(client: TestClient) -> None:
     response = client.get("/v1/jobs/00000000-0000-0000-0000-000000000000")
     assert response.status_code == 404
+
+
+def test_job_event_stream_replays_from_last_event_id_and_closes_at_terminal(
+    client: TestClient,
+    db_session_factory: sessionmaker[Session],
+) -> None:
+    accepted = client.post(
+        "/v1/invoices",
+        files={"file": ("invoice.pdf", b"%PDF-1.7 event-stream", "application/pdf")},
+    ).json()
+    job_id = uuid.UUID(accepted["job_id"])
+    with db_session_factory() as session:
+        job = session.get(IngestionJob, job_id)
+        assert job is not None
+        job.status = JobStatus.SUCCEEDED
+        append_job_event(
+            session,
+            job_id=job_id,
+            event_key="processing.completed",
+            event_type=JobEventType.PROCESSING_COMPLETED,
+            stage="processing",
+            status="completed",
+            message="Invoice processing completed",
+        )
+        session.commit()
+
+    response = client.get(f"/v1/jobs/{job_id}/events")
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/event-stream")
+    assert "id: 1\nevent: upload.accepted" in response.text
+    assert "id: 2\nevent: document.validated" in response.text
+    assert "id: 3\nevent: processing.completed" in response.text
+    assert "event-stream" not in response.text
+
+    resumed = client.get(
+        f"/v1/jobs/{job_id}/events",
+        headers={"Last-Event-ID": "2"},
+    )
+    assert resumed.status_code == 200
+    assert "id: 1" not in resumed.text
+    assert "id: 2" not in resumed.text
+    assert "id: 3\nevent: processing.completed" in resumed.text
+
+
+def test_job_event_stream_rejects_invalid_cursor(client: TestClient) -> None:
+    accepted = client.post(
+        "/v1/invoices",
+        files={"file": ("invoice.pdf", b"%PDF-1.7 bad-cursor", "application/pdf")},
+    ).json()
+
+    response = client.get(
+        f"/v1/jobs/{accepted['job_id']}/events",
+        headers={"Last-Event-ID": "not-a-number"},
+    )
+
+    assert response.status_code == 400
+    assert response.json() == {"detail": "Last-Event-ID must be an integer"}
+
+
+def test_console_reads_invoice_content_and_measured_dashboard_counts(
+    client: TestClient,
+) -> None:
+    body = b"%PDF-1.7 console-content"
+    accepted = client.post(
+        "/v1/invoices",
+        files={"file": ("console.pdf", body, "application/pdf")},
+    ).json()
+
+    index = client.get("/v1/invoices")
+    detail = client.get(f"/v1/invoices/{accepted['document_id']}")
+    content = client.get(f"/v1/documents/{accepted['document_id']}/content")
+    dashboard = client.get("/v1/dashboard/summary")
+
+    assert index.status_code == 200
+    assert index.json()["items"][0]["document_id"] == accepted["document_id"]
+    assert index.json()["items"][0]["invoice_number"] is None
+    assert detail.status_code == 200
+    assert detail.json()["filename"] == "console.pdf"
+    assert content.status_code == 200
+    assert content.content == body
+    assert content.headers["cache-control"] == "private, no-store"
+    assert content.headers["content-disposition"] == "inline"
+    assert dashboard.status_code == 200
+    assert dashboard.json() == {
+        "documents_total": 1,
+        "jobs_processing": 1,
+        "jobs_failed": 0,
+        "reviews_waiting": 0,
+        "oldest_waiting_review_opened_at": None,
+    }
+
+
+def test_document_content_failure_is_sanitized(
+    client: TestClient,
+    object_store: MemoryObjectStore,
+) -> None:
+    accepted = client.post(
+        "/v1/invoices",
+        files={"file": ("missing.pdf", b"%PDF-1.7 missing-object", "application/pdf")},
+    ).json()
+    object_store.objects.clear()
+
+    response = client.get(f"/v1/documents/{accepted['document_id']}/content")
+
+    assert response.status_code == 503
+    assert response.json() == {"detail": "Document is temporarily unavailable"}
+    assert "object_key" not in response.text
 
 
 def test_unknown_document_extraction_is_404(client: TestClient) -> None:

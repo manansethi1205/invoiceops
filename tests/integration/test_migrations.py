@@ -39,6 +39,7 @@ def test_workflow_migrations_upgrade_clean_and_existing_schema(
         "goods_receipt_reversals",
         "three_way_contexts",
         "three_way_allocations",
+        "job_events",
     }.issubset(inspect(engine).get_table_names())
     allocation_columns = {
         column["name"] for column in inspect(engine).get_columns("three_way_allocations")

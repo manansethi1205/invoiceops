@@ -1,9 +1,11 @@
+import asyncio
+import json
 import logging
 import time
 import uuid
-from collections.abc import Awaitable, Callable
+from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import nullcontext
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import (
@@ -19,11 +21,11 @@ from fastapi import (
 )
 from opentelemetry import trace
 from opentelemetry.instrumentation.utils import suppress_instrumentation
-from sqlalchemy import select
-from sqlalchemy.orm import Session
-from starlette.responses import JSONResponse, Response
+from sqlalchemy import func, select
+from sqlalchemy.orm import Session, sessionmaker
+from starlette.responses import JSONResponse, Response, StreamingResponse
 
-from apps.api.dependencies import get_dispatcher, get_object_store
+from apps.api.dependencies import get_dispatcher, get_object_store, get_session_factory
 from invoiceops.config import Settings, get_settings
 from invoiceops.db import engine, get_db
 from invoiceops.extraction.selection import current_successful_extraction
@@ -37,6 +39,7 @@ from invoiceops.ingestion.service import (
     UploadCommand,
 )
 from invoiceops.ingestion.storage import ObjectStore
+from invoiceops.jobs.events import TERMINAL_EVENT_TYPES, event_to_read, list_job_events
 from invoiceops.logging import configure_logging
 from invoiceops.matching.service import (
     DocumentNotFoundError,
@@ -53,8 +56,12 @@ from invoiceops.models import (
     ExtractionRun,
     ExtractionRunStatus,
     IngestionJob,
+    JobStatus,
+    MatchRun,
     ModelCall,
     ModelCallStatus,
+    PurchaseOrder,
+    ReviewCase,
     ThreeWayContext,
 )
 from invoiceops.observability.context import (
@@ -81,6 +88,7 @@ from invoiceops.review.service import (
 )
 from invoiceops.review.state import ReviewTransitionError
 from invoiceops.risk.service import DuplicateRiskService, RiskAssessmentNotFoundError
+from invoiceops.schemas.console import DashboardSummary, InvoiceSummary, InvoiceSummaryPage
 from invoiceops.schemas.extraction import Invoice
 from invoiceops.schemas.extraction_api import (
     ExtractionPendingRead,
@@ -88,7 +96,7 @@ from invoiceops.schemas.extraction_api import (
     ExtractorMetadata,
     HybridMetadata,
 )
-from invoiceops.schemas.jobs import ErrorBody, JobRead, UploadAccepted
+from invoiceops.schemas.jobs import ErrorBody, JobEventType, JobRead, UploadAccepted
 from invoiceops.schemas.matching import (
     MatchCreate,
     MatchRunRead,
@@ -327,10 +335,138 @@ def upload_invoice(
         document_id=result.job.document_id,
         status=result.job.status,
         status_url=str(request.url_for("get_job", job_id=str(result.job.id))),
+        events_url=str(request.url_for("stream_job_events", job_id=str(result.job.id))),
         extraction_url=str(
             request.url_for("get_extraction", document_id=str(result.job.document_id))
         ),
         deduplicated=not result.created,
+    )
+
+
+def _field_value(output: dict[str, object] | None, name: str) -> object | None:
+    if output is None:
+        return None
+    field = output.get(name)
+    return field.get("value") if isinstance(field, dict) else None
+
+
+def _invoice_summary(session: Session, document: Document) -> InvoiceSummary:
+    extraction = current_successful_extraction(session, document.id)
+    output = extraction.output_json if extraction is not None else None
+    match_run = session.scalar(
+        select(MatchRun)
+        .where(MatchRun.document_id == document.id)
+        .order_by(MatchRun.created_at.desc(), MatchRun.id.desc())
+        .limit(1)
+    )
+    review_case = match_run.review_case if match_run is not None else None
+    return InvoiceSummary(
+        document_id=document.id,
+        filename=document.original_filename,
+        content_type=document.content_type,
+        byte_size=document.byte_size,
+        created_at=document.created_at,
+        job_id=document.job.id,
+        job_status=document.job.status,
+        invoice_number=_field_value(output, "invoice_number"),
+        currency=_field_value(output, "currency"),
+        total=_field_value(output, "total"),
+        latest_match_run_id=match_run.id if match_run is not None else None,
+        match_decision=match_run.decision if match_run is not None else None,
+        review_case_id=review_case.id if review_case is not None else None,
+        review_status=review_case.status if review_case is not None else None,
+    )
+
+
+@app.get("/v1/invoices", response_model=InvoiceSummaryPage, tags=["invoices"])
+def list_invoices(
+    session: Annotated[Session, Depends(get_db)],
+    cursor: Annotated[uuid.UUID | None, Query()] = None,
+    limit: Annotated[int, Query(ge=1, le=100)] = 25,
+) -> InvoiceSummaryPage:
+    statement = select(Document).order_by(Document.created_at.desc(), Document.id.desc())
+    if cursor is not None:
+        cursor_document = session.get(Document, cursor)
+        if cursor_document is None:
+            raise HTTPException(status_code=400, detail="Invalid invoice cursor")
+        statement = statement.where(
+            (Document.created_at < cursor_document.created_at)
+            | (
+                (Document.created_at == cursor_document.created_at)
+                & (Document.id < cursor_document.id)
+            )
+        )
+    documents = list(session.scalars(statement.limit(limit + 1)))
+    page_documents = documents[:limit]
+    return InvoiceSummaryPage(
+        items=[_invoice_summary(session, document) for document in page_documents],
+        next_cursor=page_documents[-1].id if len(documents) > limit else None,
+    )
+
+
+@app.get("/v1/invoices/{document_id}", response_model=InvoiceSummary, tags=["invoices"])
+def get_invoice_summary(
+    document_id: uuid.UUID,
+    session: Annotated[Session, Depends(get_db)],
+) -> InvoiceSummary:
+    document = session.get(Document, document_id)
+    if document is None:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+    return _invoice_summary(session, document)
+
+
+@app.get("/v1/documents/{document_id}/content", tags=["invoices"])
+def get_document_content(
+    document_id: uuid.UUID,
+    session: Annotated[Session, Depends(get_db)],
+    object_store: Annotated[ObjectStore, Depends(get_object_store)],
+) -> Response:
+    document = session.get(Document, document_id)
+    if document is None:
+        raise HTTPException(status_code=404, detail="Document not found")
+    try:
+        body = object_store.get(document.object_key)
+    except Exception as exc:
+        logger.error(
+            "Stored document could not be retrieved",
+            extra={
+                "event": "document.retrieve_failed",
+                "document_id": str(document_id),
+                "error_type": type(exc).__name__,
+            },
+        )
+        raise HTTPException(status_code=503, detail="Document is temporarily unavailable") from exc
+    return Response(
+        content=body,
+        media_type=document.content_type,
+        headers={"Cache-Control": "private, no-store", "Content-Disposition": "inline"},
+    )
+
+
+@app.get("/v1/dashboard/summary", response_model=DashboardSummary, tags=["dashboard"])
+def get_dashboard_summary(
+    session: Annotated[Session, Depends(get_db)],
+) -> DashboardSummary:
+    waiting_statuses = (ReviewStatus.OPEN, ReviewStatus.CLAIMED)
+    return DashboardSummary(
+        documents_total=session.scalar(select(func.count(Document.id))) or 0,
+        jobs_processing=session.scalar(
+            select(func.count(IngestionJob.id)).where(
+                IngestionJob.status.in_((JobStatus.QUEUED, JobStatus.PROCESSING))
+            )
+        )
+        or 0,
+        jobs_failed=session.scalar(
+            select(func.count(IngestionJob.id)).where(IngestionJob.status == JobStatus.FAILED)
+        )
+        or 0,
+        reviews_waiting=session.scalar(
+            select(func.count(ReviewCase.id)).where(ReviewCase.status.in_(waiting_statuses))
+        )
+        or 0,
+        oldest_waiting_review_opened_at=session.scalar(
+            select(func.min(ReviewCase.opened_at)).where(ReviewCase.status.in_(waiting_statuses))
+        ),
     )
 
 
@@ -340,6 +476,101 @@ def get_job(job_id: uuid.UUID, session: Annotated[Session, Depends(get_db)]) -> 
     if job is None:
         raise HTTPException(status_code=404, detail="Job not found")
     return job
+
+
+def _last_event_sequence(value: str | None) -> int:
+    if value is None or not value.strip():
+        return 0
+    try:
+        sequence = int(value)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="Last-Event-ID must be an integer") from exc
+    if sequence < 0:
+        raise HTTPException(status_code=400, detail="Last-Event-ID must not be negative")
+    return sequence
+
+
+def _sse_message(*, event: str, data: str, event_id: int | None = None) -> str:
+    lines = [f"event: {event}"]
+    if event_id is not None:
+        lines.insert(0, f"id: {event_id}")
+    lines.extend(f"data: {line}" for line in data.splitlines() or [""])
+    return "\n".join(lines) + "\n\n"
+
+
+@app.get(
+    "/v1/jobs/{job_id}/events",
+    response_class=StreamingResponse,
+    responses={
+        200: {
+            "content": {"text/event-stream": {}},
+            "description": "Durable processing events followed by heartbeats until terminal state",
+        }
+    },
+    tags=["jobs"],
+)
+async def stream_job_events(
+    job_id: uuid.UUID,
+    request: Request,
+    session_factory: Annotated[sessionmaker[Session], Depends(get_session_factory)],
+    settings: Annotated[Settings, Depends(get_settings)],
+    last_event_id: Annotated[str | None, Header(alias="Last-Event-ID")] = None,
+) -> StreamingResponse:
+    with session_factory() as initial_session:
+        if initial_session.get(IngestionJob, job_id) is None:
+            raise HTTPException(status_code=404, detail="Job not found")
+    starting_sequence = _last_event_sequence(last_event_id)
+
+    async def generate() -> AsyncIterator[str]:
+        sequence = starting_sequence
+        heartbeat_due = time.monotonic() + settings.sse_heartbeat_seconds
+        while True:
+            if await request.is_disconnected():
+                return
+            with suppress_instrumentation():
+                with session_factory() as event_session:
+                    events = list_job_events(
+                        event_session,
+                        job_id,
+                        after_sequence=sequence,
+                        limit=settings.sse_batch_size,
+                    )
+                    job = event_session.get(IngestionJob, job_id)
+                    terminal_status = job.status if job is not None else None
+                    serialized = [event_to_read(event) for event in events]
+            for event in serialized:
+                sequence = event.sequence
+                yield _sse_message(
+                    event=event.event_type.value,
+                    event_id=event.sequence,
+                    data=event.model_dump_json(),
+                )
+                if event.event_type in TERMINAL_EVENT_TYPES:
+                    return
+            if terminal_status in {JobStatus.SUCCEEDED, JobStatus.FAILED} and not serialized:
+                return
+            now = time.monotonic()
+            if now >= heartbeat_due:
+                heartbeat = {
+                    "job_id": str(job_id),
+                    "event_type": JobEventType.HEARTBEAT.value,
+                    "occurred_at": datetime.now(UTC).isoformat(),
+                }
+                yield _sse_message(
+                    event=JobEventType.HEARTBEAT.value,
+                    data=json.dumps(heartbeat, separators=(",", ":")),
+                )
+                heartbeat_due = now + settings.sse_heartbeat_seconds
+            await asyncio.sleep(settings.sse_poll_interval_seconds)
+
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache, no-transform",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 @app.get(
@@ -427,6 +658,23 @@ def create_purchase_order(
 ) -> PurchaseOrderRead:
     purchase_order = PurchaseOrderService(session).create(command)
     return purchase_order_to_read(purchase_order)
+
+
+@app.get(
+    "/v1/purchase-orders",
+    response_model=list[PurchaseOrderRead],
+    tags=["purchase-orders"],
+)
+def list_purchase_orders(
+    session: Annotated[Session, Depends(get_db)],
+    limit: Annotated[int, Query(ge=1, le=100)] = 50,
+) -> list[PurchaseOrderRead]:
+    purchase_orders = session.scalars(
+        select(PurchaseOrder)
+        .order_by(PurchaseOrder.created_at.desc(), PurchaseOrder.id.desc())
+        .limit(limit)
+    )
+    return [purchase_order_to_read(purchase_order) for purchase_order in purchase_orders]
 
 
 @app.get(

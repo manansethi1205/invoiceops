@@ -6,7 +6,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from apps.api.dependencies import get_dispatcher, get_object_store
+from apps.api.dependencies import get_dispatcher, get_object_store, get_session_factory
 from apps.api.main import app
 from invoiceops.config import Settings, get_settings
 from invoiceops.db import Base, get_db
@@ -69,6 +69,7 @@ def client(
     app.dependency_overrides[get_db] = override_db
     app.dependency_overrides[get_object_store] = lambda: object_store
     app.dependency_overrides[get_dispatcher] = lambda: dispatcher
+    app.dependency_overrides[get_session_factory] = lambda: db_session_factory
     app.dependency_overrides[get_settings] = lambda: Settings(
         database_url="sqlite+pysqlite://", max_upload_bytes=1024
     )
