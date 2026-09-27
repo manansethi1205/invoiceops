@@ -7,6 +7,12 @@ export default defineConfig({
   reporter: "html",
   snapshotPathTemplate: "{testDir}/{testFilePath}-snapshots/{arg}{ext}",
   use: { baseURL: "http://127.0.0.1:3000", trace: "retain-on-failure" },
-  webServer: { command: "node node_modules/next/dist/bin/next start", url: "http://127.0.0.1:3000/dashboard", reuseExistingServer: !process.env.CI, timeout: 120_000 },
+  webServer: {
+    command: "node scripts/start-standalone.mjs",
+    url: "http://127.0.0.1:3000/dashboard",
+    reuseExistingServer: !process.env.CI,
+    timeout: 120_000,
+    env: { ...process.env, HOSTNAME: "127.0.0.1", PORT: "3000" },
+  },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
 });

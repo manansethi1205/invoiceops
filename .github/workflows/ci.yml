@@ -389,9 +389,19 @@ jobs:
           COMPOSE_PARALLEL_LIMIT: "1"
           COMPOSE_BAKE: "false"
         run: |
-          docker compose build api
-          docker compose build web
-          docker compose --profile test build integration-tests
+          retry() {
+            for attempt in 1 2 3; do
+              "$@" && return 0
+              if [ "$attempt" -eq 3 ]; then
+                return 1
+              fi
+              echo "Attempt $attempt failed; retrying in $((attempt * 10)) seconds"
+              sleep $((attempt * 10))
+            done
+          }
+          retry docker compose build api
+          retry docker compose build web
+          retry docker compose --profile test build integration-tests
           docker compose up --no-build -d --wait --wait-timeout 180 api worker
           docker compose --profile test run --rm --no-deps integration-tests
           docker compose up --no-build -d --wait --wait-timeout 180 web

@@ -20,7 +20,6 @@ test("dashboard is keyboard-visible, accessible and visually stable", async ({ p
   await expect(page).toHaveScreenshot("dashboard.png", {
     fullPage: true,
     animations: "disabled",
-    maxDiffPixels: 200,
-    maxDiffPixelRatio: 0.08,
+    maxDiffPixelRatio: 0.03,
   });
 });
