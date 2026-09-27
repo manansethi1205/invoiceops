@@ -1,0 +1,13 @@
+allowBuilds:
+  msw: false
+  unrs-resolver: false
+minimumReleaseAgeExclude:
+  - '@tanstack/query-core@5.104.0'
+  - '@tanstack/react-query@5.104.0'
+  - '@vitest/mocker@5.0.2'
+  - '@vitest/spy@5.0.2'
+  - framer-motion@13.4.4
+  - motion-dom@13.4.4
+  - motion@13.4.4
+  - react-hook-form@7.89.0
+  - vitest@5.0.2

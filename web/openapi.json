@@ -1,0 +1,4813 @@
+{
+  "components": {
+    "schemas": {
+      "AuditVerificationRead": {
+        "properties": {
+          "errors": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Errors",
+            "type": "array"
+          },
+          "event_count": {
+            "title": "Event Count",
+            "type": "integer"
+          },
+          "last_sequence_number": {
+            "title": "Last Sequence Number",
+            "type": "integer"
+          },
+          "reconstructed_assignee": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reconstructed Assignee"
+          },
+          "reconstructed_opening_triggers": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Reconstructed Opening Triggers",
+            "type": "array"
+          },
+          "reconstructed_resolution": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReviewResolution"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reconstructed_resolution_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reconstructed Resolution Reason"
+          },
+          "reconstructed_status": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReviewStatus"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reconstructed_version": {
+            "title": "Reconstructed Version",
+            "type": "integer"
+          },
+          "review_case_id": {
+            "format": "uuid",
+            "title": "Review Case Id",
+            "type": "string"
+          },
+          "valid": {
+            "title": "Valid",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "review_case_id",
+          "valid",
+          "event_count",
+          "last_sequence_number",
+          "errors",
+          "reconstructed_status",
+          "reconstructed_assignee",
+          "reconstructed_resolution",
+          "reconstructed_resolution_reason",
+          "reconstructed_version",
+          "reconstructed_opening_triggers"
+        ],
+        "title": "AuditVerificationRead",
+        "type": "object"
+      },
+      "Body_upload_invoice_v1_invoices_post": {
+        "properties": {
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "description": "PDF, JPEG, or PNG invoice",
+            "title": "File",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "title": "Body_upload_invoice_v1_invoices_post",
+        "type": "object"
+      },
+      "BoundingBox": {
+        "properties": {
+          "x0": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "X0",
+            "type": "number"
+          },
+          "x1": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "X1",
+            "type": "number"
+          },
+          "y0": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Y0",
+            "type": "number"
+          },
+          "y1": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Y1",
+            "type": "number"
+          }
+        },
+        "required": [
+          "x0",
+          "y0",
+          "x1",
+          "y1"
+        ],
+        "title": "BoundingBox",
+        "type": "object"
+      },
+      "CheckSeverity": {
+        "enum": [
+          "info",
+          "error"
+        ],
+        "title": "CheckSeverity",
+        "type": "string"
+      },
+      "CheckStatus": {
+        "enum": [
+          "passed",
+          "failed"
+        ],
+        "title": "CheckStatus",
+        "type": "string"
+      },
+      "CommentCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "comment": {
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Comment",
+            "type": "string"
+          },
+          "expected_version": {
+            "minimum": 1.0,
+            "title": "Expected Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "expected_version",
+          "comment"
+        ],
+        "title": "CommentCommand",
+        "type": "object"
+      },
+      "DashboardSummary": {
+        "properties": {
+          "documents_total": {
+            "title": "Documents Total",
+            "type": "integer"
+          },
+          "jobs_failed": {
+            "title": "Jobs Failed",
+            "type": "integer"
+          },
+          "jobs_processing": {
+            "title": "Jobs Processing",
+            "type": "integer"
+          },
+          "oldest_waiting_review_opened_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Oldest Waiting Review Opened At"
+          },
+          "reviews_waiting": {
+            "title": "Reviews Waiting",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "documents_total",
+          "jobs_processing",
+          "jobs_failed",
+          "reviews_waiting",
+          "oldest_waiting_review_opened_at"
+        ],
+        "title": "DashboardSummary",
+        "type": "object"
+      },
+      "DuplicateRiskPolicy": {
+        "additionalProperties": false,
+        "properties": {
+          "amount_absolute_tolerance": {
+            "title": "Amount Absolute Tolerance",
+            "type": "string"
+          },
+          "date_window_days": {
+            "default": 7,
+            "minimum": 0.0,
+            "title": "Date Window Days",
+            "type": "integer"
+          },
+          "invoice_number_similarity_threshold": {
+            "title": "Invoice Number Similarity Threshold",
+            "type": "string"
+          },
+          "route_incomplete_to_review": {
+            "default": true,
+            "title": "Route Incomplete To Review",
+            "type": "boolean"
+          },
+          "version": {
+            "default": "duplicate-risk-v1",
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "title": "DuplicateRiskPolicy",
+        "type": "object"
+      },
+      "ErrorBody": {
+        "properties": {
+          "detail": {
+            "title": "Detail",
+            "type": "string"
+          }
+        },
+        "required": [
+          "detail"
+        ],
+        "title": "ErrorBody",
+        "type": "object"
+      },
+      "EvidenceSpan": {
+        "properties": {
+          "bbox": {
+            "$ref": "#/components/schemas/BoundingBox"
+          },
+          "page": {
+            "minimum": 0.0,
+            "title": "Page",
+            "type": "integer"
+          },
+          "source": {
+            "$ref": "#/components/schemas/TextSource"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "page",
+          "bbox",
+          "text",
+          "source"
+        ],
+        "title": "EvidenceSpan",
+        "type": "object"
+      },
+      "ExtractedField_Decimal_": {
+        "properties": {
+          "evidence": {
+            "items": {
+              "$ref": "#/components/schemas/EvidenceSpan"
+            },
+            "title": "Evidence",
+            "type": "array"
+          },
+          "rule_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rule Id"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ExtractionStatus"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "required": [
+          "value",
+          "status",
+          "evidence"
+        ],
+        "title": "ExtractedField[Decimal]",
+        "type": "object"
+      },
+      "ExtractedField_date_": {
+        "properties": {
+          "evidence": {
+            "items": {
+              "$ref": "#/components/schemas/EvidenceSpan"
+            },
+            "title": "Evidence",
+            "type": "array"
+          },
+          "rule_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rule Id"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ExtractionStatus"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "required": [
+          "value",
+          "status",
+          "evidence"
+        ],
+        "title": "ExtractedField[date]",
+        "type": "object"
+      },
+      "ExtractedField_str_": {
+        "properties": {
+          "evidence": {
+            "items": {
+              "$ref": "#/components/schemas/EvidenceSpan"
+            },
+            "title": "Evidence",
+            "type": "array"
+          },
+          "rule_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rule Id"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ExtractionStatus"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "required": [
+          "value",
+          "status",
+          "evidence"
+        ],
+        "title": "ExtractedField[str]",
+        "type": "object"
+      },
+      "ExtractionPendingRead": {
+        "properties": {
+          "document_id": {
+            "format": "uuid",
+            "title": "Document Id",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ExtractionRunStatus"
+          }
+        },
+        "required": [
+          "document_id",
+          "status"
+        ],
+        "title": "ExtractionPendingRead",
+        "type": "object"
+      },
+      "ExtractionResultRead": {
+        "properties": {
+          "completed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "document_id": {
+            "format": "uuid",
+            "title": "Document Id",
+            "type": "string"
+          },
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code"
+          },
+          "extractor": {
+            "$ref": "#/components/schemas/ExtractorMetadata"
+          },
+          "hybrid": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/HybridMetadata"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "invoice": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Invoice"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "latency_ms": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latency Ms"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ExtractionRunStatus"
+          },
+          "used_ocr": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Used Ocr"
+          }
+        },
+        "required": [
+          "document_id",
+          "status",
+          "extractor",
+          "used_ocr",
+          "latency_ms",
+          "invoice",
+          "error_code",
+          "created_at",
+          "completed_at"
+        ],
+        "title": "ExtractionResultRead",
+        "type": "object"
+      },
+      "ExtractionRunStatus": {
+        "enum": [
+          "processing",
+          "succeeded",
+          "failed"
+        ],
+        "title": "ExtractionRunStatus",
+        "type": "string"
+      },
+      "ExtractionStatus": {
+        "enum": [
+          "extracted",
+          "ambiguous",
+          "missing"
+        ],
+        "title": "ExtractionStatus",
+        "type": "string"
+      },
+      "ExtractorMetadata": {
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "schema_version": {
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "version",
+          "schema_version"
+        ],
+        "title": "ExtractorMetadata",
+        "type": "object"
+      },
+      "GoodsReceiptCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "external_receipt_number": {
+            "title": "External Receipt Number",
+            "type": "string"
+          },
+          "lines": {
+            "items": {
+              "$ref": "#/components/schemas/GoodsReceiptLineCreate"
+            },
+            "minItems": 1,
+            "title": "Lines",
+            "type": "array"
+          },
+          "purchase_order_id": {
+            "format": "uuid",
+            "title": "Purchase Order Id",
+            "type": "string"
+          },
+          "received_at": {
+            "format": "date-time",
+            "title": "Received At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "purchase_order_id",
+          "external_receipt_number",
+          "received_at",
+          "lines"
+        ],
+        "title": "GoodsReceiptCreate",
+        "type": "object"
+      },
+      "GoodsReceiptLineCreate": {
+        "properties": {
+          "accepted_quantity": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "number"
+              },
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              }
+            ],
+            "title": "Accepted Quantity"
+          },
+          "purchase_order_line_id": {
+            "format": "uuid",
+            "title": "Purchase Order Line Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "purchase_order_line_id",
+          "accepted_quantity"
+        ],
+        "title": "GoodsReceiptLineCreate",
+        "type": "object"
+      },
+      "GoodsReceiptLineRead": {
+        "properties": {
+          "accepted_quantity": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Accepted Quantity",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "purchase_order_line_id": {
+            "format": "uuid",
+            "title": "Purchase Order Line Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "purchase_order_line_id",
+          "accepted_quantity"
+        ],
+        "title": "GoodsReceiptLineRead",
+        "type": "object"
+      },
+      "GoodsReceiptRead": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "external_receipt_number": {
+            "title": "External Receipt Number",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "lines": {
+            "items": {
+              "$ref": "#/components/schemas/GoodsReceiptLineRead"
+            },
+            "title": "Lines",
+            "type": "array"
+          },
+          "purchase_order_id": {
+            "format": "uuid",
+            "title": "Purchase Order Id",
+            "type": "string"
+          },
+          "received_at": {
+            "format": "date-time",
+            "title": "Received At",
+            "type": "string"
+          },
+          "request_fingerprint": {
+            "title": "Request Fingerprint",
+            "type": "string"
+          },
+          "reversal": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GoodsReceiptReversalRead"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "purchase_order_id",
+          "external_receipt_number",
+          "received_at",
+          "request_fingerprint",
+          "created_at",
+          "lines",
+          "reversal"
+        ],
+        "title": "GoodsReceiptRead",
+        "type": "object"
+      },
+      "GoodsReceiptReversalRead": {
+        "properties": {
+          "actor_id": {
+            "title": "Actor Id",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "reversed_at": {
+            "format": "date-time",
+            "title": "Reversed At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "actor_id",
+          "reason",
+          "reversed_at"
+        ],
+        "title": "GoodsReceiptReversalRead",
+        "type": "object"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "HybridMetadata": {
+        "properties": {
+          "grounding_summary": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Grounding Summary"
+          },
+          "input_tokens": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Input Tokens"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "output_tokens": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Output Tokens"
+          },
+          "prompt_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Prompt Version"
+          },
+          "provider": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider"
+          },
+          "provider_failure_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider Failure Code"
+          },
+          "provider_invoked": {
+            "title": "Provider Invoked",
+            "type": "boolean"
+          },
+          "provider_latency_ms": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider Latency Ms"
+          },
+          "routing_reasons": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Routing Reasons",
+            "type": "array"
+          },
+          "strategy": {
+            "title": "Strategy",
+            "type": "string"
+          },
+          "total_tokens": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Tokens"
+          }
+        },
+        "required": [
+          "strategy",
+          "routing_reasons",
+          "provider_invoked",
+          "provider",
+          "model",
+          "prompt_version",
+          "grounding_summary",
+          "input_tokens",
+          "output_tokens",
+          "total_tokens",
+          "provider_latency_ms",
+          "provider_failure_code"
+        ],
+        "title": "HybridMetadata",
+        "type": "object"
+      },
+      "Invoice": {
+        "properties": {
+          "currency": {
+            "$ref": "#/components/schemas/ExtractedField_str_"
+          },
+          "invoice_date": {
+            "$ref": "#/components/schemas/ExtractedField_date_"
+          },
+          "invoice_number": {
+            "$ref": "#/components/schemas/ExtractedField_str_"
+          },
+          "line_items": {
+            "items": {
+              "$ref": "#/components/schemas/InvoiceLine"
+            },
+            "title": "Line Items",
+            "type": "array"
+          },
+          "subtotal": {
+            "$ref": "#/components/schemas/ExtractedField_Decimal_"
+          },
+          "tax": {
+            "$ref": "#/components/schemas/ExtractedField_Decimal_"
+          },
+          "total": {
+            "$ref": "#/components/schemas/ExtractedField_Decimal_"
+          }
+        },
+        "required": [
+          "invoice_number",
+          "invoice_date",
+          "currency",
+          "subtotal",
+          "tax",
+          "total",
+          "line_items"
+        ],
+        "title": "Invoice",
+        "type": "object"
+      },
+      "InvoiceLine": {
+        "properties": {
+          "description": {
+            "$ref": "#/components/schemas/ExtractedField_str_"
+          },
+          "line_total": {
+            "$ref": "#/components/schemas/ExtractedField_Decimal_"
+          },
+          "quantity": {
+            "$ref": "#/components/schemas/ExtractedField_Decimal_"
+          },
+          "unit_price": {
+            "$ref": "#/components/schemas/ExtractedField_Decimal_"
+          }
+        },
+        "required": [
+          "description",
+          "quantity",
+          "unit_price",
+          "line_total"
+        ],
+        "title": "InvoiceLine",
+        "type": "object"
+      },
+      "InvoiceSummary": {
+        "properties": {
+          "byte_size": {
+            "title": "Byte Size",
+            "type": "integer"
+          },
+          "content_type": {
+            "title": "Content Type",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "currency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Currency"
+          },
+          "document_id": {
+            "format": "uuid",
+            "title": "Document Id",
+            "type": "string"
+          },
+          "filename": {
+            "title": "Filename",
+            "type": "string"
+          },
+          "invoice_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Invoice Number"
+          },
+          "job_id": {
+            "format": "uuid",
+            "title": "Job Id",
+            "type": "string"
+          },
+          "job_status": {
+            "$ref": "#/components/schemas/JobStatus"
+          },
+          "latest_match_run_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest Match Run Id"
+          },
+          "match_decision": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MatchDecision"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "review_case_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Review Case Id"
+          },
+          "review_status": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReviewStatus"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "total": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total"
+          }
+        },
+        "required": [
+          "document_id",
+          "filename",
+          "content_type",
+          "byte_size",
+          "created_at",
+          "job_id",
+          "job_status",
+          "invoice_number",
+          "currency",
+          "total",
+          "latest_match_run_id",
+          "match_decision",
+          "review_case_id",
+          "review_status"
+        ],
+        "title": "InvoiceSummary",
+        "type": "object"
+      },
+      "InvoiceSummaryPage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/InvoiceSummary"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "required": [
+          "items",
+          "next_cursor"
+        ],
+        "title": "InvoiceSummaryPage",
+        "type": "object"
+      },
+      "JobRead": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "document_id": {
+            "format": "uuid",
+            "title": "Document Id",
+            "type": "string"
+          },
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code"
+          },
+          "error_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Message"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/JobStatus"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "document_id",
+          "status",
+          "error_code",
+          "error_message",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "JobRead",
+        "type": "object"
+      },
+      "JobStatus": {
+        "enum": [
+          "queued",
+          "processing",
+          "succeeded",
+          "failed"
+        ],
+        "title": "JobStatus",
+        "type": "string"
+      },
+      "LineAssignment": {
+        "properties": {
+          "checks": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationCheck"
+            },
+            "title": "Checks",
+            "type": "array"
+          },
+          "description_score": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Description Score",
+            "type": "number"
+          },
+          "evidence": {
+            "items": {
+              "$ref": "#/components/schemas/EvidenceSpan"
+            },
+            "title": "Evidence",
+            "type": "array"
+          },
+          "exact_description": {
+            "title": "Exact Description",
+            "type": "boolean"
+          },
+          "invoice_line_index": {
+            "minimum": 0.0,
+            "title": "Invoice Line Index",
+            "type": "integer"
+          },
+          "po_line_id": {
+            "format": "uuid",
+            "title": "Po Line Id",
+            "type": "string"
+          },
+          "po_line_number": {
+            "title": "Po Line Number",
+            "type": "string"
+          }
+        },
+        "required": [
+          "invoice_line_index",
+          "po_line_id",
+          "po_line_number",
+          "description_score",
+          "exact_description",
+          "checks"
+        ],
+        "title": "LineAssignment",
+        "type": "object"
+      },
+      "MatchCreate": {
+        "properties": {
+          "mode": {
+            "$ref": "#/components/schemas/MatchingMode",
+            "default": "TWO_WAY"
+          },
+          "purchase_order_id": {
+            "format": "uuid",
+            "title": "Purchase Order Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "purchase_order_id"
+        ],
+        "title": "MatchCreate",
+        "type": "object"
+      },
+      "MatchDecision": {
+        "enum": [
+          "MATCHED",
+          "NEEDS_REVIEW"
+        ],
+        "title": "MatchDecision",
+        "type": "string"
+      },
+      "MatchResult": {
+        "properties": {
+          "checks": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationCheck"
+            },
+            "title": "Checks",
+            "type": "array"
+          },
+          "decision": {
+            "$ref": "#/components/schemas/MatchDecision"
+          },
+          "line_assignments": {
+            "items": {
+              "$ref": "#/components/schemas/LineAssignment"
+            },
+            "title": "Line Assignments",
+            "type": "array"
+          },
+          "reason_codes": {
+            "items": {
+              "$ref": "#/components/schemas/ReasonCode"
+            },
+            "title": "Reason Codes",
+            "type": "array"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/MatchSummary"
+          }
+        },
+        "required": [
+          "decision",
+          "summary",
+          "checks",
+          "line_assignments",
+          "reason_codes"
+        ],
+        "title": "MatchResult",
+        "type": "object"
+      },
+      "MatchRunRead": {
+        "properties": {
+          "context_fingerprint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Context Fingerprint"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "decision": {
+            "$ref": "#/components/schemas/MatchDecision"
+          },
+          "document_id": {
+            "format": "uuid",
+            "title": "Document Id",
+            "type": "string"
+          },
+          "extraction_run_id": {
+            "format": "uuid",
+            "title": "Extraction Run Id",
+            "type": "string"
+          },
+          "human_resolution": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Human Resolution"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "matching_mode": {
+            "$ref": "#/components/schemas/MatchingMode"
+          },
+          "payment_authorized": {
+            "default": false,
+            "title": "Payment Authorized",
+            "type": "boolean"
+          },
+          "policy_snapshot": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MatchingPolicy"
+              },
+              {
+                "$ref": "#/components/schemas/ThreeWayMatchingPolicy"
+              }
+            ],
+            "title": "Policy Snapshot"
+          },
+          "policy_version": {
+            "title": "Policy Version",
+            "type": "string"
+          },
+          "purchase_order_id": {
+            "format": "uuid",
+            "title": "Purchase Order Id",
+            "type": "string"
+          },
+          "result": {
+            "$ref": "#/components/schemas/MatchResult"
+          },
+          "review_case_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Review Case Id"
+          },
+          "review_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Review Status"
+          },
+          "risk_assessment_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Risk Assessment Id"
+          },
+          "risk_disposition": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RiskDisposition"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "risk_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Risk Url"
+          },
+          "three_way_context_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Three Way Context Url"
+          }
+        },
+        "required": [
+          "id",
+          "document_id",
+          "purchase_order_id",
+          "extraction_run_id",
+          "policy_version",
+          "policy_snapshot",
+          "matching_mode",
+          "context_fingerprint",
+          "three_way_context_url",
+          "decision",
+          "result",
+          "risk_assessment_id",
+          "risk_disposition",
+          "risk_url",
+          "review_case_id",
+          "review_status",
+          "human_resolution",
+          "created_at"
+        ],
+        "title": "MatchRunRead",
+        "type": "object"
+      },
+      "MatchSummary": {
+        "properties": {
+          "assigned_line_count": {
+            "minimum": 0.0,
+            "title": "Assigned Line Count",
+            "type": "integer"
+          },
+          "failed_check_count": {
+            "minimum": 0.0,
+            "title": "Failed Check Count",
+            "type": "integer"
+          },
+          "invoice_line_count": {
+            "minimum": 0.0,
+            "title": "Invoice Line Count",
+            "type": "integer"
+          },
+          "passed_check_count": {
+            "minimum": 0.0,
+            "title": "Passed Check Count",
+            "type": "integer"
+          },
+          "po_line_count": {
+            "minimum": 0.0,
+            "title": "Po Line Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "invoice_line_count",
+          "po_line_count",
+          "assigned_line_count",
+          "passed_check_count",
+          "failed_check_count"
+        ],
+        "title": "MatchSummary",
+        "type": "object"
+      },
+      "MatchingMode": {
+        "enum": [
+          "TWO_WAY",
+          "THREE_WAY"
+        ],
+        "title": "MatchingMode",
+        "type": "string"
+      },
+      "MatchingPolicy": {
+        "properties": {
+          "ambiguity_margin": {
+            "default": 0.05,
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Ambiguity Margin",
+            "type": "number"
+          },
+          "amount_absolute_tolerance": {
+            "default": "0.02",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Amount Absolute Tolerance",
+            "type": "string"
+          },
+          "description_similarity_threshold": {
+            "default": 0.85,
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Description Similarity Threshold",
+            "type": "number"
+          },
+          "quantity_absolute_tolerance": {
+            "default": "0",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Quantity Absolute Tolerance",
+            "type": "string"
+          },
+          "unit_price_relative_tolerance": {
+            "default": "0.01",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Unit Price Relative Tolerance",
+            "type": "string"
+          },
+          "version": {
+            "default": "matching-v1",
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "title": "MatchingPolicy",
+        "type": "object"
+      },
+      "PriorAllocationRead": {
+        "properties": {
+          "allocated_quantity": {
+            "title": "Allocated Quantity",
+            "type": "string"
+          },
+          "allocation_id": {
+            "format": "uuid",
+            "title": "Allocation Id",
+            "type": "string"
+          },
+          "document_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Document Id"
+          },
+          "extraction_run_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Extraction Run Id"
+          },
+          "invoice_line_index": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Invoice Line Index"
+          },
+          "match_run_id": {
+            "format": "uuid",
+            "title": "Match Run Id",
+            "type": "string"
+          },
+          "purchase_order_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Purchase Order Id"
+          },
+          "purchase_order_line_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Purchase Order Line Id"
+          }
+        },
+        "required": [
+          "allocation_id",
+          "match_run_id",
+          "allocated_quantity"
+        ],
+        "title": "PriorAllocationRead",
+        "type": "object"
+      },
+      "PurchaseOrderCreate": {
+        "properties": {
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          },
+          "external_po_number": {
+            "title": "External Po Number",
+            "type": "string"
+          },
+          "lines": {
+            "items": {
+              "$ref": "#/components/schemas/PurchaseOrderLineCreate"
+            },
+            "minItems": 1,
+            "title": "Lines",
+            "type": "array"
+          },
+          "vendor_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vendor Name"
+          }
+        },
+        "required": [
+          "external_po_number",
+          "currency",
+          "lines"
+        ],
+        "title": "PurchaseOrderCreate",
+        "type": "object"
+      },
+      "PurchaseOrderLineCreate": {
+        "properties": {
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "line_number": {
+            "title": "Line Number",
+            "type": "string"
+          },
+          "ordered_quantity": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "number"
+              },
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              }
+            ],
+            "title": "Ordered Quantity"
+          },
+          "unit_price": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              }
+            ],
+            "title": "Unit Price"
+          }
+        },
+        "required": [
+          "line_number",
+          "description",
+          "ordered_quantity",
+          "unit_price"
+        ],
+        "title": "PurchaseOrderLineCreate",
+        "type": "object"
+      },
+      "PurchaseOrderLineRead": {
+        "properties": {
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "line_number": {
+            "title": "Line Number",
+            "type": "string"
+          },
+          "ordered_quantity": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Ordered Quantity",
+            "type": "string"
+          },
+          "purchase_order_id": {
+            "format": "uuid",
+            "title": "Purchase Order Id",
+            "type": "string"
+          },
+          "unit_price": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Unit Price",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "purchase_order_id",
+          "line_number",
+          "description",
+          "ordered_quantity",
+          "unit_price"
+        ],
+        "title": "PurchaseOrderLineRead",
+        "type": "object"
+      },
+      "PurchaseOrderRead": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          },
+          "external_po_number": {
+            "title": "External Po Number",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "lines": {
+            "items": {
+              "$ref": "#/components/schemas/PurchaseOrderLineRead"
+            },
+            "title": "Lines",
+            "type": "array"
+          },
+          "vendor_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vendor Name"
+          }
+        },
+        "required": [
+          "id",
+          "external_po_number",
+          "vendor_name",
+          "currency",
+          "created_at",
+          "lines"
+        ],
+        "title": "PurchaseOrderRead",
+        "type": "object"
+      },
+      "ReasonCode": {
+        "enum": [
+          "INVOICE_SCHEMA_INCOMPLETE",
+          "INVOICE_LINE_ARITHMETIC_MISMATCH",
+          "INVOICE_SUBTOTAL_MISMATCH",
+          "INVOICE_TOTAL_MISMATCH",
+          "CURRENCY_MISMATCH",
+          "INVOICE_LINE_UNMATCHED",
+          "PO_LINE_UNMATCHED",
+          "DESCRIPTION_BELOW_THRESHOLD",
+          "DESCRIPTION_AMBIGUOUS",
+          "QUANTITY_MISMATCH",
+          "UNIT_PRICE_MISMATCH",
+          "EXTRA_INVOICE_LINE",
+          "LINE_AMOUNT_MISMATCH",
+          "NEGATIVE_AMOUNT",
+          "NO_GOODS_RECEIPT",
+          "RECEIPT_LINE_MISSING",
+          "GOODS_RECEIPT_REVERSED",
+          "INVOICE_QUANTITY_EXCEEDS_RECEIVED",
+          "CUMULATIVE_QUANTITY_EXCEEDS_RECEIVED",
+          "RECEIVED_QUANTITY_EXCEEDS_ORDERED",
+          "RECEIPT_AFTER_INVOICE",
+          "THREE_WAY_UNIT_PRICE_MISMATCH",
+          "THREE_WAY_LINE_AMOUNT_MISMATCH",
+          "RECEIPT_CONTEXT_CHANGED",
+          "ALLOCATION_RECONCILIATION_REQUIRED"
+        ],
+        "title": "ReasonCode",
+        "type": "string"
+      },
+      "ReceiptLineContextRead": {
+        "properties": {
+          "active_receipts": {
+            "items": {
+              "$ref": "#/components/schemas/ReceiptQuantityRead"
+            },
+            "title": "Active Receipts",
+            "type": "array"
+          },
+          "available_quantity": {
+            "title": "Available Quantity",
+            "type": "string"
+          },
+          "current_invoice_allocations": {
+            "items": {
+              "$ref": "#/components/schemas/PriorAllocationRead"
+            },
+            "title": "Current Invoice Allocations",
+            "type": "array"
+          },
+          "effective_received_quantity": {
+            "title": "Effective Received Quantity",
+            "type": "string"
+          },
+          "ordered_quantity": {
+            "title": "Ordered Quantity",
+            "type": "string"
+          },
+          "previously_allocated_quantity": {
+            "title": "Previously Allocated Quantity",
+            "type": "string"
+          },
+          "prior_allocations": {
+            "items": {
+              "$ref": "#/components/schemas/PriorAllocationRead"
+            },
+            "title": "Prior Allocations",
+            "type": "array"
+          },
+          "purchase_order_line_id": {
+            "format": "uuid",
+            "title": "Purchase Order Line Id",
+            "type": "string"
+          },
+          "reversal_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Reversal Ids",
+            "type": "array"
+          },
+          "reversed_receipts": {
+            "items": {
+              "$ref": "#/components/schemas/ReceiptQuantityRead"
+            },
+            "title": "Reversed Receipts",
+            "type": "array"
+          }
+        },
+        "required": [
+          "purchase_order_line_id",
+          "ordered_quantity",
+          "active_receipts",
+          "effective_received_quantity",
+          "previously_allocated_quantity",
+          "available_quantity"
+        ],
+        "title": "ReceiptLineContextRead",
+        "type": "object"
+      },
+      "ReceiptQuantityRead": {
+        "properties": {
+          "accepted_quantity": {
+            "title": "Accepted Quantity",
+            "type": "string"
+          },
+          "receipt_id": {
+            "format": "uuid",
+            "title": "Receipt Id",
+            "type": "string"
+          },
+          "received_at": {
+            "format": "date-time",
+            "title": "Received At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "receipt_id",
+          "accepted_quantity",
+          "received_at"
+        ],
+        "title": "ReceiptQuantityRead",
+        "type": "object"
+      },
+      "ReleaseCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "expected_version": {
+            "minimum": 1.0,
+            "title": "Expected Version",
+            "type": "integer"
+          },
+          "reason": {
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "expected_version",
+          "reason"
+        ],
+        "title": "ReleaseCommand",
+        "type": "object"
+      },
+      "ResolveCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "expected_version": {
+            "minimum": 1.0,
+            "title": "Expected Version",
+            "type": "integer"
+          },
+          "reason": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          },
+          "resolution": {
+            "$ref": "#/components/schemas/ReviewResolution"
+          }
+        },
+        "required": [
+          "expected_version",
+          "resolution",
+          "reason"
+        ],
+        "title": "ResolveCommand",
+        "type": "object"
+      },
+      "ReverseGoodsReceiptCommand": {
+        "properties": {
+          "reason": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "ReverseGoodsReceiptCommand",
+        "type": "object"
+      },
+      "ReviewCaseDetail": {
+        "properties": {
+          "assigned_reviewer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assigned Reviewer Id"
+          },
+          "audit_verification_url": {
+            "title": "Audit Verification Url",
+            "type": "string"
+          },
+          "claimed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Claimed At"
+          },
+          "events_url": {
+            "title": "Events Url",
+            "type": "string"
+          },
+          "extraction_name": {
+            "title": "Extraction Name",
+            "type": "string"
+          },
+          "extraction_version": {
+            "title": "Extraction Version",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "match": {
+            "$ref": "#/components/schemas/MatchRunRead"
+          },
+          "match_run_id": {
+            "format": "uuid",
+            "title": "Match Run Id",
+            "type": "string"
+          },
+          "opened_at": {
+            "format": "date-time",
+            "title": "Opened At",
+            "type": "string"
+          },
+          "reason_codes": {
+            "items": {
+              "$ref": "#/components/schemas/ReasonCode"
+            },
+            "title": "Reason Codes",
+            "type": "array"
+          },
+          "resolution": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReviewResolution"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "resolution_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolution Reason"
+          },
+          "resolved_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolved At"
+          },
+          "review_triggers": {
+            "items": {
+              "$ref": "#/components/schemas/ReviewTriggerRead"
+            },
+            "title": "Review Triggers",
+            "type": "array"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ReviewStatus"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "match_run_id",
+          "status",
+          "assigned_reviewer_id",
+          "version",
+          "opened_at",
+          "claimed_at",
+          "resolved_at",
+          "resolution",
+          "resolution_reason",
+          "reason_codes",
+          "review_triggers",
+          "match",
+          "extraction_name",
+          "extraction_version",
+          "events_url",
+          "audit_verification_url"
+        ],
+        "title": "ReviewCaseDetail",
+        "type": "object"
+      },
+      "ReviewCasePage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ReviewCaseRead"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "required": [
+          "items",
+          "next_cursor"
+        ],
+        "title": "ReviewCasePage",
+        "type": "object"
+      },
+      "ReviewCaseRead": {
+        "properties": {
+          "assigned_reviewer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assigned Reviewer Id"
+          },
+          "claimed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Claimed At"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "match_run_id": {
+            "format": "uuid",
+            "title": "Match Run Id",
+            "type": "string"
+          },
+          "opened_at": {
+            "format": "date-time",
+            "title": "Opened At",
+            "type": "string"
+          },
+          "reason_codes": {
+            "items": {
+              "$ref": "#/components/schemas/ReasonCode"
+            },
+            "title": "Reason Codes",
+            "type": "array"
+          },
+          "resolution": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReviewResolution"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "resolution_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolution Reason"
+          },
+          "resolved_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolved At"
+          },
+          "review_triggers": {
+            "items": {
+              "$ref": "#/components/schemas/ReviewTriggerRead"
+            },
+            "title": "Review Triggers",
+            "type": "array"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ReviewStatus"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "match_run_id",
+          "status",
+          "assigned_reviewer_id",
+          "version",
+          "opened_at",
+          "claimed_at",
+          "resolved_at",
+          "resolution",
+          "resolution_reason",
+          "reason_codes",
+          "review_triggers"
+        ],
+        "title": "ReviewCaseRead",
+        "type": "object"
+      },
+      "ReviewEventRead": {
+        "properties": {
+          "actor_id": {
+            "title": "Actor Id",
+            "type": "string"
+          },
+          "event_hash": {
+            "title": "Event Hash",
+            "type": "string"
+          },
+          "event_type": {
+            "$ref": "#/components/schemas/ReviewEventType"
+          },
+          "hash_version": {
+            "title": "Hash Version",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "occurred_at": {
+            "format": "date-time",
+            "title": "Occurred At",
+            "type": "string"
+          },
+          "payload": {
+            "additionalProperties": true,
+            "title": "Payload",
+            "type": "object"
+          },
+          "previous_hash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous Hash"
+          },
+          "review_case_id": {
+            "format": "uuid",
+            "title": "Review Case Id",
+            "type": "string"
+          },
+          "sequence_number": {
+            "title": "Sequence Number",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "review_case_id",
+          "sequence_number",
+          "event_type",
+          "actor_id",
+          "payload",
+          "hash_version",
+          "previous_hash",
+          "event_hash",
+          "occurred_at"
+        ],
+        "title": "ReviewEventRead",
+        "type": "object"
+      },
+      "ReviewEventType": {
+        "enum": [
+          "CASE_OPENED",
+          "CASE_CLAIMED",
+          "COMMENT_ADDED",
+          "CASE_RELEASED",
+          "CASE_RESOLVED"
+        ],
+        "title": "ReviewEventType",
+        "type": "string"
+      },
+      "ReviewResolution": {
+        "enum": [
+          "ACCEPTED_EXCEPTION",
+          "REJECTED_DOCUMENT",
+          "CORRECTION_REQUESTED"
+        ],
+        "title": "ReviewResolution",
+        "type": "string"
+      },
+      "ReviewStatus": {
+        "enum": [
+          "OPEN",
+          "CLAIMED",
+          "RESOLVED"
+        ],
+        "title": "ReviewStatus",
+        "type": "string"
+      },
+      "ReviewTriggerRead": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "source_id": {
+            "format": "uuid",
+            "title": "Source Id",
+            "type": "string"
+          },
+          "source_url": {
+            "title": "Source Url",
+            "type": "string"
+          },
+          "type": {
+            "$ref": "#/components/schemas/ReviewTriggerType"
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "code",
+          "source_id",
+          "source_url",
+          "created_at"
+        ],
+        "title": "ReviewTriggerRead",
+        "type": "object"
+      },
+      "ReviewTriggerType": {
+        "enum": [
+          "MATCH_REASON",
+          "RISK_SIGNAL"
+        ],
+        "title": "ReviewTriggerType",
+        "type": "string"
+      },
+      "RiskAssessmentRead": {
+        "properties": {
+          "candidate_metrics": {
+            "$ref": "#/components/schemas/RiskCandidateMetrics"
+          },
+          "compared_match_run_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Compared Match Run Ids",
+            "type": "array"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "disposition": {
+            "$ref": "#/components/schemas/RiskDisposition"
+          },
+          "feature_complete": {
+            "title": "Feature Complete",
+            "type": "boolean"
+          },
+          "feature_snapshot": {
+            "$ref": "#/components/schemas/RiskFeatureSnapshot"
+          },
+          "human_resolution": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Human Resolution"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "match_decision": {
+            "title": "Match Decision",
+            "type": "string"
+          },
+          "match_run_id": {
+            "format": "uuid",
+            "title": "Match Run Id",
+            "type": "string"
+          },
+          "payment_authorized": {
+            "default": false,
+            "title": "Payment Authorized",
+            "type": "boolean"
+          },
+          "policy_snapshot": {
+            "$ref": "#/components/schemas/DuplicateRiskPolicy"
+          },
+          "policy_version": {
+            "title": "Policy Version",
+            "type": "string"
+          },
+          "review_case_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Review Case Id"
+          },
+          "review_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Review Status"
+          },
+          "signals": {
+            "items": {
+              "$ref": "#/components/schemas/RiskSignalRead"
+            },
+            "title": "Signals",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "match_run_id",
+          "policy_version",
+          "policy_snapshot",
+          "candidate_metrics",
+          "disposition",
+          "feature_snapshot",
+          "feature_complete",
+          "signals",
+          "compared_match_run_ids",
+          "match_decision",
+          "review_case_id",
+          "review_status",
+          "human_resolution",
+          "created_at"
+        ],
+        "title": "RiskAssessmentRead",
+        "type": "object"
+      },
+      "RiskCandidateMetrics": {
+        "properties": {
+          "candidate_record_count": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Candidate Record Count",
+            "type": "integer"
+          },
+          "candidate_reduction_rate": {
+            "title": "Candidate Reduction Rate",
+            "type": "string"
+          },
+          "comparison_count": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Comparison Count",
+            "type": "integer"
+          },
+          "historical_record_count": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Historical Record Count",
+            "type": "integer"
+          }
+        },
+        "title": "RiskCandidateMetrics",
+        "type": "object"
+      },
+      "RiskDisposition": {
+        "enum": [
+          "CLEAR",
+          "NEEDS_REVIEW",
+          "NOT_ASSESSABLE"
+        ],
+        "title": "RiskDisposition",
+        "type": "string"
+      },
+      "RiskFeatureSnapshot": {
+        "properties": {
+          "currency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Currency"
+          },
+          "document_id": {
+            "format": "uuid",
+            "title": "Document Id",
+            "type": "string"
+          },
+          "extraction_run_id": {
+            "format": "uuid",
+            "title": "Extraction Run Id",
+            "type": "string"
+          },
+          "invoice_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Invoice Date"
+          },
+          "match_run_id": {
+            "format": "uuid",
+            "title": "Match Run Id",
+            "type": "string"
+          },
+          "missing_fields": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Missing Fields",
+            "type": "array"
+          },
+          "normalized_invoice_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Normalized Invoice Number"
+          },
+          "normalized_vendor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Normalized Vendor"
+          },
+          "purchase_order_id": {
+            "format": "uuid",
+            "title": "Purchase Order Id",
+            "type": "string"
+          },
+          "total": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total"
+          }
+        },
+        "required": [
+          "normalized_vendor",
+          "normalized_invoice_number",
+          "invoice_date",
+          "currency",
+          "total",
+          "purchase_order_id",
+          "document_id",
+          "extraction_run_id",
+          "match_run_id"
+        ],
+        "title": "RiskFeatureSnapshot",
+        "type": "object"
+      },
+      "RiskSeverity": {
+        "enum": [
+          "INFO",
+          "WARNING",
+          "CRITICAL"
+        ],
+        "title": "RiskSeverity",
+        "type": "string"
+      },
+      "RiskSignalCode": {
+        "enum": [
+          "EXACT_BUSINESS_KEY_DUPLICATE",
+          "REUSED_VENDOR_INVOICE_NUMBER",
+          "SAME_PO_INVOICE_REPLAY",
+          "NEAR_DUPLICATE",
+          "DUPLICATE_CHECK_INCOMPLETE"
+        ],
+        "title": "RiskSignalCode",
+        "type": "string"
+      },
+      "RiskSignalRead": {
+        "properties": {
+          "code": {
+            "$ref": "#/components/schemas/RiskSignalCode"
+          },
+          "comparison_match_run_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Comparison Match Run Id"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "explanation": {
+            "title": "Explanation",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "observed": {
+            "additionalProperties": true,
+            "title": "Observed",
+            "type": "object"
+          },
+          "reference": {
+            "additionalProperties": true,
+            "title": "Reference",
+            "type": "object"
+          },
+          "severity": {
+            "$ref": "#/components/schemas/RiskSeverity"
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "severity",
+          "comparison_match_run_id",
+          "observed",
+          "reference",
+          "explanation",
+          "created_at"
+        ],
+        "title": "RiskSignalRead",
+        "type": "object"
+      },
+      "TextSource": {
+        "enum": [
+          "embedded_text",
+          "ocr"
+        ],
+        "title": "TextSource",
+        "type": "string"
+      },
+      "ThreeWayContextRead": {
+        "properties": {
+          "context_fingerprint": {
+            "title": "Context Fingerprint",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "match_run_id": {
+            "format": "uuid",
+            "title": "Match Run Id",
+            "type": "string"
+          },
+          "snapshot": {
+            "$ref": "#/components/schemas/ThreeWayContextSnapshot"
+          }
+        },
+        "required": [
+          "match_run_id",
+          "context_fingerprint",
+          "snapshot",
+          "created_at"
+        ],
+        "title": "ThreeWayContextRead",
+        "type": "object"
+      },
+      "ThreeWayContextSnapshot": {
+        "properties": {
+          "lines": {
+            "items": {
+              "$ref": "#/components/schemas/ReceiptLineContextRead"
+            },
+            "title": "Lines",
+            "type": "array"
+          },
+          "policy_version": {
+            "title": "Policy Version",
+            "type": "string"
+          },
+          "purchase_order_id": {
+            "format": "uuid",
+            "title": "Purchase Order Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "purchase_order_id",
+          "policy_version",
+          "lines"
+        ],
+        "title": "ThreeWayContextSnapshot",
+        "type": "object"
+      },
+      "ThreeWayMatchingPolicy": {
+        "additionalProperties": false,
+        "properties": {
+          "allow_partial_invoice": {
+            "default": true,
+            "title": "Allow Partial Invoice",
+            "type": "boolean"
+          },
+          "ambiguity_margin": {
+            "default": 0.05,
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Ambiguity Margin",
+            "type": "number"
+          },
+          "amount_absolute_tolerance": {
+            "default": "0.02",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Amount Absolute Tolerance",
+            "type": "string"
+          },
+          "description_similarity_threshold": {
+            "default": 0.85,
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Description Similarity Threshold",
+            "type": "number"
+          },
+          "quantity_absolute_tolerance": {
+            "default": "0",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Quantity Absolute Tolerance",
+            "type": "string"
+          },
+          "unit_price_relative_tolerance": {
+            "default": "0.01",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Unit Price Relative Tolerance",
+            "type": "string"
+          },
+          "version": {
+            "default": "three-way-v1",
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "title": "ThreeWayMatchingPolicy",
+        "type": "object"
+      },
+      "UploadAccepted": {
+        "properties": {
+          "deduplicated": {
+            "title": "Deduplicated",
+            "type": "boolean"
+          },
+          "document_id": {
+            "format": "uuid",
+            "title": "Document Id",
+            "type": "string"
+          },
+          "events_url": {
+            "title": "Events Url",
+            "type": "string"
+          },
+          "extraction_url": {
+            "title": "Extraction Url",
+            "type": "string"
+          },
+          "job_id": {
+            "format": "uuid",
+            "title": "Job Id",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/JobStatus"
+          },
+          "status_url": {
+            "title": "Status Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "job_id",
+          "document_id",
+          "status",
+          "status_url",
+          "events_url",
+          "extraction_url",
+          "deduplicated"
+        ],
+        "title": "UploadAccepted",
+        "type": "object"
+      },
+      "ValidationCheck": {
+        "properties": {
+          "actual": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actual"
+          },
+          "available_quantity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Available Quantity"
+          },
+          "code": {
+            "$ref": "#/components/schemas/ReasonCode"
+          },
+          "evidence": {
+            "items": {
+              "$ref": "#/components/schemas/EvidenceSpan"
+            },
+            "title": "Evidence",
+            "type": "array"
+          },
+          "expected": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected"
+          },
+          "invoice_line_index": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Invoice Line Index"
+          },
+          "invoice_quantity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Invoice Quantity"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "ordered_quantity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ordered Quantity"
+          },
+          "po_line_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Po Line Id"
+          },
+          "previously_invoiced_quantity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previously Invoiced Quantity"
+          },
+          "receipt_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Receipt Ids",
+            "type": "array"
+          },
+          "received_quantity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Received Quantity"
+          },
+          "severity": {
+            "$ref": "#/components/schemas/CheckSeverity"
+          },
+          "status": {
+            "$ref": "#/components/schemas/CheckStatus"
+          },
+          "tolerance": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tolerance"
+          }
+        },
+        "required": [
+          "code",
+          "status",
+          "severity",
+          "message"
+        ],
+        "title": "ValidationCheck",
+        "type": "object"
+      },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      },
+      "VersionedCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "expected_version": {
+            "minimum": 1.0,
+            "title": "Expected Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "expected_version"
+        ],
+        "title": "VersionedCommand",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "title": "InvoiceOps API",
+    "version": "0.1.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/health/live": {
+      "get": {
+        "operationId": "health_live_health_live_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "title": "Response Health Live Health Live Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Health Live",
+        "tags": [
+          "operations"
+        ]
+      }
+    },
+    "/health/ready": {
+      "get": {
+        "operationId": "health_ready_health_ready_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Health Ready",
+        "tags": [
+          "operations"
+        ]
+      }
+    },
+    "/healthz": {
+      "get": {
+        "deprecated": true,
+        "operationId": "health_compatibility_healthz_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "title": "Response Health Compatibility Healthz Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Health Compatibility",
+        "tags": [
+          "operations"
+        ]
+      }
+    },
+    "/v1/dashboard/summary": {
+      "get": {
+        "operationId": "get_dashboard_summary_v1_dashboard_summary_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardSummary"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Dashboard Summary",
+        "tags": [
+          "dashboard"
+        ]
+      }
+    },
+    "/v1/documents/{document_id}/content": {
+      "get": {
+        "operationId": "get_document_content_v1_documents__document_id__content_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "document_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Document Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Document Content",
+        "tags": [
+          "invoices"
+        ]
+      }
+    },
+    "/v1/documents/{document_id}/matches": {
+      "post": {
+        "operationId": "create_match_v1_documents__document_id__matches_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "document_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Document Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MatchCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatchRunRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Match",
+        "tags": [
+          "matching"
+        ]
+      }
+    },
+    "/v1/goods-receipts": {
+      "get": {
+        "operationId": "list_goods_receipts_v1_goods_receipts_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "purchase_order_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Purchase Order Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/GoodsReceiptRead"
+                  },
+                  "title": "Response List Goods Receipts V1 Goods Receipts Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Goods Receipts",
+        "tags": [
+          "goods-receipts"
+        ]
+      },
+      "post": {
+        "operationId": "create_goods_receipt_v1_goods_receipts_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GoodsReceiptCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GoodsReceiptRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Goods Receipt",
+        "tags": [
+          "goods-receipts"
+        ]
+      }
+    },
+    "/v1/goods-receipts/{receipt_id}": {
+      "get": {
+        "operationId": "get_goods_receipt_v1_goods_receipts__receipt_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "receipt_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Receipt Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GoodsReceiptRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Goods Receipt",
+        "tags": [
+          "goods-receipts"
+        ]
+      }
+    },
+    "/v1/goods-receipts/{receipt_id}/reverse": {
+      "post": {
+        "operationId": "reverse_goods_receipt_v1_goods_receipts__receipt_id__reverse_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "receipt_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Receipt Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Actor-ID",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Actor-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReverseGoodsReceiptCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GoodsReceiptRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reverse Goods Receipt",
+        "tags": [
+          "goods-receipts"
+        ]
+      }
+    },
+    "/v1/invoices": {
+      "get": {
+        "operationId": "list_invoices_v1_invoices_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 25,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvoiceSummaryPage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Invoices",
+        "tags": [
+          "invoices"
+        ]
+      },
+      "post": {
+        "operationId": "upload_invoice_v1_invoices_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_invoice_v1_invoices_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadAccepted"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request Entity Too Large"
+          },
+          "415": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Unsupported Media Type"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Upload Invoice",
+        "tags": [
+          "invoices"
+        ]
+      }
+    },
+    "/v1/invoices/{document_id}": {
+      "get": {
+        "operationId": "get_invoice_summary_v1_invoices__document_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "document_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Document Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvoiceSummary"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Invoice Summary",
+        "tags": [
+          "invoices"
+        ]
+      }
+    },
+    "/v1/invoices/{document_id}/extraction": {
+      "get": {
+        "operationId": "get_extraction_v1_invoices__document_id__extraction_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "document_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Document Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/ExtractionPendingRead"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ExtractionResultRead"
+                    }
+                  ],
+                  "title": "Response Get Extraction V1 Invoices  Document Id  Extraction Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Extraction",
+        "tags": [
+          "invoices"
+        ]
+      }
+    },
+    "/v1/jobs/{job_id}": {
+      "get": {
+        "operationId": "get_job_v1_jobs__job_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Job",
+        "tags": [
+          "jobs"
+        ]
+      }
+    },
+    "/v1/jobs/{job_id}/events": {
+      "get": {
+        "operationId": "stream_job_events_v1_jobs__job_id__events_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Job Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Last-Event-ID",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Last-Event-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "text/event-stream": {}
+            },
+            "description": "Durable processing events followed by heartbeats until terminal state"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Stream Job Events",
+        "tags": [
+          "jobs"
+        ]
+      }
+    },
+    "/v1/matches/{match_run_id}": {
+      "get": {
+        "operationId": "get_match_v1_matches__match_run_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "match_run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Match Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatchRunRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Match",
+        "tags": [
+          "matching"
+        ]
+      }
+    },
+    "/v1/matches/{match_run_id}/risk": {
+      "get": {
+        "operationId": "get_match_risk_v1_matches__match_run_id__risk_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "match_run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Match Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RiskAssessmentRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Match Risk",
+        "tags": [
+          "risk"
+        ]
+      }
+    },
+    "/v1/matches/{match_run_id}/three-way-context": {
+      "get": {
+        "operationId": "get_three_way_context_v1_matches__match_run_id__three_way_context_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "match_run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Match Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ThreeWayContextRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Three Way Context",
+        "tags": [
+          "matching"
+        ]
+      }
+    },
+    "/v1/purchase-orders": {
+      "get": {
+        "operationId": "list_purchase_orders_v1_purchase_orders_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PurchaseOrderRead"
+                  },
+                  "title": "Response List Purchase Orders V1 Purchase Orders Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Purchase Orders",
+        "tags": [
+          "purchase-orders"
+        ]
+      },
+      "post": {
+        "operationId": "create_purchase_order_v1_purchase_orders_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PurchaseOrderCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PurchaseOrderRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Purchase Order",
+        "tags": [
+          "purchase-orders"
+        ]
+      }
+    },
+    "/v1/purchase-orders/{purchase_order_id}": {
+      "get": {
+        "operationId": "get_purchase_order_v1_purchase_orders__purchase_order_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "purchase_order_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Purchase Order Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PurchaseOrderRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Purchase Order",
+        "tags": [
+          "purchase-orders"
+        ]
+      }
+    },
+    "/v1/purchase-orders/{purchase_order_id}/goods-receipts": {
+      "get": {
+        "operationId": "list_purchase_order_goods_receipts_v1_purchase_orders__purchase_order_id__goods_receipts_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "purchase_order_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Purchase Order Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/GoodsReceiptRead"
+                  },
+                  "title": "Response List Purchase Order Goods Receipts V1 Purchase Orders  Purchase Order Id  Goods Receipts Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Purchase Order Goods Receipts",
+        "tags": [
+          "goods-receipts"
+        ]
+      }
+    },
+    "/v1/review-cases": {
+      "get": {
+        "operationId": "list_review_cases_v1_review_cases_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/ReviewStatus"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "assignee",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Assignee"
+            }
+          },
+          {
+            "in": "query",
+            "name": "reason_code",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/ReasonCode"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Reason Code"
+            }
+          },
+          {
+            "in": "query",
+            "name": "trigger_type",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/ReviewTriggerType"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Trigger Type"
+            }
+          },
+          {
+            "in": "query",
+            "name": "trigger_code",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Trigger Code"
+            }
+          },
+          {
+            "in": "query",
+            "name": "created_before",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Created Before"
+            }
+          },
+          {
+            "in": "query",
+            "name": "created_after",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Created After"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewCasePage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Review Cases",
+        "tags": [
+          "review"
+        ]
+      }
+    },
+    "/v1/review-cases/{case_id}": {
+      "get": {
+        "operationId": "get_review_case_v1_review_cases__case_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewCaseDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Review Case",
+        "tags": [
+          "review"
+        ]
+      }
+    },
+    "/v1/review-cases/{case_id}/audit-verification": {
+      "get": {
+        "operationId": "verify_review_audit_v1_review_cases__case_id__audit_verification_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuditVerificationRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Verify Review Audit",
+        "tags": [
+          "review"
+        ]
+      }
+    },
+    "/v1/review-cases/{case_id}/claim": {
+      "post": {
+        "operationId": "claim_review_case_v1_review_cases__case_id__claim_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Reviewer-ID",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Reviewer-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VersionedCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewCaseRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Claim Review Case",
+        "tags": [
+          "review"
+        ]
+      }
+    },
+    "/v1/review-cases/{case_id}/comments": {
+      "post": {
+        "operationId": "add_review_comment_v1_review_cases__case_id__comments_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Reviewer-ID",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Reviewer-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CommentCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewCaseRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Add Review Comment",
+        "tags": [
+          "review"
+        ]
+      }
+    },
+    "/v1/review-cases/{case_id}/events": {
+      "get": {
+        "operationId": "get_review_events_v1_review_cases__case_id__events_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ReviewEventRead"
+                  },
+                  "title": "Response Get Review Events V1 Review Cases  Case Id  Events Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Review Events",
+        "tags": [
+          "review"
+        ]
+      }
+    },
+    "/v1/review-cases/{case_id}/release": {
+      "post": {
+        "operationId": "release_review_case_v1_review_cases__case_id__release_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Reviewer-ID",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Reviewer-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReleaseCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewCaseRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Release Review Case",
+        "tags": [
+          "review"
+        ]
+      }
+    },
+    "/v1/review-cases/{case_id}/resolve": {
+      "post": {
+        "operationId": "resolve_review_case_v1_review_cases__case_id__resolve_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Reviewer-ID",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Reviewer-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResolveCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewCaseRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Resolve Review Case",
+        "tags": [
+          "review"
+        ]
+      }
+    },
+    "/v1/risk-assessments/{risk_assessment_id}": {
+      "get": {
+        "operationId": "get_risk_assessment_v1_risk_assessments__risk_assessment_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "risk_assessment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Risk Assessment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RiskAssessmentRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Risk Assessment",
+        "tags": [
+          "risk"
+        ]
+      }
+    }
+  }
+}

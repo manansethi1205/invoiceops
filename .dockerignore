@@ -1,16 +1,24 @@
 .env
 .git
+.tools/
+.playwright/
+.pnpm-store/
+**/.pnpm-store/
+**/node_modules/
+**/.next/
+**/playwright-report/
+**/test-results/
 .gitignore
 .mypy_cache
 .pytest_cache
 .ruff_cache
 .venv
-.uv-cache
+.uv-cache/
 __pycache__
 *.py[cod]
 minio-data
 outputs
 postgres-data
-work
-tmp
+work/
+tmp/
 

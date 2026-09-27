@@ -15,6 +15,15 @@ not-an-invoice.txt
 outputs/
 work/
 tmp/
+.tools/
+.playwright/
+.pnpm-store/
+web/node_modules/
+web/.next/
+web/coverage/
+web/playwright-report/
+web/test-results/
+web/tsconfig.tsbuildinfo
 *.tessdata
 data/*
 !data/docile/
