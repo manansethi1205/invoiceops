@@ -24,7 +24,7 @@ docker compose --progress plain --profile observability build api
 docker compose --profile observability up --no-build -d --wait --wait-timeout 180 api worker otel-collector tempo prometheus grafana
 Invoke-RestMethod http://localhost:8000/health/live
 Invoke-RestMethod http://localhost:8000/health/ready
-Start-Process http://localhost:3000
+Start-Process http://localhost:3001
 ```
 
 Run the synthetic telemetry smoke test without treating successful one-shot migrations as a test

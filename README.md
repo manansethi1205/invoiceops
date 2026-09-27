@@ -30,12 +30,27 @@ invoice -> extraction + evidence -> TWO_WAY: invoice + PO ---------+
 all stages -> correlated logs + OTLP traces/metrics -> Collector -> Tempo/Prometheus -> Grafana
 ```
 
+## Operations console
+
+The production-style Next.js console exposes invoice intake, durable live processing, invoice and
+evidence inspection, deterministic match/risk results, and optimistic-concurrency human review.
+It is a thin operations layer: every arithmetic result, policy decision, event and audit version
+comes from the FastAPI service.
+
+![InvoiceOps dashboard with synthetic data](web/e2e/dashboard.spec.ts-snapshots/dashboard.png)
+
+A useful demonstration path is: upload a synthetic invoice at `/intake`, watch the resumable event
+timeline, inspect extracted evidence at `/invoices/{document_id}`, run a deterministic match, then
+claim and resolve any generated exception at `/reviews/{case_id}`. The reviewer header is only a
+development identity boundary; an accepted exception is not payment authorization.
+
 ## Implemented vertical slice
 
 `POST /v1/invoices` accepts one PDF, JPEG, or PNG (15 MiB by default), stores it in S3-compatible
 object storage, creates a durable queued job in PostgreSQL, dispatches it through Celery/Redis, and
 returns `202 Accepted` with job, document, status, and extraction URLs. `GET /v1/jobs/{job_id}`
-returns the job state. `GET /v1/invoices/{document_id}/extraction` returns the current versioned
+returns the job state. `GET /v1/jobs/{job_id}/events` provides resumable durable SSE processing
+events. `GET /v1/invoices/{document_id}/extraction` returns the current versioned
 extraction state and, when complete, the typed invoice with source evidence.
 
 The worker downloads the stored document, performs text/OCR preprocessing and deterministic header
@@ -81,9 +96,11 @@ Copy-Item .env.example .env
 docker compose up --build
 ```
 
-The API docs are at `http://localhost:8000/docs`. Docker Compose runs Alembic migrations before
+The web console is at `http://localhost:3000`, API docs are at `http://localhost:8000/docs`, and
+Grafana is at `http://localhost:3001`. Docker Compose runs Alembic migrations before
 starting the API or worker and uses S3Mock only for synthetic local object storage.
 For the local telemetry stack, follow [the observability guide](docs/observability.md).
+Frontend setup, contract generation and browser tests are in [the web console guide](docs/web-console.md).
 
 Run local quality checks:
 
@@ -92,6 +109,21 @@ uv sync
 uv run pytest -m "not docker and not docile"
 uv run ruff check .
 uv run mypy apps invoiceops workers
+```
+
+Run frontend contract, type, unit, accessibility and visual checks:
+
+```powershell
+uv run python scripts/export_openapi.py
+Set-Location web
+pnpm install --frozen-lockfile
+pnpm openapi
+pnpm typecheck
+pnpm lint
+pnpm test
+pnpm build
+pnpm exec playwright install chromium
+pnpm test:e2e
 ```
 
 Run marker-specific suites explicitly when their required environment is available:

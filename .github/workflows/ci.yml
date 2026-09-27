@@ -317,6 +317,62 @@ jobs:
           DATABASE_URL: postgresql+psycopg://invoiceops:invoiceops@localhost:5432/invoiceops
         run: uv run alembic upgrade head
 
+  web-quality:
+    name: Web Type, Unit, Accessibility & Visual
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python for OpenAPI export
+        uses: astral-sh/setup-uv@v6
+      - run: uv sync --frozen
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.24.0
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+        working-directory: web
+
+      - name: Verify generated API contract
+        run: |
+          uv run python scripts/export_openapi.py
+          pnpm --dir web openapi
+          git diff --exit-code -- web/openapi.json web/src/lib/api/schema.d.ts
+
+      - name: Typecheck, lint and unit test
+        working-directory: web
+        run: |
+          pnpm typecheck
+          pnpm lint
+          pnpm test
+          pnpm build
+
+      - name: Install Chromium
+        working-directory: web
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Browser, accessibility and visual tests
+        working-directory: web
+        run: pnpm test:e2e
+
+      - name: Upload browser report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: web/playwright-report
+          if-no-files-found: ignore
+
   compose-integration:
     name: Docker Compose Integration
     runs-on: ubuntu-latest
@@ -334,13 +390,17 @@ jobs:
           COMPOSE_BAKE: "false"
         run: |
           docker compose build api
+          docker compose build web
           docker compose --profile test build integration-tests
           docker compose up --no-build -d --wait --wait-timeout 180 api worker
           docker compose --profile test run --rm --no-deps integration-tests
+          docker compose up --no-build -d --wait --wait-timeout 180 web
+          curl --fail --retry 5 --retry-delay 2 http://127.0.0.1:3000/dashboard >/dev/null
+          curl --fail --retry 5 --retry-delay 2 http://127.0.0.1:3000/api/backend/health/ready >/dev/null
 
       - name: Show service logs on failure
         if: failure()
-        run: docker compose logs api worker migrate postgres redis object-storage
+        run: docker compose logs web api worker migrate postgres redis object-storage
 
       - name: Tear down stack
         if: always()
