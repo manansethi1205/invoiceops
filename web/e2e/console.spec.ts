@@ -13,7 +13,10 @@ test.beforeEach(async ({ page }) => {
 
 test("empty intake is accessible and visually stable", async ({ page }) => {
   await page.goto("/intake");
-  await expect(page.getByRole("button", { name: "Begin processing" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Process case" })).toBeDisabled();
+  await expect(page.getByLabel("Payable case documents")).toContainText("Purchase order");
+  await expect(page.getByLabel("Payable case documents")).toContainText("Goods receipts");
+  await expect(page.getByLabel("Payable case documents")).toContainText("Delivery notes");
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
   await expect(page).toHaveScreenshot("intake-empty.png", { fullPage: true, animations: "disabled", maxDiffPixelRatio: 0.08 });
 });

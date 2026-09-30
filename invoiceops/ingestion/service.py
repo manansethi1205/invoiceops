@@ -63,7 +63,7 @@ class IngestionService:
         self.dispatcher = dispatcher
         self.max_upload_bytes = max_upload_bytes
 
-    def ingest(self, command: UploadCommand) -> IngestionResult:
+    def ingest(self, command: UploadCommand, *, dispatch: bool = True) -> IngestionResult:
         if command.content_type not in ALLOWED_CONTENT_TYPES:
             metrics.add("ingestion", "ingestion", outcome="unsupported_type", deduplicated=False)
             raise UnsupportedDocumentError(command.content_type)
@@ -161,23 +161,24 @@ class IngestionService:
             self.object_store.delete(object_key)
             raise
 
-        try:
-            with span("ingestion.dispatch"):
-                self.dispatcher.enqueue(str(job.id))
-        except Exception as exc:
-            # The durable queued row lets an operational retry recover dispatch safely.
-            self.session.refresh(job)
-            logger.error(
-                "Job dispatch failed; durable job remains queued",
-                extra={
-                    "event": "ingestion.dispatch_failed",
-                    "job_id": str(job.id),
-                    "document_id": str(document.id),
-                    "status": job.status.value,
-                    "error_code": "dispatch_failed",
-                    "error_type": type(exc).__name__,
-                },
-            )
+        if dispatch:
+            try:
+                with span("ingestion.dispatch"):
+                    self.dispatcher.enqueue(str(job.id))
+            except Exception as exc:
+                # The durable queued row lets an operational retry recover dispatch safely.
+                self.session.refresh(job)
+                logger.error(
+                    "Job dispatch failed; durable job remains queued",
+                    extra={
+                        "event": "ingestion.dispatch_failed",
+                        "job_id": str(job.id),
+                        "document_id": str(document.id),
+                        "status": job.status.value,
+                        "error_code": "dispatch_failed",
+                        "error_type": type(exc).__name__,
+                    },
+                )
         logger.info(
             "Invoice accepted and job queued",
             extra={

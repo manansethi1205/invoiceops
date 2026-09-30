@@ -8,7 +8,12 @@ import httpx
 import pytest
 from sqlalchemy import create_engine, text
 
-from tests.synthetic_documents import generated_incomplete_invoice_pdf, generated_invoice_pdf
+from tests.synthetic_documents import (
+    generated_goods_receipt_pdf,
+    generated_incomplete_invoice_pdf,
+    generated_invoice_pdf,
+    generated_purchase_order_pdf,
+)
 
 pytestmark = [
     pytest.mark.docker,
@@ -29,6 +34,146 @@ def wait_for_terminal_status(client: httpx.Client, status_url: str) -> dict[str,
             return cast(dict[str, object], job)
         time.sleep(0.25)
     pytest.fail("job did not reach a terminal state within 20 seconds")
+
+
+def wait_for_case_extraction(
+    client: httpx.Client, case_id: str, document_id: str
+) -> dict[str, object]:
+    deadline = time.monotonic() + 20
+    while time.monotonic() < deadline:
+        response = client.get(f"/v1/cases/{case_id}/extractions")
+        response.raise_for_status()
+        run = next(
+            (item for item in response.json() if item["document_id"] == document_id),
+            None,
+        )
+        if run is not None and run["status"].lower() in {"succeeded", "failed"}:
+            return cast(dict[str, object], run)
+        time.sleep(0.25)
+    pytest.fail("case extraction did not reach a terminal state within 20 seconds")
+
+
+def test_real_stack_processes_confirmed_multi_document_case() -> None:
+    base_url = os.environ["API_BASE_URL"]
+    suffix = uuid.uuid4().hex[:8]
+    po_number = f"PO-CASE-{suffix}"
+    with httpx.Client(base_url=base_url, timeout=20) as client:
+        payable_case = client.post(
+            "/v1/cases", json={"idempotency_key": f"case-{suffix}"}
+        ).json()
+
+        def attach(role: str, name: str, body: bytes) -> dict[str, object]:
+            current = client.get(f"/v1/cases/{payable_case['id']}").json()
+            response = client.post(
+                f"/v1/cases/{payable_case['id']}/documents",
+                data={
+                    "role": role,
+                    "idempotency_key": f"{role}-{suffix}",
+                    "expected_case_version": str(current["version"]),
+                },
+                files={"file": (name, body, "application/pdf")},
+            )
+            response.raise_for_status()
+            return cast(dict[str, object], response.json())
+
+        invoice = attach("INVOICE", "invoice.pdf", generated_invoice_pdf(f"INV-{suffix}"))
+        wait_for_terminal_status(client, f"/v1/jobs/{invoice['attachment']['job_id']}")  # type: ignore[index]
+        po = attach("PURCHASE_ORDER", "po.pdf", generated_purchase_order_pdf(po_number))
+        po_attachment = cast(dict[str, object], po["attachment"])
+        po_run = wait_for_case_extraction(
+            client, str(payable_case["id"]), str(po_attachment["document_id"])
+        )
+        assert po_run["status"] == "SUCCEEDED"
+        current = client.get(f"/v1/cases/{payable_case['id']}").json()
+        confirmation = client.post(
+            f"/v1/cases/{payable_case['id']}/purchase-order/confirm",
+            json={
+                "expected_case_version": current["version"],
+                "extraction_run_id": po_run["id"],
+                "extractor_version": po_run["extractor_version"],
+                "idempotency_key": f"confirm-po-{suffix}",
+                "correction_reason": "Confirmed synthetic line identifiers.",
+                "confirmed": {
+                    "external_po_number": po_number,
+                    "vendor_name": "Synthetic Compose Vendor",
+                    "buyer_name": "Example Company",
+                    "currency": "INR",
+                    "issue_date": "2026-09-19",
+                    "subtotal": "1200.00",
+                    "tax": "216.00",
+                    "total": "1416.00",
+                    "lines": [
+                        {
+                            "line_number": "1",
+                            "description": "Industrial Filter",
+                            "ordered_quantity": "2",
+                            "unit_price": "500.00",
+                        },
+                        {
+                            "line_number": "2",
+                            "description": "Mounting Bracket",
+                            "ordered_quantity": "4",
+                            "unit_price": "50.00",
+                        },
+                    ],
+                },
+            },
+        )
+        confirmation.raise_for_status()
+        receipt = attach(
+            "GOODS_RECEIPT",
+            "receipt.pdf",
+            generated_goods_receipt_pdf(f"GR-{suffix}", po_number),
+        )
+        receipt_attachment = cast(dict[str, object], receipt["attachment"])
+        receipt_run = wait_for_case_extraction(
+            client, str(payable_case["id"]), str(receipt_attachment["document_id"])
+        )
+        current = client.get(f"/v1/cases/{payable_case['id']}").json()
+        receipt_confirmation = client.post(
+            f"/v1/cases/{payable_case['id']}/receipts/{receipt_attachment['document_id']}/confirm",
+            json={
+                "expected_case_version": current["version"],
+                "extraction_run_id": receipt_run["id"],
+                "extractor_version": receipt_run["extractor_version"],
+                "idempotency_key": f"confirm-receipt-{suffix}",
+                "correction_reason": "Confirmed synthetic PO line links and timestamp.",
+                "confirmed": {
+                    "external_receipt_number": f"GR-{suffix}",
+                    "referenced_po_number": po_number,
+                    "supplier": "Synthetic Compose Vendor",
+                    "received_at": "2026-09-19T12:00:00Z",
+                    "lines": [
+                        {
+                            "purchase_order_line_number": "1",
+                            "description": "Industrial Filter",
+                            "received_quantity": "2",
+                            "accepted_quantity": "2",
+                            "rejected_quantity": "0",
+                        },
+                        {
+                            "purchase_order_line_number": "2",
+                            "description": "Mounting Bracket",
+                            "received_quantity": "4",
+                            "accepted_quantity": "4",
+                            "rejected_quantity": "0",
+                        },
+                    ],
+                },
+            },
+        )
+        receipt_confirmation.raise_for_status()
+        ready = client.get(f"/v1/cases/{payable_case['id']}").json()
+        assert ready["status"] == "READY_TO_MATCH"
+        match = client.post(
+            f"/v1/cases/{payable_case['id']}/match",
+            json={
+                "expected_case_version": ready["version"],
+                "idempotency_key": f"match-{suffix}",
+            },
+        )
+        match.raise_for_status()
+        assert match.json()["matching_mode"] == "THREE_WAY"
 
 
 def test_match_and_reversal_share_the_postgresql_po_lock() -> None:

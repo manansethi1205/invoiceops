@@ -23,7 +23,6 @@ export function DocumentViewer({ documentId, contentType, evidence }: { document
     if (!selected) return;
     const animationFrame = window.requestAnimationFrame(() => {
       setPage(selected.page + 1);
-      frame.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
     });
     return () => window.cancelAnimationFrame(animationFrame);
   }, [evidence]);
@@ -36,8 +35,8 @@ export function DocumentViewer({ documentId, contentType, evidence }: { document
     if (event.key === "+" || event.key === "=") setWidth((current) => Math.min(current + 80, 1040));
     if (event.key === "-") setWidth((current) => Math.max(current - 80, 360));
   };
-  if (contentType !== "application/pdf") return <div className="document-panel" tabIndex={0} onKeyDown={keyboard} aria-label="Invoice image viewer"><ViewerToolbar page={1} pages={1} width={width} changePage={changePage} setWidth={setWidth}/><div className="document-frame" ref={frame}><Image src={`/api/backend/v1/documents/${documentId}/content`} alt="Uploaded invoice" width={width} height={Math.round(width * 1.32)} unoptimized/>{boxes.map((item,index) => <EvidenceBox key={`${item.text}-${index}`} bbox={item.bbox} active={index===0}/>)}</div></div>;
-  return <div className="document-panel" tabIndex={0} onKeyDown={keyboard} aria-label="Invoice PDF viewer"><ViewerToolbar page={visiblePage} pages={pages} width={width} changePage={changePage} setWidth={setWidth}/><Document file={`/api/backend/v1/documents/${documentId}/content`} onLoadSuccess={({numPages}) => { setPages(numPages); setPage((current) => Math.min(current, numPages)); }} loading={<p className="muted">Loading document…</p>} error={<p className="field-error">Document preview could not be loaded.</p>}><div className="document-frame" ref={frame}><Page pageNumber={visiblePage} width={width} renderTextLayer={false}/>{boxes.map((item,index) => <EvidenceBox key={`${item.text}-${index}`} bbox={item.bbox} active={index===0}/>)}</div></Document></div>;
+  if (contentType !== "application/pdf") return <div className="document-panel" tabIndex={0} onKeyDown={keyboard} aria-label="Document image viewer"><ViewerToolbar page={1} pages={1} width={width} changePage={changePage} setWidth={setWidth}/><div className="document-frame" ref={frame}><Image src={`/api/backend/v1/documents/${documentId}/content`} alt="Uploaded document" width={width} height={Math.round(width * 1.32)} unoptimized/>{boxes.map((item,index) => <EvidenceBox key={`${item.text}-${index}`} bbox={item.bbox} active={index===0}/>)}</div></div>;
+  return <div className="document-panel" tabIndex={0} onKeyDown={keyboard} aria-label="Document PDF viewer"><ViewerToolbar page={visiblePage} pages={pages} width={width} changePage={changePage} setWidth={setWidth}/><Document file={`/api/backend/v1/documents/${documentId}/content`} onLoadSuccess={({numPages}) => { setPages(numPages); setPage((current) => Math.min(current, numPages)); }} loading={<p className="muted">Loading document…</p>} error={<p className="field-error">Document preview could not be loaded.</p>}><div className="document-frame" ref={frame}><Page pageNumber={visiblePage} width={width} renderTextLayer={false}/>{boxes.map((item,index) => <EvidenceBox key={`${item.text}-${index}`} bbox={item.bbox} active={index===0}/>)}</div></Document></div>;
 }
 
 function ViewerToolbar({ page, pages, width, changePage, setWidth }: { page: number; pages: number; width: number; changePage: (page: number) => void; setWidth: React.Dispatch<React.SetStateAction<number>> }) {

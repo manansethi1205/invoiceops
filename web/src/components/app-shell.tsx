@@ -15,6 +15,11 @@ const links = [
   { href: "/reviews", label: "Review queue", icon: Inbox },
 ];
 
+function breadcrumbFor(path: string): string {
+  if (path === "/cases" || path.startsWith("/cases/")) return "Payable case";
+  return links.find((item) => path.startsWith(item.href))?.label ?? "InvoiceOps";
+}
+
 export function AppShell({ children }: { children: React.ReactNode }) {
   const path = usePathname();
   const [open, setOpen] = useState(false);
@@ -28,7 +33,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     queryFn: async () => (await api.GET("/health/ready")).response.ok,
     refetchInterval: 30_000,
   });
-  const breadcrumb = links.find((item) => path.startsWith(item.href))?.label ?? "InvoiceOps";
+  const breadcrumb = breadcrumbFor(path);
   return (
     <div className="app-shell">
       <a href="#main" className="skip-link">Skip to content</a>

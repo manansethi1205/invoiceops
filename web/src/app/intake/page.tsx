@@ -1,68 +1,162 @@
 "use client";
 
-import { zodResolver } from "@hookform/resolvers/zod";
-import { FileUp, X } from "lucide-react";
+import { useMutation } from "@tanstack/react-query";
+import { FileCheck2, FilePlus2, FileUp, RotateCcw, X } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
-import { useForm, useWatch } from "react-hook-form";
+import { useMemo, useState } from "react";
 import { z } from "zod";
 
-import { JobTimeline } from "@/components/job-timeline";
 import { PageHeader } from "@/components/page-header";
-import { api, errorMessage, required, uploadInvoice, type ApiSchema } from "@/lib/api/client";
+import {
+  attachCaseDocument,
+  createPayableCase,
+  errorMessage,
+  type ApiSchema,
+} from "@/lib/api/client";
 
+const acceptedTypes = ["application/pdf", "image/png", "image/jpeg"];
 export const intakeSchema = z.object({
-  invoice: z.instanceof(File).refine((file) => ["application/pdf", "image/png", "image/jpeg"].includes(file.type), "Use PDF, PNG or JPEG").refine((file) => file.size <= 15 * 1024 * 1024, "File must be 15 MiB or smaller"),
-  createPo: z.boolean(),
-  createReceipt: z.boolean(),
-  poNumber: z.string(), vendorName: z.string(), currency: z.string(), description: z.string(), quantity: z.string(), unitPrice: z.string(),
-  receiptNumber: z.string(), receivedAt: z.string(), receivedQuantity: z.string(),
-}).superRefine((value, context) => {
-  if (value.createPo) for (const key of ["poNumber", "currency", "description", "quantity", "unitPrice"] as const) if (!value[key].trim()) context.addIssue({ code: "custom", path: [key], message: "Required when creating a PO" });
-  if (value.createReceipt && !value.createPo) context.addIssue({ code: "custom", path: ["createReceipt"], message: "A receipt requires a purchase order" });
-  if (value.createReceipt) for (const key of ["receiptNumber", "receivedAt", "receivedQuantity"] as const) if (!value[key].trim()) context.addIssue({ code: "custom", path: [key], message: "Required when adding a receipt" });
+  invoice: z.instanceof(File).refine((file) => acceptedTypes.includes(file.type)),
 });
-type FormValues = z.infer<typeof intakeSchema>;
+type Role = ApiSchema<"DocumentRole">;
+type UploadState = "ready" | "uploading" | "accepted" | "failed";
+interface PendingDocument {
+  id: string;
+  key: string;
+  role: Role;
+  file: File;
+  state: UploadState;
+  progress: number;
+  error?: string;
+}
 
 export default function IntakePage() {
   const router = useRouter();
-  const [accepted, setAccepted] = useState<ApiSchema<"UploadAccepted"> | null>(null);
-  const [failure, setFailure] = useState<string | null>(null);
-  const form = useForm<FormValues>({ resolver: zodResolver(intakeSchema), defaultValues: { createPo: false, createReceipt: false, poNumber: "", vendorName: "", currency: "INR", description: "", quantity: "", unitPrice: "", receiptNumber: "", receivedAt: "", receivedQuantity: "" } });
-  const createPo = useWatch({ control: form.control, name: "createPo" });
-  const createReceipt = useWatch({ control: form.control, name: "createReceipt" });
-  const invoice = useWatch({ control: form.control, name: "invoice" });
-  const submit = form.handleSubmit(async (values) => {
-    setFailure(null);
-    try {
-      const upload = await uploadInvoice(values.invoice);
-      setAccepted(upload);
-      let poId: string | null = null;
-      if (values.createPo) {
-        const po = await required(api.POST("/v1/purchase-orders", { body: { external_po_number: values.poNumber, vendor_name: values.vendorName || null, currency: values.currency, lines: [{ line_number: "1", description: values.description, ordered_quantity: values.quantity, unit_price: values.unitPrice }] } }));
-        poId = po.id;
-        const poLine = po.lines[0];
-        if (values.createReceipt && !poLine) throw new Error("The created purchase order has no line to receive");
-        if (values.createReceipt && poLine) await required(api.POST("/v1/goods-receipts", { body: { purchase_order_id: po.id, external_receipt_number: values.receiptNumber, received_at: new Date(values.receivedAt).toISOString(), lines: [{ purchase_order_line_id: poLine.id, accepted_quantity: values.receivedQuantity }] } }));
+  const [documents, setDocuments] = useState<PendingDocument[]>([]);
+  const [caseKey] = useState(() => crypto.randomUUID());
+  const [createdCase, setCreatedCase] = useState<ApiSchema<"CaseRead"> | null>(null);
+  const invoice = documents.find((item) => item.role === "INVOICE");
+  const purchaseOrder = documents.find((item) => item.role === "PURCHASE_ORDER");
+  const receipts = documents.filter(
+    (item) => item.role === "GOODS_RECEIPT" || item.role === "DELIVERY_NOTE",
+  );
+  const invalid = documents.find((item) => !acceptedTypes.includes(item.file.type));
+  const mutation = useMutation({
+    mutationFn: async () => {
+      let payableCase = createdCase ?? (await createPayableCase(caseKey));
+      setCreatedCase(payableCase);
+      for (const item of documents) {
+        setDocumentState(item.id, { state: "uploading", progress: 20, error: undefined });
+        try {
+          const accepted = await attachCaseDocument(payableCase.id, {
+            file: item.file,
+            role: item.role,
+            idempotencyKey: item.key,
+            expectedCaseVersion: payableCase.version,
+          });
+          payableCase = accepted.case;
+          setCreatedCase(payableCase);
+          setDocumentState(item.id, { state: "accepted", progress: 100 });
+        } catch (error) {
+          setDocumentState(item.id, {
+            state: "failed",
+            progress: 0,
+            error: errorMessage(error),
+          });
+          router.push(`/cases/${payableCase.id}`);
+          throw error;
+        }
       }
-      window.setTimeout(() => router.push(`/invoices/${upload.document_id}${poId ? `?po=${poId}` : ""}`), 900);
-    } catch (error) { setFailure(errorMessage(error)); }
+      return payableCase;
+    },
+    onSuccess: (payableCase) => router.push(`/cases/${payableCase.id}`),
   });
-  return <><PageHeader eyebrow="Controlled intake" title="Process an invoice" description="Upload one invoice and optionally create the structured purchase order used by deterministic matching. Supporting documents are not treated as extracted files because that backend does not exist yet." />
-    <div className="two-column"><form className="card" onSubmit={submit} noValidate><div className="stack">
-      <div className="dropzone" onDragOver={(event)=>event.preventDefault()} onDrop={(event)=>{event.preventDefault();const file=event.dataTransfer.files[0];if(file)form.setValue("invoice",file,{shouldValidate:true});}}><FileUp aria-hidden="true"/><strong>{invoice ? "Replace invoice" : "Upload invoice — required"}</strong><span>Drop a PDF, PNG or JPEG here, or use the keyboard-accessible file picker · up to 15 MiB</span><label className="button button-secondary" htmlFor="invoice-file">{invoice ? "Replace file" : "Browse files"}</label><input id="invoice-file" type="file" accept="application/pdf,image/png,image/jpeg" onChange={(event) => { const file=event.target.files?.[0]; if(file)form.setValue("invoice",file,{shouldValidate:true}); }}/></div>
-      {invoice ? <div className="file-row"><div><strong>{invoice.name}</strong><span>{invoice.type} · {(invoice.size/1024).toFixed(1)} KiB · ready</span></div><button type="button" className="icon-button" aria-label="Remove invoice" onClick={()=>form.resetField("invoice")}><X/></button></div>:null}
-      {form.formState.errors.invoice ? <span className="field-error">{form.formState.errors.invoice.message}</span> : null}
-      <label className="inline"><input type="checkbox" {...form.register("createPo")}/><strong>Create a structured purchase order</strong></label>
-      {createPo ? <div className="form-grid"><Field label="PO number" error={form.formState.errors.poNumber?.message}><input {...form.register("poNumber")}/></Field><Field label="Vendor" error={form.formState.errors.vendorName?.message}><input {...form.register("vendorName")}/></Field><Field label="Currency" error={form.formState.errors.currency?.message}><input maxLength={3} {...form.register("currency")}/></Field><Field label="Line description" error={form.formState.errors.description?.message}><input {...form.register("description")}/></Field><Field label="Quantity" error={form.formState.errors.quantity?.message}><input inputMode="decimal" {...form.register("quantity")}/></Field><Field label="Unit price" error={form.formState.errors.unitPrice?.message}><input inputMode="decimal" {...form.register("unitPrice")}/></Field></div> : null}
-      <label className="inline"><input type="checkbox" {...form.register("createReceipt")}/><strong>Add structured receipt / delivery proof</strong></label>
-      {form.formState.errors.createReceipt ? <span className="field-error">{form.formState.errors.createReceipt.message}</span>:null}
-      {createReceipt ? <div className="form-grid"><Field label="Receipt number" error={form.formState.errors.receiptNumber?.message}><input {...form.register("receiptNumber")}/></Field><Field label="Received at" error={form.formState.errors.receivedAt?.message}><input type="datetime-local" {...form.register("receivedAt")}/></Field><Field label="Accepted quantity" error={form.formState.errors.receivedQuantity?.message}><input inputMode="decimal" {...form.register("receivedQuantity")}/></Field></div>:null}
-      {failure ? <p className="field-error" role="alert">{failure}</p> : null}
-      <div className="case-readiness"><strong>Case readiness</strong><span>Invoice <b>{invoice ? "ready" : "required"}</b></span><span>Purchase order <b>{createPo ? "included" : "not included"}</b></span><span>Receipt <b>{createReceipt ? "included" : "not included"}</b></span></div>
-      <div className="form-actions"><button className="button button-primary" disabled={!invoice || form.formState.isSubmitting}>{form.formState.isSubmitting ? "Submitting…" : "Begin processing"}</button></div>
-    </div></form><aside className="card"><div className="card-header"><h2>Processing activity</h2></div>{accepted ? <><p className="notice"><strong>Upload accepted</strong>Document {accepted.deduplicated ? "matched existing work" : "entered the queue"}.</p><div className="divider"/><JobTimeline jobId={accepted.job_id}/></> : <p className="muted">Durable processing events will appear here after upload.</p>}</aside></div>
-  </>;
+
+  function setDocumentState(id: string, update: Partial<PendingDocument>) {
+    setDocuments((current) =>
+      current.map((item) => (item.id === id ? { ...item, ...update } : item)),
+    );
+  }
+
+  function choose(role: Role, files: FileList | null) {
+    if (!files?.length) return;
+    setDocuments((current) => {
+      let next = [...current];
+      for (const file of Array.from(files)) {
+        const item: PendingDocument = {
+          id: crypto.randomUUID(),
+          key: crypto.randomUUID(),
+          role,
+          file,
+          state: "ready",
+          progress: 0,
+        };
+        next =
+          role === "INVOICE" || role === "PURCHASE_ORDER"
+            ? [...next.filter((entry) => entry.role !== role), item]
+            : [...next, item];
+      }
+      return next;
+    });
+  }
+
+  const readiness = useMemo(
+    () => ({
+      invoice: invoice?.state ?? "required",
+      purchaseOrder: purchaseOrder?.state ?? "optional",
+      receipts: receipts.length ? `${receipts.length} attached` : "optional",
+    }),
+    [invoice, purchaseOrder, receipts.length],
+  );
+
+  return (
+    <>
+      <PageHeader
+        eyebrow="Evidence-backed intake"
+        title="New payable case"
+        description="Upload the actual invoice, purchase order and receipt or delivery evidence. Supporting extracts require human confirmation before they become canonical business records."
+      />
+      <div className="two-column">
+        <section className="card stack" aria-label="Payable case documents">
+          <UploadPanel id="invoice-file" title="Invoice" hint="Required · one active document" role="INVOICE" onFiles={choose}/>
+          <UploadPanel id="po-file" title="Purchase order" hint="Optional · requires confirmation" role="PURCHASE_ORDER" onFiles={choose}/>
+          <UploadPanel id="receipt-file" title="Goods receipts" hint="Optional · multiple files allowed" role="GOODS_RECEIPT" multiple onFiles={choose}/>
+          <UploadPanel id="delivery-file" title="Delivery notes" hint="Optional · multiple files allowed" role="DELIVERY_NOTE" multiple onFiles={choose}/>
+          {documents.length ? (
+            <div className="stack" aria-live="polite">
+              {documents.map((item) => (
+                <FileCard key={item.id} item={item} remove={() => setDocuments((current) => current.filter((entry) => entry.id !== item.id))} retry={() => mutation.mutate()}/>
+              ))}
+            </div>
+          ) : null}
+          {invalid ? <p className="field-error">Use PDF, PNG or JPEG files only.</p> : null}
+          {mutation.error ? <p className="field-error" role="alert">{errorMessage(mutation.error)}</p> : null}
+          <div className="form-actions">
+            <button className="button button-primary" disabled={!invoice || Boolean(invalid) || mutation.isPending} onClick={() => mutation.mutate()}>
+              {mutation.isPending ? "Processing case…" : "Process case"}
+            </button>
+          </div>
+        </section>
+        <aside className="card stack">
+          <div className="card-header"><h2>Case readiness</h2></div>
+          <div className="case-readiness">
+            <strong>Durable workflow</strong>
+            <span>Invoice <b>{readiness.invoice}</b></span>
+            <span>Purchase order <b>{readiness.purchaseOrder}</b></span>
+            <span>Receipt evidence <b>{readiness.receipts}</b></span>
+          </div>
+          {createdCase ? <p className="notice"><strong>{createdCase.case_number}</strong>The case already exists. Retrying reuses accepted attachments.</p> : null}
+          <p className="help-text">Document role is selected by you; InvoiceOps does not claim automatic classification. Matching remains deterministic and no outcome authorizes payment.</p>
+        </aside>
+      </div>
+    </>
+  );
 }
 
-function Field({ label, error, children }: { label: string; error?: string; children: React.ReactNode }) { return <div className="field"><label>{label}</label>{children}{error ? <small className="field-error">{error}</small> : null}</div>; }
+function UploadPanel({ id, title, hint, role, multiple = false, onFiles }: { id: string; title: string; hint: string; role: Role; multiple?: boolean; onFiles: (role: Role, files: FileList | null) => void }) {
+  return <div className="upload-panel"><div><strong>{title}</strong><span>{hint}</span></div><label className="button button-secondary" htmlFor={id}><FilePlus2 aria-hidden="true"/>Add file</label><input id={id} className="visually-hidden" type="file" multiple={multiple} accept="application/pdf,image/png,image/jpeg" onChange={(event) => onFiles(role, event.target.files)}/></div>;
+}
+
+function FileCard({ item, remove, retry }: { item: PendingDocument; remove: () => void; retry: () => void }) {
+  return <div className="file-row"><div className="file-role-icon">{item.state === "accepted" ? <FileCheck2/> : <FileUp/>}</div><div className="file-copy"><strong>{item.file.name}</strong><span>{item.role.replaceAll("_", " ")} · {item.file.type} · {(item.file.size / 1024).toFixed(1)} KiB</span>{item.state === "uploading" ? <progress value={item.progress} max="100" aria-label={`${item.file.name} upload progress`}/> : null}{item.error ? <small className="field-error">{item.error}</small> : null}</div><span className={`status ${item.state === "failed" ? "status-danger" : item.state === "accepted" ? "status-success" : "status-neutral"}`}>{item.state}</span>{item.state === "failed" ? <button className="icon-button" aria-label={`Retry ${item.file.name}`} onClick={retry}><RotateCcw/></button> : <button className="icon-button" aria-label={`Remove ${item.file.name}`} disabled={item.state === "accepted"} onClick={remove}><X/></button>}</div>;
+}

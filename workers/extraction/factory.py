@@ -12,8 +12,20 @@ from invoiceops.extraction.hybrid.service import HybridExtractionService
 from invoiceops.extraction.pipeline import DeterministicInvoiceExtractor
 from invoiceops.extraction.preprocessing import DocumentTextExtractor
 from invoiceops.extraction.service import ExtractionService
+from invoiceops.extraction.supporting_service import SupportingExtractionService
 from invoiceops.ingestion.storage import S3ObjectStore
 from invoiceops.observability.tracing import span
+
+
+def build_supporting_extraction_service(session: Session) -> SupportingExtractionService:
+    settings = get_settings()
+    return SupportingExtractionService(
+        session=session,
+        object_store=S3ObjectStore(settings),
+        text_extractor=DocumentTextExtractor(
+            stage_context=lambda stage: span(f"supporting_extraction.{stage}")
+        ),
+    )
 
 
 def build_extraction_service(session: Session) -> ExtractionService | HybridExtractionService:

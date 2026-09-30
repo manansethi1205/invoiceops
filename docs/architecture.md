@@ -14,6 +14,25 @@ document receives a content digest for future duplicate detection. The object is
 the row is committed, and removed if that commit fails. If dispatch fails, the queued row remains
 durable so a reconciliation process can safely redispatch it.
 
+Multi-document intake adds a backend-owned aggregate without replacing the compatible invoice
+endpoint:
+
+```text
+PayableCase(version, status)
+  -> append-only CaseDocument(role, document_id, supersedes_id)
+       -> checksum-unique Document + existing object storage/job
+       -> immutable invoice or role-versioned supporting extraction
+  -> explicit CaseConfirmation
+       -> canonical PurchaseOrder / GoodsReceipt in the same transaction
+  -> CaseMatchContext -> existing deterministic matching/risk/review path
+```
+
+The attachment boundary checks its idempotency fingerprint before the expected version, so a
+network retry recovers the original result after a successful version increment. A changed payload
+under the same key conflicts. Supporting extraction is perception only and enters
+`NEEDS_CONFIRMATION`; confirmation validates the complete typed payload, records corrections and
+the canonical row atomically, and never mutates extraction output.
+
 The current deterministic decision path supports explicit two-way and three-way modes:
 
 ```mermaid

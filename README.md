@@ -39,12 +39,24 @@ comes from the FastAPI service.
 
 ![InvoiceOps dashboard with synthetic data](web/e2e/dashboard.spec.ts-snapshots/dashboard.png)
 
-A useful demonstration path is: upload a synthetic invoice at `/intake`, watch the resumable event
-timeline, inspect extracted evidence at `/invoices/{document_id}`, run a deterministic match, then
+A useful demonstration path is: upload synthetic invoice, PO and receipt evidence at `/intake`,
+watch the resumable event timeline, confirm supporting evidence at `/cases/{case_id}`, then
 claim and resolve any generated exception at `/reviews/{case_id}`. The reviewer header is only a
 development identity boundary; an accepted exception is not payment authorization.
 
 ## Implemented vertical slice
+
+The preferred intake path is now a versioned payable case. `POST /v1/cases` creates the durable
+aggregate and `POST /v1/cases/{case_id}/documents` attaches actual invoice, purchase-order,
+goods-receipt or delivery-note PDF/JPEG/PNG evidence. Attachment mutations use an idempotency key,
+canonical payload fingerprint and expected case version. Raw bytes still use the global SHA-256
+document identity, so retries and cross-case reuse do not duplicate storage.
+
+Purchase-order and receipt extraction is typed and evidence-linked, but never authoritative.
+Confirmation endpoints create canonical records only after explicit human confirmation, while the
+original extraction JSON remains immutable. Case matching consumes only confirmed records and
+delegates arithmetic, policy, risk and review routing to the existing deterministic services.
+Document roles are user-selected, not automatically classified. No outcome authorizes payment.
 
 `POST /v1/invoices` accepts one PDF, JPEG, or PNG (15 MiB by default), stores it in S3-compatible
 object storage, creates a durable queued job in PostgreSQL, dispatches it through Celery/Redis, and
@@ -109,6 +121,16 @@ uv sync
 uv run pytest -m "not docker and not docile"
 uv run ruff check .
 uv run mypy apps invoiceops workers
+```
+
+Create a retry-safe case through the API:
+
+```powershell
+$case = Invoke-RestMethod -Method Post -Uri http://localhost:8000/v1/cases `
+  -ContentType application/json -Body '{"idempotency_key":"demo-case-001"}'
+curl.exe -X POST "http://localhost:8000/v1/cases/$($case.id)/documents" `
+  -F "file=@synthetic-invoice.pdf;type=application/pdf" -F "role=INVOICE" `
+  -F "idempotency_key=demo-invoice-001" -F "expected_case_version=$($case.version)"
 ```
 
 Run frontend contract, type, unit, accessibility and visual checks:

@@ -1,5 +1,23 @@
 # Reproducible deterministic evaluation
 
+## Supporting-document case evaluation
+
+The `supporting-documents-synthetic-v1` corpus contains 15 purchase orders and 15 goods receipts
+across alternate labels, two-page token layouts, partial receiving, missing identifiers,
+conflicting identifiers and embedded/OCR provenance. OCR-provenance examples exercise extraction
+over OCR tokens but do not claim image OCR runtime accuracy. Header exact-match denominators are
+the 15 examples for each document type. Exact line-item F1 uses multiset true-positive,
+false-positive and false-negative counts across that type. Schema validity is valid typed outputs
+over 15. Confirmation-required rate is proof outputs requiring confirmation over all 30.
+
+```powershell
+uv run python scripts/run_supporting_evaluation.py
+Get-Content evals/reports/cases/supporting-documents-v1/report.md
+```
+
+CI must assert `false_canonical_record_count == 0`. The evaluator calls extraction rules directly
+and never invokes canonical confirmation persistence.
+
 The three-way suite contains 26 synthetic receipt/allocation scenarios and reports decision and
 routing metrics, cumulative-overbilling detection, allocation correctness, idempotency,
 serialized overbilling scenarios, latency and source-tree provenance. The offline suite does not

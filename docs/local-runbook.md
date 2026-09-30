@@ -374,3 +374,10 @@ Get-Content evals/reports/review/review-v1/report.md
 Reconciliation is safe to repeat. It creates only missing cases for historical `NEEDS_REVIEW`
 runs and prints aggregate counts. Use the per-case `audit-verification` endpoint to recompute the
 hash chain and compare reconstructed state with the materialized case.
+# Payable-case smoke flow
+
+After the stack is healthy, open `http://localhost:3000/intake`, upload only synthetic PDF/JPEG/PNG
+evidence, and submit the case. The browser redirects to `/cases/{case_id}`. Watch each role-aware
+timeline entry, inspect its evidence, confirm the PO before receipts, and run matching only after
+the case reaches `READY_TO_MATCH`. Supporting extraction is never canonical without confirmation,
+and no result authorizes payment.

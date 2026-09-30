@@ -32,9 +32,13 @@ class MemoryObjectStore:
 class RecordingDispatcher:
     def __init__(self) -> None:
         self.job_ids: list[str] = []
+        self.case_document_ids: list[str] = []
 
     def enqueue(self, job_id: str) -> None:
         self.job_ids.append(job_id)
+
+    def enqueue_supporting(self, case_document_id: str) -> None:
+        self.case_document_ids.append(case_document_id)
 
 
 @pytest.fixture

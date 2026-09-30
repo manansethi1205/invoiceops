@@ -27,6 +27,17 @@ sorts replayed events and reconnects with bounded exponential backoff and `Last-
 stream ends only on a durable completion/failure event. If a connection closes ambiguously, the
 client checks the job-status endpoint before reconnecting. Heartbeats never enter product history.
 
+## Multi-document cases
+
+`/intake` uploads real invoice, purchase-order and receipt/delivery files. It creates one backend
+case and attaches each file with stable retry keys; it never chains direct canonical PO or receipt
+creation calls. `/cases/{case_id}` keeps the selected document in the URL, shows evidence tabs,
+validates role-aware case SSE events with Zod and exposes editable confirmation payloads.
+
+Document roles are chosen by the operator, not automatically classified. Supporting extraction
+always requires confirmation. Authentication is still absent, so this workflow must not be
+publicly deployed until verified OIDC identity and role-based authorization are added.
+
 ## Local development
 
 Start the API stack, then run the web application:
@@ -89,7 +100,8 @@ page navigation and `+`/`-` zoom controls, while evidence coordinates remain bac
 
 ## Current limitations
 
-The backend accepts invoice files only. Purchase orders and goods receipts are structured records,
-so the intake screen exposes structured PO creation instead of pretending those documents are
-extracted. Field correction persistence and production authentication are not implemented. The UI
-does not simulate either capability.
+The supporting-document extractor is deterministic and conservative. It does not infer missing
+quantities or financial values, and ambiguous layouts remain unconfirmed. The invoice-only
+grounded VLM fallback is not applied to PO or receipt schemas in this slice. The confirmation
+editor currently presents the typed JSON contract rather than a field-by-field grid. Production
+authentication and authorization are not implemented.

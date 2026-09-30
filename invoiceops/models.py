@@ -23,6 +23,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from invoiceops.db import Base
+from invoiceops.schemas.cases import CaseStatus, DocumentRole, SupportingExtractionStatus
 from invoiceops.schemas.matching import MatchDecision, MatchingMode
 from invoiceops.schemas.review import ReviewEventType, ReviewResolution, ReviewStatus
 from invoiceops.schemas.risk import RiskDisposition, RiskSeverity, RiskSignalCode
@@ -68,6 +69,10 @@ class Document(Base):
         back_populates="document", cascade="all, delete-orphan"
     )
     three_way_allocations: Mapped[list["ThreeWayAllocation"]] = relationship(
+        back_populates="document", cascade="all, delete-orphan"
+    )
+    case_documents: Mapped[list["CaseDocument"]] = relationship(back_populates="document")
+    supporting_extraction_runs: Mapped[list["SupportingExtractionRun"]] = relationship(
         back_populates="document", cascade="all, delete-orphan"
     )
 
@@ -647,3 +652,202 @@ class ReviewCaseTrigger(Base):
     source_id: Mapped[uuid.UUID] = mapped_column()
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     review_case: Mapped[ReviewCase] = relationship(back_populates="triggers")
+
+
+class PayableCase(Base):
+    __tablename__ = "payable_cases"
+    __table_args__ = (
+        CheckConstraint("version >= 1", name="ck_payable_case_positive_version"),
+        CheckConstraint(
+            "length(trim(idempotency_key)) > 0", name="ck_payable_case_idempotency_nonblank"
+        ),
+        CheckConstraint(
+            "length(request_fingerprint) = 64", name="ck_payable_case_fingerprint_length"
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    case_number: Mapped[str] = mapped_column(String(40), unique=True, index=True)
+    status: Mapped[CaseStatus] = mapped_column(
+        Enum(CaseStatus, name="payable_case_status", native_enum=False),
+        default=CaseStatus.DRAFT,
+    )
+    version: Mapped[int] = mapped_column(Integer, default=1)
+    idempotency_key: Mapped[str] = mapped_column(String(200), unique=True)
+    request_fingerprint: Mapped[str] = mapped_column(String(64))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+    documents: Mapped[list["CaseDocument"]] = relationship(
+        back_populates="payable_case", cascade="all, delete-orphan"
+    )
+    events: Mapped[list["CaseEvent"]] = relationship(
+        back_populates="payable_case",
+        cascade="all, delete-orphan",
+        order_by="CaseEvent.sequence_number",
+    )
+    match_contexts: Mapped[list["CaseMatchContext"]] = relationship(
+        back_populates="payable_case", cascade="all, delete-orphan"
+    )
+
+
+class CaseDocument(Base):
+    __tablename__ = "case_documents"
+    __table_args__ = (
+        UniqueConstraint("case_id", "idempotency_key", name="uq_case_document_idempotency"),
+        UniqueConstraint("case_id", "role", "document_id", name="uq_case_document_role_document"),
+        UniqueConstraint("case_id", "active_slot", name="uq_case_document_active_slot"),
+        UniqueConstraint("case_id", "attachment_order", name="uq_case_document_order"),
+        UniqueConstraint("supersedes_id", name="uq_case_document_supersedes"),
+        CheckConstraint("attachment_order >= 1", name="ck_case_document_positive_order"),
+        CheckConstraint(
+            "length(request_fingerprint) = 64", name="ck_case_document_fingerprint_length"
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    case_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("payable_cases.id", ondelete="CASCADE"), index=True
+    )
+    document_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("documents.id", ondelete="RESTRICT"), index=True
+    )
+    role: Mapped[DocumentRole] = mapped_column(
+        Enum(DocumentRole, name="case_document_role", native_enum=False)
+    )
+    attachment_order: Mapped[int] = mapped_column(Integer)
+    active_slot: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    supersedes_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("case_documents.id", ondelete="RESTRICT"), nullable=True
+    )
+    idempotency_key: Mapped[str] = mapped_column(String(200))
+    request_fingerprint: Mapped[str] = mapped_column(String(64))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    payable_case: Mapped[PayableCase] = relationship(back_populates="documents")
+    document: Mapped[Document] = relationship(back_populates="case_documents")
+    supersedes: Mapped["CaseDocument | None"] = relationship(remote_side="CaseDocument.id")
+    confirmations: Mapped[list["CaseConfirmation"]] = relationship(
+        back_populates="case_document", cascade="all, delete-orphan"
+    )
+
+
+class SupportingExtractionRun(Base):
+    __tablename__ = "supporting_extraction_runs"
+    __table_args__ = (
+        UniqueConstraint(
+            "document_id",
+            "role",
+            "extractor_name",
+            "extractor_version",
+            name="uq_support_extraction_document_role_version",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    document_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("documents.id", ondelete="CASCADE"), index=True
+    )
+    role: Mapped[DocumentRole] = mapped_column(
+        Enum(DocumentRole, name="supporting_extraction_role", native_enum=False)
+    )
+    extractor_name: Mapped[str] = mapped_column(String(100))
+    extractor_version: Mapped[str] = mapped_column(String(50))
+    schema_version: Mapped[str] = mapped_column(String(50))
+    status: Mapped[SupportingExtractionStatus] = mapped_column(
+        Enum(
+            SupportingExtractionStatus,
+            name="supporting_extraction_status",
+            native_enum=False,
+        )
+    )
+    output_json: Mapped[dict[str, object] | None] = mapped_column(JSON, nullable=True)
+    used_ocr: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    latency_ms: Mapped[float | None] = mapped_column(Float, nullable=True)
+    error_code: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    error_message: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    document: Mapped[Document] = relationship(back_populates="supporting_extraction_runs")
+
+
+class CaseConfirmation(Base):
+    __tablename__ = "case_confirmations"
+    __table_args__ = (
+        UniqueConstraint("case_document_id", name="uq_case_confirmation_attachment"),
+        UniqueConstraint("case_id", "idempotency_key", name="uq_case_confirmation_idempotency"),
+        CheckConstraint(
+            "length(request_fingerprint) = 64", name="ck_case_confirmation_fingerprint_length"
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    case_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("payable_cases.id", ondelete="CASCADE"), index=True
+    )
+    case_document_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("case_documents.id", ondelete="RESTRICT"), index=True
+    )
+    extraction_run_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("supporting_extraction_runs.id", ondelete="RESTRICT"), index=True
+    )
+    extractor_version: Mapped[str] = mapped_column(String(50))
+    canonical_record_type: Mapped[str] = mapped_column(String(50))
+    canonical_record_id: Mapped[uuid.UUID] = mapped_column()
+    confirmed_json: Mapped[dict[str, object]] = mapped_column(JSON)
+    corrected_fields: Mapped[list[str]] = mapped_column(JSON)
+    correction_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    idempotency_key: Mapped[str] = mapped_column(String(200))
+    request_fingerprint: Mapped[str] = mapped_column(String(64))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    case_document: Mapped[CaseDocument] = relationship(back_populates="confirmations")
+
+
+class CaseEvent(Base):
+    __tablename__ = "case_events"
+    __table_args__ = (
+        UniqueConstraint("case_id", "sequence_number", name="uq_case_event_case_sequence"),
+        UniqueConstraint("case_id", "event_key", name="uq_case_event_case_key"),
+        CheckConstraint("sequence_number >= 1", name="ck_case_event_positive_sequence"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    case_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("payable_cases.id", ondelete="CASCADE"), index=True
+    )
+    sequence_number: Mapped[int] = mapped_column(Integer)
+    event_key: Mapped[str] = mapped_column(String(150))
+    event_type: Mapped[str] = mapped_column(String(100))
+    stage: Mapped[str] = mapped_column(String(50))
+    status: Mapped[str] = mapped_column(String(50))
+    message: Mapped[str] = mapped_column(String(255))
+    document_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("documents.id", ondelete="RESTRICT"), nullable=True
+    )
+    document_role: Mapped[DocumentRole | None] = mapped_column(
+        Enum(DocumentRole, name="case_event_document_role", native_enum=False), nullable=True
+    )
+    payload: Mapped[dict[str, object]] = mapped_column(JSON)
+    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    payable_case: Mapped[PayableCase] = relationship(back_populates="events")
+
+
+class CaseMatchContext(Base):
+    __tablename__ = "case_match_contexts"
+    __table_args__ = (
+        UniqueConstraint("case_id", "request_fingerprint", name="uq_case_match_context_request"),
+        UniqueConstraint("case_id", "idempotency_key", name="uq_case_match_context_idempotency"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    case_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("payable_cases.id", ondelete="CASCADE"), index=True
+    )
+    match_run_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("match_runs.id", ondelete="RESTRICT"), index=True
+    )
+    context_json: Mapped[dict[str, object]] = mapped_column(JSON)
+    idempotency_key: Mapped[str] = mapped_column(String(200))
+    request_fingerprint: Mapped[str] = mapped_column(String(64))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    payable_case: Mapped[PayableCase] = relationship(back_populates="match_contexts")

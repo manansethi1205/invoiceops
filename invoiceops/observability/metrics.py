@@ -24,6 +24,10 @@ ALLOWED_LABELS: dict[str, set[str]] = {
     "risk": {"disposition"},
     "review": {"event"},
     "receipt": {"event"},
+    "case": {"event"},
+    "case_attachment": {"role", "outcome"},
+    "support_extraction": {"role", "method", "status"},
+    "confirmation": {"role", "field"},
 }
 ALLOWED_VALUES: dict[tuple[str, str], set[LabelValue]] = {
     ("http", "method"): {"GET", "POST", "PUT", "PATCH", "DELETE", "OTHER"},
@@ -54,6 +58,37 @@ ALLOWED_VALUES: dict[tuple[str, str], set[LabelValue]] = {
         "CASE_RESOLVED",
     },
     ("receipt", "event"): {"CREATED", "REPLAYED", "REVERSED"},
+    ("case", "event"): {"CREATED", "REPLAYED", "READY", "FAILED"},
+    ("case_attachment", "role"): {
+        "INVOICE",
+        "PURCHASE_ORDER",
+        "GOODS_RECEIPT",
+        "DELIVERY_NOTE",
+    },
+    ("case_attachment", "outcome"): {"ATTACHED", "REPLAYED", "DEDUPLICATED"},
+    ("support_extraction", "role"): {
+        "PURCHASE_ORDER",
+        "GOODS_RECEIPT",
+        "DELIVERY_NOTE",
+    },
+    ("support_extraction", "method"): {"EMBEDDED_TEXT", "OCR"},
+    ("support_extraction", "status"): {"SUCCEEDED", "FAILED"},
+    ("confirmation", "role"): {"PURCHASE_ORDER", "GOODS_RECEIPT", "DELIVERY_NOTE"},
+    ("confirmation", "field"): {
+        "external_po_number",
+        "issue_date",
+        "buyer_name",
+        "vendor_name",
+        "currency",
+        "subtotal",
+        "tax",
+        "total",
+        "external_receipt_number",
+        "referenced_po_number",
+        "received_at",
+        "supplier",
+        "lines",
+    },
 }
 _UUID_IN_ROUTE = re.compile(
     r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-"
@@ -142,6 +177,19 @@ class InvoiceOpsMetrics:
             self.risk: Counter = meter.create_counter("invoiceops_risk_assessments_total")
             self.review: Counter = meter.create_counter("invoiceops_review_events_total")
             self.receipt: Counter = meter.create_counter("invoiceops_receipt_events_total")
+            self.case_events: Counter = meter.create_counter("invoiceops_case_events_total")
+            self.case_attachments: Counter = meter.create_counter(
+                "invoiceops_case_attachments_total"
+            )
+            self.support_extractions: Counter = meter.create_counter(
+                "invoiceops_support_extractions_total"
+            )
+            self.confirmed_corrections: Counter = meter.create_counter(
+                "invoiceops_confirmation_corrected_fields_total"
+            )
+            self.case_time_to_ready: Histogram = meter.create_histogram(
+                "invoiceops_case_time_to_ready_seconds", unit="s"
+            )
             self.open_reviews: Any = meter.create_observable_gauge(
                 "invoiceops_review_open_cases", callbacks=[self._observe_open_reviews]
             )

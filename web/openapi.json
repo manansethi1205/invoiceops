@@ -98,6 +98,50 @@
         "title": "AuditVerificationRead",
         "type": "object"
       },
+      "Body_attach_case_document_v1_cases__case_id__documents_post": {
+        "properties": {
+          "expected_case_version": {
+            "minimum": 1.0,
+            "title": "Expected Case Version",
+            "type": "integer"
+          },
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "description": "PDF, JPEG, or PNG evidence",
+            "title": "File",
+            "type": "string"
+          },
+          "idempotency_key": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Idempotency Key",
+            "type": "string"
+          },
+          "role": {
+            "$ref": "#/components/schemas/DocumentRole"
+          },
+          "supersedes_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Supersedes Id"
+          }
+        },
+        "required": [
+          "file",
+          "role",
+          "idempotency_key",
+          "expected_case_version"
+        ],
+        "title": "Body_attach_case_document_v1_cases__case_id__documents_post",
+        "type": "object"
+      },
       "Body_upload_invoice_v1_invoices_post": {
         "properties": {
           "file": {
@@ -149,6 +193,340 @@
         "title": "BoundingBox",
         "type": "object"
       },
+      "CaseAttachmentAccepted": {
+        "properties": {
+          "attachment": {
+            "$ref": "#/components/schemas/CaseDocumentRead"
+          },
+          "case": {
+            "$ref": "#/components/schemas/CaseRead"
+          },
+          "deduplicated_document": {
+            "title": "Deduplicated Document",
+            "type": "boolean"
+          },
+          "replayed": {
+            "title": "Replayed",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "case",
+          "attachment",
+          "deduplicated_document",
+          "replayed"
+        ],
+        "title": "CaseAttachmentAccepted",
+        "type": "object"
+      },
+      "CaseCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "idempotency_key": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Idempotency Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "idempotency_key"
+        ],
+        "title": "CaseCreate",
+        "type": "object"
+      },
+      "CaseDocumentRead": {
+        "properties": {
+          "attachment_order": {
+            "title": "Attachment Order",
+            "type": "integer"
+          },
+          "byte_size": {
+            "title": "Byte Size",
+            "type": "integer"
+          },
+          "case_id": {
+            "format": "uuid",
+            "title": "Case Id",
+            "type": "string"
+          },
+          "confirmation_status": {
+            "$ref": "#/components/schemas/ConfirmationStatus"
+          },
+          "content_type": {
+            "title": "Content Type",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "document_id": {
+            "format": "uuid",
+            "title": "Document Id",
+            "type": "string"
+          },
+          "extraction_status": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SupportingExtractionStatus"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "filename": {
+            "title": "Filename",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "is_active": {
+            "title": "Is Active",
+            "type": "boolean"
+          },
+          "job_id": {
+            "format": "uuid",
+            "title": "Job Id",
+            "type": "string"
+          },
+          "job_status": {
+            "title": "Job Status",
+            "type": "string"
+          },
+          "role": {
+            "$ref": "#/components/schemas/DocumentRole"
+          },
+          "supersedes_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Supersedes Id"
+          }
+        },
+        "required": [
+          "id",
+          "case_id",
+          "document_id",
+          "job_id",
+          "role",
+          "filename",
+          "content_type",
+          "byte_size",
+          "attachment_order",
+          "supersedes_id",
+          "is_active",
+          "job_status",
+          "extraction_status",
+          "confirmation_status",
+          "created_at"
+        ],
+        "title": "CaseDocumentRead",
+        "type": "object"
+      },
+      "CaseExtractionRead": {
+        "properties": {
+          "completed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "document_id": {
+            "format": "uuid",
+            "title": "Document Id",
+            "type": "string"
+          },
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code"
+          },
+          "extractor_name": {
+            "title": "Extractor Name",
+            "type": "string"
+          },
+          "extractor_version": {
+            "title": "Extractor Version",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "latency_ms": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latency Ms"
+          },
+          "output": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Invoice"
+              },
+              {
+                "$ref": "#/components/schemas/ExtractedPurchaseOrder"
+              },
+              {
+                "$ref": "#/components/schemas/ExtractedGoodsReceipt"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Output"
+          },
+          "role": {
+            "$ref": "#/components/schemas/DocumentRole"
+          },
+          "schema_version": {
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "used_ocr": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Used Ocr"
+          }
+        },
+        "required": [
+          "id",
+          "document_id",
+          "role",
+          "extractor_name",
+          "extractor_version",
+          "schema_version",
+          "status",
+          "output",
+          "used_ocr",
+          "latency_ms",
+          "error_code",
+          "created_at",
+          "completed_at"
+        ],
+        "title": "CaseExtractionRead",
+        "type": "object"
+      },
+      "CaseMatchCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "expected_case_version": {
+            "minimum": 1.0,
+            "title": "Expected Case Version",
+            "type": "integer"
+          },
+          "idempotency_key": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Idempotency Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "expected_case_version",
+          "idempotency_key"
+        ],
+        "title": "CaseMatchCommand",
+        "type": "object"
+      },
+      "CaseRead": {
+        "properties": {
+          "case_number": {
+            "title": "Case Number",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/CaseStatus"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "case_number",
+          "status",
+          "version",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "CaseRead",
+        "type": "object"
+      },
+      "CaseStatus": {
+        "enum": [
+          "DRAFT",
+          "PROCESSING",
+          "NEEDS_CONFIRMATION",
+          "READY_TO_MATCH",
+          "MATCHED",
+          "NEEDS_REVIEW",
+          "FAILED"
+        ],
+        "title": "CaseStatus",
+        "type": "string"
+      },
       "CheckSeverity": {
         "enum": [
           "info",
@@ -186,6 +564,78 @@
         ],
         "title": "CommentCommand",
         "type": "object"
+      },
+      "ConfirmationRead": {
+        "properties": {
+          "canonical_record_id": {
+            "format": "uuid",
+            "title": "Canonical Record Id",
+            "type": "string"
+          },
+          "canonical_record_type": {
+            "title": "Canonical Record Type",
+            "type": "string"
+          },
+          "case_document_id": {
+            "format": "uuid",
+            "title": "Case Document Id",
+            "type": "string"
+          },
+          "corrected_fields": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Corrected Fields",
+            "type": "array"
+          },
+          "correction_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Correction Reason"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "extraction_run_id": {
+            "format": "uuid",
+            "title": "Extraction Run Id",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "case_document_id",
+          "extraction_run_id",
+          "canonical_record_type",
+          "canonical_record_id",
+          "corrected_fields",
+          "correction_reason",
+          "created_at"
+        ],
+        "title": "ConfirmationRead",
+        "type": "object"
+      },
+      "ConfirmationStatus": {
+        "enum": [
+          "NOT_REQUIRED",
+          "PENDING",
+          "CONFIRMED"
+        ],
+        "title": "ConfirmationStatus",
+        "type": "string"
       },
       "DashboardSummary": {
         "properties": {
@@ -227,6 +677,16 @@
         ],
         "title": "DashboardSummary",
         "type": "object"
+      },
+      "DocumentRole": {
+        "enum": [
+          "INVOICE",
+          "PURCHASE_ORDER",
+          "GOODS_RECEIPT",
+          "DELIVERY_NOTE"
+        ],
+        "title": "DocumentRole",
+        "type": "string"
       },
       "DuplicateRiskPolicy": {
         "additionalProperties": false,
@@ -428,6 +888,138 @@
           "evidence"
         ],
         "title": "ExtractedField[str]",
+        "type": "object"
+      },
+      "ExtractedGoodsReceipt": {
+        "properties": {
+          "line_items": {
+            "items": {
+              "$ref": "#/components/schemas/ExtractedGoodsReceiptLine"
+            },
+            "title": "Line Items",
+            "type": "array"
+          },
+          "receipt_number": {
+            "$ref": "#/components/schemas/ExtractedField_str_"
+          },
+          "received_date": {
+            "$ref": "#/components/schemas/ExtractedField_date_"
+          },
+          "referenced_po_number": {
+            "$ref": "#/components/schemas/ExtractedField_str_"
+          },
+          "supplier": {
+            "$ref": "#/components/schemas/ExtractedField_str_"
+          }
+        },
+        "required": [
+          "receipt_number",
+          "referenced_po_number",
+          "received_date",
+          "supplier",
+          "line_items"
+        ],
+        "title": "ExtractedGoodsReceipt",
+        "type": "object"
+      },
+      "ExtractedGoodsReceiptLine": {
+        "properties": {
+          "accepted_quantity": {
+            "$ref": "#/components/schemas/ExtractedField_Decimal_"
+          },
+          "description": {
+            "$ref": "#/components/schemas/ExtractedField_str_"
+          },
+          "received_quantity": {
+            "$ref": "#/components/schemas/ExtractedField_Decimal_"
+          },
+          "rejected_quantity": {
+            "$ref": "#/components/schemas/ExtractedField_Decimal_"
+          }
+        },
+        "required": [
+          "description",
+          "received_quantity",
+          "accepted_quantity",
+          "rejected_quantity"
+        ],
+        "title": "ExtractedGoodsReceiptLine",
+        "type": "object"
+      },
+      "ExtractedPurchaseOrder": {
+        "properties": {
+          "buyer": {
+            "$ref": "#/components/schemas/ExtractedField_str_"
+          },
+          "currency": {
+            "$ref": "#/components/schemas/ExtractedField_str_"
+          },
+          "issue_date": {
+            "$ref": "#/components/schemas/ExtractedField_date_"
+          },
+          "line_items": {
+            "items": {
+              "$ref": "#/components/schemas/ExtractedPurchaseOrderLine"
+            },
+            "title": "Line Items",
+            "type": "array"
+          },
+          "po_number": {
+            "$ref": "#/components/schemas/ExtractedField_str_"
+          },
+          "subtotal": {
+            "$ref": "#/components/schemas/ExtractedField_Decimal_"
+          },
+          "tax": {
+            "$ref": "#/components/schemas/ExtractedField_Decimal_"
+          },
+          "total": {
+            "$ref": "#/components/schemas/ExtractedField_Decimal_"
+          },
+          "vendor": {
+            "$ref": "#/components/schemas/ExtractedField_str_"
+          }
+        },
+        "required": [
+          "po_number",
+          "issue_date",
+          "vendor",
+          "buyer",
+          "currency",
+          "subtotal",
+          "tax",
+          "total",
+          "line_items"
+        ],
+        "title": "ExtractedPurchaseOrder",
+        "type": "object"
+      },
+      "ExtractedPurchaseOrderLine": {
+        "properties": {
+          "description": {
+            "$ref": "#/components/schemas/ExtractedField_str_"
+          },
+          "line_number": {
+            "$ref": "#/components/schemas/ExtractedField_str_"
+          },
+          "line_total": {
+            "$ref": "#/components/schemas/ExtractedField_Decimal_"
+          },
+          "ordered_quantity": {
+            "$ref": "#/components/schemas/ExtractedField_Decimal_"
+          },
+          "unit_price": {
+            "$ref": "#/components/schemas/ExtractedField_Decimal_"
+          }
+        },
+        "required": [
+          "line_number",
+          "description",
+          "ordered_quantity",
+          "unit_price",
+          "line_total"
+        ],
+        "title": "ExtractedPurchaseOrderLine",
         "type": "object"
       },
       "ExtractionPendingRead": {
@@ -1669,6 +2261,167 @@
         "title": "PriorAllocationRead",
         "type": "object"
       },
+      "PurchaseOrderConfirmation": {
+        "additionalProperties": false,
+        "properties": {
+          "confirmed": {
+            "$ref": "#/components/schemas/PurchaseOrderConfirmationValues"
+          },
+          "correction_reason": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Correction Reason"
+          },
+          "expected_case_version": {
+            "minimum": 1.0,
+            "title": "Expected Case Version",
+            "type": "integer"
+          },
+          "extraction_run_id": {
+            "format": "uuid",
+            "title": "Extraction Run Id",
+            "type": "string"
+          },
+          "extractor_version": {
+            "maxLength": 50,
+            "minLength": 1,
+            "title": "Extractor Version",
+            "type": "string"
+          },
+          "idempotency_key": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Idempotency Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "expected_case_version",
+          "extraction_run_id",
+          "extractor_version",
+          "confirmed",
+          "idempotency_key"
+        ],
+        "title": "PurchaseOrderConfirmation",
+        "type": "object"
+      },
+      "PurchaseOrderConfirmationValues": {
+        "properties": {
+          "buyer_name": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Buyer Name"
+          },
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          },
+          "external_po_number": {
+            "title": "External Po Number",
+            "type": "string"
+          },
+          "issue_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Issue Date"
+          },
+          "lines": {
+            "items": {
+              "$ref": "#/components/schemas/PurchaseOrderLineCreate"
+            },
+            "minItems": 1,
+            "title": "Lines",
+            "type": "array"
+          },
+          "subtotal": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subtotal"
+          },
+          "tax": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tax"
+          },
+          "total": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total"
+          },
+          "vendor_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vendor Name"
+          }
+        },
+        "required": [
+          "external_po_number",
+          "currency",
+          "lines"
+        ],
+        "title": "PurchaseOrderConfirmationValues",
+        "type": "object"
+      },
       "PurchaseOrderCreate": {
         "properties": {
           "currency": {
@@ -1875,6 +2628,172 @@
         ],
         "title": "ReasonCode",
         "type": "string"
+      },
+      "ReceiptConfirmation": {
+        "additionalProperties": false,
+        "properties": {
+          "confirmed": {
+            "$ref": "#/components/schemas/ReceiptConfirmationValues"
+          },
+          "correction_reason": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Correction Reason"
+          },
+          "expected_case_version": {
+            "minimum": 1.0,
+            "title": "Expected Case Version",
+            "type": "integer"
+          },
+          "extraction_run_id": {
+            "format": "uuid",
+            "title": "Extraction Run Id",
+            "type": "string"
+          },
+          "extractor_version": {
+            "maxLength": 50,
+            "minLength": 1,
+            "title": "Extractor Version",
+            "type": "string"
+          },
+          "idempotency_key": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Idempotency Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "expected_case_version",
+          "extraction_run_id",
+          "extractor_version",
+          "confirmed",
+          "idempotency_key"
+        ],
+        "title": "ReceiptConfirmation",
+        "type": "object"
+      },
+      "ReceiptConfirmationLine": {
+        "additionalProperties": false,
+        "properties": {
+          "accepted_quantity": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "number"
+              },
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              }
+            ],
+            "title": "Accepted Quantity"
+          },
+          "description": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Description",
+            "type": "string"
+          },
+          "purchase_order_line_number": {
+            "maxLength": 50,
+            "minLength": 1,
+            "title": "Purchase Order Line Number",
+            "type": "string"
+          },
+          "received_quantity": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "number"
+              },
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              }
+            ],
+            "title": "Received Quantity"
+          },
+          "rejected_quantity": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              }
+            ],
+            "default": "0",
+            "title": "Rejected Quantity"
+          }
+        },
+        "required": [
+          "purchase_order_line_number",
+          "description",
+          "received_quantity",
+          "accepted_quantity"
+        ],
+        "title": "ReceiptConfirmationLine",
+        "type": "object"
+      },
+      "ReceiptConfirmationValues": {
+        "additionalProperties": false,
+        "properties": {
+          "external_receipt_number": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "External Receipt Number",
+            "type": "string"
+          },
+          "lines": {
+            "items": {
+              "$ref": "#/components/schemas/ReceiptConfirmationLine"
+            },
+            "minItems": 1,
+            "title": "Lines",
+            "type": "array"
+          },
+          "received_at": {
+            "format": "date-time",
+            "title": "Received At",
+            "type": "string"
+          },
+          "referenced_po_number": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Referenced Po Number",
+            "type": "string"
+          },
+          "supplier": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Supplier"
+          }
+        },
+        "required": [
+          "external_receipt_number",
+          "referenced_po_number",
+          "received_at",
+          "lines"
+        ],
+        "title": "ReceiptConfirmationValues",
+        "type": "object"
       },
       "ReceiptLineContextRead": {
         "properties": {
@@ -2788,6 +3707,15 @@
         "title": "RiskSignalRead",
         "type": "object"
       },
+      "SupportingExtractionStatus": {
+        "enum": [
+          "PROCESSING",
+          "SUCCEEDED",
+          "FAILED"
+        ],
+        "title": "SupportingExtractionStatus",
+        "type": "string"
+      },
       "TextSource": {
         "enum": [
           "embedded_text",
@@ -3227,6 +4155,456 @@
         "summary": "Health Compatibility",
         "tags": [
           "operations"
+        ]
+      }
+    },
+    "/v1/cases": {
+      "post": {
+        "operationId": "create_payable_case_v1_cases_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CaseCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CaseRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Payable Case",
+        "tags": [
+          "cases"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}": {
+      "get": {
+        "operationId": "get_payable_case_v1_cases__case_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CaseRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Payable Case",
+        "tags": [
+          "cases"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/documents": {
+      "get": {
+        "operationId": "list_case_documents_v1_cases__case_id__documents_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CaseDocumentRead"
+                  },
+                  "title": "Response List Case Documents V1 Cases  Case Id  Documents Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Case Documents",
+        "tags": [
+          "cases"
+        ]
+      },
+      "post": {
+        "operationId": "attach_case_document_v1_cases__case_id__documents_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_attach_case_document_v1_cases__case_id__documents_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CaseAttachmentAccepted"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Attach Case Document",
+        "tags": [
+          "cases"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/events": {
+      "get": {
+        "operationId": "stream_case_events_v1_cases__case_id__events_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Last-Event-ID",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Last-Event-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Stream Case Events",
+        "tags": [
+          "cases"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/extractions": {
+      "get": {
+        "operationId": "list_case_extractions_v1_cases__case_id__extractions_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CaseExtractionRead"
+                  },
+                  "title": "Response List Case Extractions V1 Cases  Case Id  Extractions Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Case Extractions",
+        "tags": [
+          "cases"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/match": {
+      "post": {
+        "operationId": "match_payable_case_v1_cases__case_id__match_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CaseMatchCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatchRunRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Match Payable Case",
+        "tags": [
+          "cases"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/purchase-order/confirm": {
+      "post": {
+        "operationId": "confirm_case_purchase_order_v1_cases__case_id__purchase_order_confirm_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PurchaseOrderConfirmation"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConfirmationRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Confirm Case Purchase Order",
+        "tags": [
+          "cases"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/receipts/{document_id}/confirm": {
+      "post": {
+        "operationId": "confirm_case_receipt_v1_cases__case_id__receipts__document_id__confirm_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "document_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Document Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReceiptConfirmation"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConfirmationRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Confirm Case Receipt",
+        "tags": [
+          "cases"
         ]
       }
     },

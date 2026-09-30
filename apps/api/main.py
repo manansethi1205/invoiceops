@@ -12,6 +12,7 @@ from fastapi import (
     Depends,
     FastAPI,
     File,
+    Form,
     Header,
     HTTPException,
     Query,
@@ -26,6 +27,15 @@ from sqlalchemy.orm import Session, sessionmaker
 from starlette.responses import JSONResponse, Response, StreamingResponse
 
 from apps.api.dependencies import get_dispatcher, get_object_store, get_session_factory
+from invoiceops.cases.events import event_to_read as case_event_to_read
+from invoiceops.cases.service import (
+    CaseConflictError,
+    CaseNotFoundError,
+    CaseNotReadyError,
+    PayableCaseService,
+    attachment_to_read,
+    case_to_read,
+)
 from invoiceops.config import Settings, get_settings
 from invoiceops.db import engine, get_db
 from invoiceops.extraction.selection import current_successful_extraction
@@ -52,6 +62,7 @@ from invoiceops.matching.service import (
     purchase_order_to_read,
 )
 from invoiceops.models import (
+    CaseEvent,
     Document,
     ExtractionRun,
     ExtractionRunStatus,
@@ -62,6 +73,7 @@ from invoiceops.models import (
     ModelCallStatus,
     PurchaseOrder,
     ReviewCase,
+    SupportingExtractionRun,
     ThreeWayContext,
 )
 from invoiceops.observability.context import (
@@ -88,6 +100,18 @@ from invoiceops.review.service import (
 )
 from invoiceops.review.state import ReviewTransitionError
 from invoiceops.risk.service import DuplicateRiskService, RiskAssessmentNotFoundError
+from invoiceops.schemas.cases import (
+    CaseAttachmentAccepted,
+    CaseCreate,
+    CaseDocumentRead,
+    CaseExtractionRead,
+    CaseMatchCommand,
+    CaseRead,
+    ConfirmationRead,
+    DocumentRole,
+    PurchaseOrderConfirmation,
+    ReceiptConfirmation,
+)
 from invoiceops.schemas.console import DashboardSummary, InvoiceSummary, InvoiceSummaryPage
 from invoiceops.schemas.extraction import Invoice
 from invoiceops.schemas.extraction_api import (
@@ -239,9 +263,7 @@ async def structured_request_log(
                     "status_class": f"{response.status_code // 100}xx",
                 }
                 metrics.add("http_requests", "http", **labels)
-                metrics.observe(
-                    "http_duration", time.perf_counter() - started, "http", **labels
-                )
+                metrics.observe("http_duration", time.perf_counter() - started, "http", **labels)
                 logger.info(
                     "HTTP request completed",
                     extra={
@@ -292,6 +314,284 @@ def _readiness_response(settings: Settings) -> Response:
         status_code=200 if ready else 503,
         content={"status": "ready" if ready else "unavailable", "components": components},
     )
+
+
+def _case_http_error(exc: Exception) -> HTTPException:
+    if isinstance(exc, CaseNotFoundError):
+        return HTTPException(
+            status_code=404,
+            detail={"code": "CASE_NOT_FOUND", "message": "Payable case not found"},
+        )
+    if isinstance(exc, CaseConflictError):
+        return HTTPException(status_code=409, detail={"code": exc.code, "message": str(exc)})
+    if isinstance(exc, CaseNotReadyError):
+        return HTTPException(
+            status_code=409,
+            detail={"code": "CASE_NOT_READY", "message": str(exc)},
+        )
+    raise exc
+
+
+@app.post("/v1/cases", response_model=CaseRead, status_code=201, tags=["cases"])
+def create_payable_case(
+    command: CaseCreate,
+    session: Annotated[Session, Depends(get_db)],
+) -> CaseRead:
+    try:
+        result = PayableCaseService(session).create(command)
+    except (CaseConflictError, CaseNotFoundError, CaseNotReadyError) as exc:
+        raise _case_http_error(exc) from exc
+    return case_to_read(result.payable_case)
+
+
+@app.get("/v1/cases/{case_id}", response_model=CaseRead, tags=["cases"])
+def get_payable_case(
+    case_id: uuid.UUID,
+    session: Annotated[Session, Depends(get_db)],
+) -> CaseRead:
+    try:
+        return case_to_read(PayableCaseService(session).get(case_id))
+    except CaseNotFoundError as exc:
+        raise _case_http_error(exc) from exc
+
+
+@app.post(
+    "/v1/cases/{case_id}/documents",
+    response_model=CaseAttachmentAccepted,
+    status_code=202,
+    tags=["cases"],
+)
+def attach_case_document(
+    case_id: uuid.UUID,
+    file: Annotated[UploadFile, File(description="PDF, JPEG, or PNG evidence")],
+    role: Annotated[DocumentRole, Form()],
+    idempotency_key: Annotated[str, Form(min_length=1, max_length=200)],
+    expected_case_version: Annotated[int, Form(ge=1)],
+    session: Annotated[Session, Depends(get_db)],
+    object_store: Annotated[ObjectStore, Depends(get_object_store)],
+    dispatcher: Annotated[JobDispatcher, Depends(get_dispatcher)],
+    settings: Annotated[Settings, Depends(get_settings)],
+    supersedes_id: Annotated[uuid.UUID | None, Form()] = None,
+) -> CaseAttachmentAccepted:
+    body = file.file.read(settings.max_upload_bytes + 1)
+    service = PayableCaseService(
+        session,
+        object_store=object_store,
+        dispatcher=dispatcher,
+        max_upload_bytes=settings.max_upload_bytes,
+    )
+    try:
+        return service.attach(
+            case_id,
+            role=role,
+            idempotency_key=idempotency_key,
+            expected_case_version=expected_case_version,
+            supersedes_id=supersedes_id,
+            command=UploadCommand(
+                filename=file.filename or "upload",
+                content_type=file.content_type or "application/octet-stream",
+                body=body,
+            ),
+        )
+    except UnsupportedDocumentError as exc:
+        raise HTTPException(
+            status_code=415,
+            detail={"code": "UNSUPPORTED_DOCUMENT", "message": str(exc)},
+        ) from exc
+    except EmptyDocumentError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail={"code": "EMPTY_DOCUMENT", "message": "The uploaded file is empty"},
+        ) from exc
+    except DocumentTooLargeError as exc:
+        raise HTTPException(
+            status_code=413,
+            detail={"code": "DOCUMENT_TOO_LARGE", "message": "The uploaded file is too large"},
+        ) from exc
+    except (CaseConflictError, CaseNotFoundError, CaseNotReadyError) as exc:
+        raise _case_http_error(exc) from exc
+
+
+@app.get(
+    "/v1/cases/{case_id}/documents",
+    response_model=list[CaseDocumentRead],
+    tags=["cases"],
+)
+def list_case_documents(
+    case_id: uuid.UUID,
+    session: Annotated[Session, Depends(get_db)],
+) -> list[CaseDocumentRead]:
+    service = PayableCaseService(session)
+    try:
+        return [attachment_to_read(session, item) for item in service.list_documents(case_id)]
+    except CaseNotFoundError as exc:
+        raise _case_http_error(exc) from exc
+
+
+@app.get(
+    "/v1/cases/{case_id}/extractions",
+    response_model=list[CaseExtractionRead],
+    tags=["cases"],
+)
+def list_case_extractions(
+    case_id: uuid.UUID,
+    session: Annotated[Session, Depends(get_db)],
+) -> list[CaseExtractionRead]:
+    service = PayableCaseService(session)
+    try:
+        attachments = service.list_documents(case_id)
+    except CaseNotFoundError as exc:
+        raise _case_http_error(exc) from exc
+    result: list[CaseExtractionRead] = []
+    for attachment in attachments:
+        if attachment.role == DocumentRole.INVOICE:
+            invoice_run = current_successful_extraction(session, attachment.document_id)
+            if invoice_run is not None:
+                result.append(
+                    CaseExtractionRead(
+                        id=invoice_run.id,
+                        document_id=invoice_run.document_id,
+                        role=attachment.role,
+                        extractor_name=invoice_run.extractor_name,
+                        extractor_version=invoice_run.extractor_version,
+                        schema_version=invoice_run.schema_version,
+                        status=invoice_run.status.value,
+                        output=invoice_run.output_json,
+                        used_ocr=invoice_run.used_ocr,
+                        latency_ms=invoice_run.latency_ms,
+                        error_code=invoice_run.error_code,
+                        created_at=invoice_run.created_at,
+                        completed_at=invoice_run.completed_at,
+                    )
+                )
+            continue
+        supporting_run = session.scalar(
+            select(SupportingExtractionRun)
+            .where(
+                SupportingExtractionRun.document_id == attachment.document_id,
+                SupportingExtractionRun.role == attachment.role,
+            )
+            .order_by(SupportingExtractionRun.created_at.desc())
+            .limit(1)
+        )
+        if supporting_run is not None:
+            result.append(
+                CaseExtractionRead(
+                    id=supporting_run.id,
+                    document_id=supporting_run.document_id,
+                    role=supporting_run.role,
+                    extractor_name=supporting_run.extractor_name,
+                    extractor_version=supporting_run.extractor_version,
+                    schema_version=supporting_run.schema_version,
+                    status=supporting_run.status.value,
+                    output=supporting_run.output_json,
+                    used_ocr=supporting_run.used_ocr,
+                    latency_ms=supporting_run.latency_ms,
+                    error_code=supporting_run.error_code,
+                    created_at=supporting_run.created_at,
+                    completed_at=supporting_run.completed_at,
+                )
+            )
+    return result
+
+
+@app.get(
+    "/v1/cases/{case_id}/events",
+    response_class=StreamingResponse,
+    tags=["cases"],
+)
+async def stream_case_events(
+    case_id: uuid.UUID,
+    request: Request,
+    session_factory: Annotated[sessionmaker[Session], Depends(get_session_factory)],
+    settings: Annotated[Settings, Depends(get_settings)],
+    last_event_id: Annotated[str | None, Header(alias="Last-Event-ID")] = None,
+) -> StreamingResponse:
+    with session_factory() as initial_session:
+        try:
+            PayableCaseService(initial_session).get(case_id)
+        except CaseNotFoundError as exc:
+            raise _case_http_error(exc) from exc
+    starting_sequence = _last_event_sequence(last_event_id)
+
+    async def generate() -> AsyncIterator[str]:
+        sequence = starting_sequence
+        heartbeat_due = time.monotonic() + settings.sse_heartbeat_seconds
+        while True:
+            if await request.is_disconnected():
+                return
+            with session_factory() as event_session:
+                events = list(
+                    event_session.scalars(
+                        select(CaseEvent)
+                        .where(
+                            CaseEvent.case_id == case_id,
+                            CaseEvent.sequence_number > sequence,
+                        )
+                        .order_by(CaseEvent.sequence_number)
+                        .limit(settings.sse_batch_size)
+                    )
+                )
+            for event in events:
+                read = case_event_to_read(event)
+                sequence = event.sequence_number
+                yield _sse_message(
+                    event=event.event_type,
+                    event_id=sequence,
+                    data=read.model_dump_json(),
+                )
+            now = time.monotonic()
+            if now >= heartbeat_due:
+                yield _sse_message(event="heartbeat", data="{}")
+                heartbeat_due = now + settings.sse_heartbeat_seconds
+            await asyncio.sleep(settings.sse_poll_interval_seconds)
+
+    return StreamingResponse(generate(), media_type="text/event-stream")
+
+
+@app.post(
+    "/v1/cases/{case_id}/purchase-order/confirm",
+    response_model=ConfirmationRead,
+    tags=["cases"],
+)
+def confirm_case_purchase_order(
+    case_id: uuid.UUID,
+    command: PurchaseOrderConfirmation,
+    session: Annotated[Session, Depends(get_db)],
+) -> ConfirmationRead:
+    try:
+        return PayableCaseService(session).confirm_purchase_order(case_id, command)
+    except (CaseConflictError, CaseNotFoundError, CaseNotReadyError) as exc:
+        raise _case_http_error(exc) from exc
+
+
+@app.post(
+    "/v1/cases/{case_id}/receipts/{document_id}/confirm",
+    response_model=ConfirmationRead,
+    tags=["cases"],
+)
+def confirm_case_receipt(
+    case_id: uuid.UUID,
+    document_id: uuid.UUID,
+    command: ReceiptConfirmation,
+    session: Annotated[Session, Depends(get_db)],
+) -> ConfirmationRead:
+    try:
+        return PayableCaseService(session).confirm_receipt(case_id, document_id, command)
+    except (CaseConflictError, CaseNotFoundError, CaseNotReadyError) as exc:
+        raise _case_http_error(exc) from exc
+
+
+@app.post("/v1/cases/{case_id}/match", response_model=MatchRunRead, tags=["cases"])
+def match_payable_case(
+    case_id: uuid.UUID,
+    command: CaseMatchCommand,
+    session: Annotated[Session, Depends(get_db)],
+) -> MatchRunRead:
+    try:
+        return match_run_to_read(PayableCaseService(session).match(case_id, command))
+    except (CaseConflictError, CaseNotFoundError, CaseNotReadyError) as exc:
+        raise _case_http_error(exc) from exc
 
 
 @app.post(

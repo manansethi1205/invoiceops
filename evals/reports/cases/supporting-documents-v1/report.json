@@ -1,0 +1,25 @@
+{
+  "dataset": "supporting-documents-synthetic-v1",
+  "document_count": 30,
+  "goods_receipt": {
+    "line_item_f1": 1.0,
+    "receipt_number_exact_match": 1.0,
+    "received_date_exact_match": 1.0,
+    "referenced_po_number_exact_match": 1.0,
+    "schema_valid_rate": 1.0
+  },
+  "purchase_order": {
+    "currency_exact_match": 1.0,
+    "issue_date_exact_match": 1.0,
+    "line_item_f1": 1.0,
+    "po_number_exact_match": 1.0,
+    "schema_valid_rate": 1.0,
+    "total_exact_match": 1.0
+  },
+  "system": {
+    "confirmation_required_rate": 1.0,
+    "false_canonical_record_count": 0,
+    "p50_latency_ms": 2.043,
+    "p95_latency_ms": 4.39
+  }
+}

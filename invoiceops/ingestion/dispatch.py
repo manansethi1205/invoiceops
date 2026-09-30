@@ -8,6 +8,8 @@ from invoiceops.config import get_settings
 class JobDispatcher(Protocol):
     def enqueue(self, job_id: str) -> None: ...
 
+    def enqueue_supporting(self, case_document_id: str) -> None: ...
+
 
 class TaskSender(Protocol):
     def send_task(
@@ -36,6 +38,17 @@ class CeleryJobDispatcher:
         self.client.send_task(
             "invoiceops.process_document",
             args=[job_id],
+            headers=headers,
+        )
+
+    def enqueue_supporting(self, case_document_id: str) -> None:
+        from invoiceops.observability.context import get_request_id
+
+        request_id = get_request_id()
+        headers = {"x-request-id": request_id} if request_id is not None else None
+        self.client.send_task(
+            "invoiceops.process_supporting_document",
+            args=[case_document_id],
             headers=headers,
         )
 

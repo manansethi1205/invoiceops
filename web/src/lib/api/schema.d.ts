@@ -58,6 +58,143 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/cases": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Payable Case */
+        post: operations["create_payable_case_v1_cases_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/cases/{case_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Payable Case */
+        get: operations["get_payable_case_v1_cases__case_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/cases/{case_id}/documents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Case Documents */
+        get: operations["list_case_documents_v1_cases__case_id__documents_get"];
+        put?: never;
+        /** Attach Case Document */
+        post: operations["attach_case_document_v1_cases__case_id__documents_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/cases/{case_id}/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Stream Case Events */
+        get: operations["stream_case_events_v1_cases__case_id__events_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/cases/{case_id}/extractions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Case Extractions */
+        get: operations["list_case_extractions_v1_cases__case_id__extractions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/cases/{case_id}/match": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Match Payable Case */
+        post: operations["match_payable_case_v1_cases__case_id__match_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/cases/{case_id}/purchase-order/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Confirm Case Purchase Order */
+        post: operations["confirm_case_purchase_order_v1_cases__case_id__purchase_order_confirm_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/cases/{case_id}/receipts/{document_id}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Confirm Case Receipt */
+        post: operations["confirm_case_receipt_v1_cases__case_id__receipts__document_id__confirm_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/dashboard/summary": {
         parameters: {
             query?: never;
@@ -535,6 +672,21 @@ export interface components {
             /** Valid */
             valid: boolean;
         };
+        /** Body_attach_case_document_v1_cases__case_id__documents_post */
+        Body_attach_case_document_v1_cases__case_id__documents_post: {
+            /** Expected Case Version */
+            expected_case_version: number;
+            /**
+             * File
+             * @description PDF, JPEG, or PNG evidence
+             */
+            file: string;
+            /** Idempotency Key */
+            idempotency_key: string;
+            role: components["schemas"]["DocumentRole"];
+            /** Supersedes Id */
+            supersedes_id?: string | null;
+        };
         /** Body_upload_invoice_v1_invoices_post */
         Body_upload_invoice_v1_invoices_post: {
             /**
@@ -554,6 +706,137 @@ export interface components {
             /** Y1 */
             y1: number;
         };
+        /** CaseAttachmentAccepted */
+        CaseAttachmentAccepted: {
+            attachment: components["schemas"]["CaseDocumentRead"];
+            case: components["schemas"]["CaseRead"];
+            /** Deduplicated Document */
+            deduplicated_document: boolean;
+            /** Replayed */
+            replayed: boolean;
+        };
+        /** CaseCreate */
+        CaseCreate: {
+            /** Idempotency Key */
+            idempotency_key: string;
+        };
+        /** CaseDocumentRead */
+        CaseDocumentRead: {
+            /** Attachment Order */
+            attachment_order: number;
+            /** Byte Size */
+            byte_size: number;
+            /**
+             * Case Id
+             * Format: uuid
+             */
+            case_id: string;
+            confirmation_status: components["schemas"]["ConfirmationStatus"];
+            /** Content Type */
+            content_type: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Document Id
+             * Format: uuid
+             */
+            document_id: string;
+            extraction_status: components["schemas"]["SupportingExtractionStatus"] | null;
+            /** Filename */
+            filename: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Is Active */
+            is_active: boolean;
+            /**
+             * Job Id
+             * Format: uuid
+             */
+            job_id: string;
+            /** Job Status */
+            job_status: string;
+            role: components["schemas"]["DocumentRole"];
+            /** Supersedes Id */
+            supersedes_id: string | null;
+        };
+        /** CaseExtractionRead */
+        CaseExtractionRead: {
+            /** Completed At */
+            completed_at: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Document Id
+             * Format: uuid
+             */
+            document_id: string;
+            /** Error Code */
+            error_code: string | null;
+            /** Extractor Name */
+            extractor_name: string;
+            /** Extractor Version */
+            extractor_version: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Latency Ms */
+            latency_ms: number | null;
+            /** Output */
+            output: components["schemas"]["Invoice"] | components["schemas"]["ExtractedPurchaseOrder"] | components["schemas"]["ExtractedGoodsReceipt"] | null;
+            role: components["schemas"]["DocumentRole"];
+            /** Schema Version */
+            schema_version: string;
+            /** Status */
+            status: string;
+            /** Used Ocr */
+            used_ocr: boolean | null;
+        };
+        /** CaseMatchCommand */
+        CaseMatchCommand: {
+            /** Expected Case Version */
+            expected_case_version: number;
+            /** Idempotency Key */
+            idempotency_key: string;
+        };
+        /** CaseRead */
+        CaseRead: {
+            /** Case Number */
+            case_number: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            status: components["schemas"]["CaseStatus"];
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Version */
+            version: number;
+        };
+        /**
+         * CaseStatus
+         * @enum {string}
+         */
+        CaseStatus: "DRAFT" | "PROCESSING" | "NEEDS_CONFIRMATION" | "READY_TO_MATCH" | "MATCHED" | "NEEDS_REVIEW" | "FAILED";
         /**
          * CheckSeverity
          * @enum {string}
@@ -571,6 +854,45 @@ export interface components {
             /** Expected Version */
             expected_version: number;
         };
+        /** ConfirmationRead */
+        ConfirmationRead: {
+            /**
+             * Canonical Record Id
+             * Format: uuid
+             */
+            canonical_record_id: string;
+            /** Canonical Record Type */
+            canonical_record_type: string;
+            /**
+             * Case Document Id
+             * Format: uuid
+             */
+            case_document_id: string;
+            /** Corrected Fields */
+            corrected_fields: string[];
+            /** Correction Reason */
+            correction_reason: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Extraction Run Id
+             * Format: uuid
+             */
+            extraction_run_id: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+        };
+        /**
+         * ConfirmationStatus
+         * @enum {string}
+         */
+        ConfirmationStatus: "NOT_REQUIRED" | "PENDING" | "CONFIRMED";
         /** DashboardSummary */
         DashboardSummary: {
             /** Documents Total */
@@ -584,6 +906,11 @@ export interface components {
             /** Reviews Waiting */
             reviews_waiting: number;
         };
+        /**
+         * DocumentRole
+         * @enum {string}
+         */
+        DocumentRole: "INVOICE" | "PURCHASE_ORDER" | "GOODS_RECEIPT" | "DELIVERY_NOTE";
         /** DuplicateRiskPolicy */
         DuplicateRiskPolicy: {
             /** Amount Absolute Tolerance */
@@ -649,6 +976,43 @@ export interface components {
             status: components["schemas"]["ExtractionStatus"];
             /** Value */
             value: string | null;
+        };
+        /** ExtractedGoodsReceipt */
+        ExtractedGoodsReceipt: {
+            /** Line Items */
+            line_items: components["schemas"]["ExtractedGoodsReceiptLine"][];
+            receipt_number: components["schemas"]["ExtractedField_str_"];
+            received_date: components["schemas"]["ExtractedField_date_"];
+            referenced_po_number: components["schemas"]["ExtractedField_str_"];
+            supplier: components["schemas"]["ExtractedField_str_"];
+        };
+        /** ExtractedGoodsReceiptLine */
+        ExtractedGoodsReceiptLine: {
+            accepted_quantity: components["schemas"]["ExtractedField_Decimal_"];
+            description: components["schemas"]["ExtractedField_str_"];
+            received_quantity: components["schemas"]["ExtractedField_Decimal_"];
+            rejected_quantity: components["schemas"]["ExtractedField_Decimal_"];
+        };
+        /** ExtractedPurchaseOrder */
+        ExtractedPurchaseOrder: {
+            buyer: components["schemas"]["ExtractedField_str_"];
+            currency: components["schemas"]["ExtractedField_str_"];
+            issue_date: components["schemas"]["ExtractedField_date_"];
+            /** Line Items */
+            line_items: components["schemas"]["ExtractedPurchaseOrderLine"][];
+            po_number: components["schemas"]["ExtractedField_str_"];
+            subtotal: components["schemas"]["ExtractedField_Decimal_"];
+            tax: components["schemas"]["ExtractedField_Decimal_"];
+            total: components["schemas"]["ExtractedField_Decimal_"];
+            vendor: components["schemas"]["ExtractedField_str_"];
+        };
+        /** ExtractedPurchaseOrderLine */
+        ExtractedPurchaseOrderLine: {
+            description: components["schemas"]["ExtractedField_str_"];
+            line_number: components["schemas"]["ExtractedField_str_"];
+            line_total: components["schemas"]["ExtractedField_Decimal_"];
+            ordered_quantity: components["schemas"]["ExtractedField_Decimal_"];
+            unit_price: components["schemas"]["ExtractedField_Decimal_"];
         };
         /** ExtractionPendingRead */
         ExtractionPendingRead: {
@@ -1098,6 +1462,44 @@ export interface components {
             /** Purchase Order Line Id */
             purchase_order_line_id?: string | null;
         };
+        /** PurchaseOrderConfirmation */
+        PurchaseOrderConfirmation: {
+            confirmed: components["schemas"]["PurchaseOrderConfirmationValues"];
+            /** Correction Reason */
+            correction_reason?: string | null;
+            /** Expected Case Version */
+            expected_case_version: number;
+            /**
+             * Extraction Run Id
+             * Format: uuid
+             */
+            extraction_run_id: string;
+            /** Extractor Version */
+            extractor_version: string;
+            /** Idempotency Key */
+            idempotency_key: string;
+        };
+        /** PurchaseOrderConfirmationValues */
+        PurchaseOrderConfirmationValues: {
+            /** Buyer Name */
+            buyer_name?: string | null;
+            /** Currency */
+            currency: string;
+            /** External Po Number */
+            external_po_number: string;
+            /** Issue Date */
+            issue_date?: string | null;
+            /** Lines */
+            lines: components["schemas"]["PurchaseOrderLineCreate"][];
+            /** Subtotal */
+            subtotal?: number | string | null;
+            /** Tax */
+            tax?: number | string | null;
+            /** Total */
+            total?: number | string | null;
+            /** Vendor Name */
+            vendor_name?: string | null;
+        };
         /** PurchaseOrderCreate */
         PurchaseOrderCreate: {
             /** Currency */
@@ -1167,6 +1569,55 @@ export interface components {
          * @enum {string}
          */
         ReasonCode: "INVOICE_SCHEMA_INCOMPLETE" | "INVOICE_LINE_ARITHMETIC_MISMATCH" | "INVOICE_SUBTOTAL_MISMATCH" | "INVOICE_TOTAL_MISMATCH" | "CURRENCY_MISMATCH" | "INVOICE_LINE_UNMATCHED" | "PO_LINE_UNMATCHED" | "DESCRIPTION_BELOW_THRESHOLD" | "DESCRIPTION_AMBIGUOUS" | "QUANTITY_MISMATCH" | "UNIT_PRICE_MISMATCH" | "EXTRA_INVOICE_LINE" | "LINE_AMOUNT_MISMATCH" | "NEGATIVE_AMOUNT" | "NO_GOODS_RECEIPT" | "RECEIPT_LINE_MISSING" | "GOODS_RECEIPT_REVERSED" | "INVOICE_QUANTITY_EXCEEDS_RECEIVED" | "CUMULATIVE_QUANTITY_EXCEEDS_RECEIVED" | "RECEIVED_QUANTITY_EXCEEDS_ORDERED" | "RECEIPT_AFTER_INVOICE" | "THREE_WAY_UNIT_PRICE_MISMATCH" | "THREE_WAY_LINE_AMOUNT_MISMATCH" | "RECEIPT_CONTEXT_CHANGED" | "ALLOCATION_RECONCILIATION_REQUIRED";
+        /** ReceiptConfirmation */
+        ReceiptConfirmation: {
+            confirmed: components["schemas"]["ReceiptConfirmationValues"];
+            /** Correction Reason */
+            correction_reason?: string | null;
+            /** Expected Case Version */
+            expected_case_version: number;
+            /**
+             * Extraction Run Id
+             * Format: uuid
+             */
+            extraction_run_id: string;
+            /** Extractor Version */
+            extractor_version: string;
+            /** Idempotency Key */
+            idempotency_key: string;
+        };
+        /** ReceiptConfirmationLine */
+        ReceiptConfirmationLine: {
+            /** Accepted Quantity */
+            accepted_quantity: number | string;
+            /** Description */
+            description: string;
+            /** Purchase Order Line Number */
+            purchase_order_line_number: string;
+            /** Received Quantity */
+            received_quantity: number | string;
+            /**
+             * Rejected Quantity
+             * @default 0
+             */
+            rejected_quantity: number | string;
+        };
+        /** ReceiptConfirmationValues */
+        ReceiptConfirmationValues: {
+            /** External Receipt Number */
+            external_receipt_number: string;
+            /** Lines */
+            lines: components["schemas"]["ReceiptConfirmationLine"][];
+            /**
+             * Received At
+             * Format: date-time
+             */
+            received_at: string;
+            /** Referenced Po Number */
+            referenced_po_number: string;
+            /** Supplier */
+            supplier?: string | null;
+        };
         /** ReceiptLineContextRead */
         ReceiptLineContextRead: {
             /** Active Receipts */
@@ -1532,6 +1983,11 @@ export interface components {
             severity: components["schemas"]["RiskSeverity"];
         };
         /**
+         * SupportingExtractionStatus
+         * @enum {string}
+         */
+        SupportingExtractionStatus: "PROCESSING" | "SUCCEEDED" | "FAILED";
+        /**
          * TextSource
          * @enum {string}
          */
@@ -1743,6 +2199,304 @@ export interface operations {
                     "application/json": {
                         [key: string]: string;
                     };
+                };
+            };
+        };
+    };
+    create_payable_case_v1_cases_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CaseCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CaseRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_payable_case_v1_cases__case_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CaseRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_case_documents_v1_cases__case_id__documents_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CaseDocumentRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    attach_case_document_v1_cases__case_id__documents_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_attach_case_document_v1_cases__case_id__documents_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CaseAttachmentAccepted"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    stream_case_events_v1_cases__case_id__events_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Last-Event-ID"?: string | null;
+            };
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_case_extractions_v1_cases__case_id__extractions_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CaseExtractionRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    match_payable_case_v1_cases__case_id__match_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CaseMatchCommand"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MatchRunRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    confirm_case_purchase_order_v1_cases__case_id__purchase_order_confirm_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PurchaseOrderConfirmation"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConfirmationRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    confirm_case_receipt_v1_cases__case_id__receipts__document_id__confirm_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+                document_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReceiptConfirmation"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConfirmationRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

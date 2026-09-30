@@ -114,6 +114,27 @@ jobs:
       - name: Pytest
         run: uv run pytest -m "not docker and not docile"
 
+      - name: Run supporting-document evaluation
+        run: |
+          mkdir -p "$RUNNER_TEMP/supporting-evaluation"
+          uv run python scripts/run_supporting_evaluation.py \
+            --output-dir "$RUNNER_TEMP/supporting-evaluation"
+
+      - name: Assert no false canonical records
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          report = json.loads(
+              Path("${{ runner.temp }}/supporting-evaluation/report.json").read_text()
+          )
+          count = report["system"]["false_canonical_record_count"]
+          if count != 0:
+              raise SystemExit(f"CI invariant failed: false_canonical_record_count={count}")
+          print("PASS: false_canonical_record_count == 0")
+          PY
+
       - name: Run matching evaluation
         run: |
           mkdir -p "$RUNNER_TEMP/matching-evaluation"

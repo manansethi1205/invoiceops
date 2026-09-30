@@ -43,6 +43,41 @@ export async function uploadInvoice(file: File): Promise<ApiSchema<"UploadAccept
   return (await response.json()) as ApiSchema<"UploadAccepted">;
 }
 
+export async function createPayableCase(idempotencyKey: string): Promise<ApiSchema<"CaseRead">> {
+  return required(api.POST("/v1/cases", { body: { idempotency_key: idempotencyKey } }));
+}
+
+export async function attachCaseDocument(
+  caseId: string,
+  options: {
+    file: File;
+    role: ApiSchema<"DocumentRole">;
+    idempotencyKey: string;
+    expectedCaseVersion: number;
+    supersedesId?: string;
+  },
+): Promise<ApiSchema<"CaseAttachmentAccepted">> {
+  const form = new FormData();
+  form.append("file", options.file);
+  form.append("role", options.role);
+  form.append("idempotency_key", options.idempotencyKey);
+  form.append("expected_case_version", String(options.expectedCaseVersion));
+  if (options.supersedesId) form.append("supersedes_id", options.supersedesId);
+  const response = await fetch(`/api/backend/v1/cases/${caseId}/documents`, {
+    method: "POST",
+    body: form,
+  });
+  if (!response.ok) {
+    const body: unknown = await response.json().catch(() => null);
+    const detail =
+      typeof body === "object" && body !== null && "detail" in body
+        ? JSON.stringify(body.detail)
+        : "Document attachment failed";
+    throw new ApiError(sanitizeMessage(detail, "Document attachment failed"), response.status);
+  }
+  return (await response.json()) as ApiSchema<"CaseAttachmentAccepted">;
+}
+
 export async function required<T>(
   request: Promise<{ data?: T; error?: unknown; response: Response }>,
 ): Promise<T> {

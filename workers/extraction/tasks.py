@@ -4,8 +4,10 @@ from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import Any
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from invoiceops.cases.events import append_case_event
 from invoiceops.db import SessionLocal
 from invoiceops.extraction.failures import (
     TERMINAL_EXTRACTION_ERRORS,
@@ -13,13 +15,21 @@ from invoiceops.extraction.failures import (
     safe_extraction_error_message,
 )
 from invoiceops.jobs.events import append_job_event
-from invoiceops.models import Document, ExtractionRun, IngestionJob, JobStatus
+from invoiceops.models import (
+    CaseDocument,
+    Document,
+    ExtractionRun,
+    IngestionJob,
+    JobStatus,
+    PayableCase,
+)
 from invoiceops.observability.context import request_id_or_new, reset_request_id, set_request_id
 from invoiceops.observability.metrics import metrics
 from invoiceops.observability.tracing import span
+from invoiceops.schemas.cases import CaseStatus, DocumentRole
 from invoiceops.schemas.jobs import JobEventType
 from workers.extraction.celery_app import celery_app
-from workers.extraction.factory import build_extraction_service
+from workers.extraction.factory import build_extraction_service, build_supporting_extraction_service
 
 logger = logging.getLogger(__name__)
 MAX_RETRIES = 3
@@ -123,6 +133,39 @@ def run_job(
         status="completed",
         message="Invoice processing completed",
     )
+    attachments = list(
+        session.scalars(
+            select(CaseDocument).where(
+                CaseDocument.document_id == job.document_id,
+                CaseDocument.role == DocumentRole.INVOICE,
+                CaseDocument.active_slot == DocumentRole.INVOICE.value,
+            )
+        )
+    )
+    for attachment in attachments:
+        extraction_event_id = (
+            processed.id if isinstance(processed, ExtractionRun) else job.id
+        )
+        append_case_event(
+            session,
+            case_id=attachment.case_id,
+            event_key=f"invoice-extraction-completed:{extraction_event_id}",
+            event_type="EXTRACTION_COMPLETED",
+            stage="extraction",
+            status="completed",
+            message="Invoice extraction completed",
+            document_id=attachment.document_id,
+            document_role=attachment.role,
+            payload={
+                "extraction_run_id": (
+                    str(processed.id) if isinstance(processed, ExtractionRun) else None
+                )
+            },
+        )
+        payable_case = session.get(PayableCase, attachment.case_id)
+        if payable_case is not None and payable_case.status == CaseStatus.PROCESSING:
+            payable_case.status = CaseStatus.NEEDS_CONFIRMATION
+            payable_case.version += 1
     session.commit()
     metrics.add("jobs", "jobs", status=JobStatus.SUCCEEDED.value)
     logger.info(
@@ -162,6 +205,32 @@ def record_failure(
             message="Invoice processing failed",
             payload={"error_code": job.error_code},
         )
+        attachments = list(
+            session.scalars(
+                select(CaseDocument).where(
+                    CaseDocument.document_id == job.document_id,
+                    CaseDocument.role == DocumentRole.INVOICE,
+                    CaseDocument.active_slot == DocumentRole.INVOICE.value,
+                )
+            )
+        )
+        for attachment in attachments:
+            append_case_event(
+                session,
+                case_id=attachment.case_id,
+                event_key=f"invoice-processing-failed:{job.id}",
+                event_type="PROCESSING_FAILED",
+                stage="processing",
+                status="failed",
+                message="Invoice processing failed",
+                document_id=attachment.document_id,
+                document_role=attachment.role,
+                payload={"error_code": job.error_code},
+            )
+            payable_case = session.get(PayableCase, attachment.case_id)
+            if payable_case is not None and payable_case.status != CaseStatus.FAILED:
+                payable_case.status = CaseStatus.FAILED
+                payable_case.version += 1
     session.commit()
 
 
@@ -234,5 +303,43 @@ def _process_document(self: Any, job_id: str) -> None:
             status=JobStatus.FAILED.value if terminal else JobStatus.QUEUED.value,
         )
         if terminal:
+            raise
+        raise self.retry(exc=exc, countdown=min(2**retry_count, 30)) from exc
+
+
+@celery_app.task(  # type: ignore[untyped-decorator]
+    bind=True,
+    name="invoiceops.process_supporting_document",
+    max_retries=MAX_RETRIES,
+    acks_late=True,
+    reject_on_worker_lost=True,
+)
+def process_supporting_document(self: Any, case_document_id: str) -> None:
+    """Extract a supporting proof independently from canonical confirmation."""
+    parsed_id = uuid.UUID(case_document_id)
+    try:
+        with SessionLocal() as session:
+            attachment = session.get(CaseDocument, parsed_id)
+            if attachment is None:
+                logger.warning(
+                    "Worker received an unknown case document",
+                    extra={
+                        "event": "worker.case_document_missing",
+                        "case_document_id": case_document_id,
+                    },
+                )
+                return
+            build_supporting_extraction_service(session).process(attachment)
+    except TERMINAL_EXTRACTION_ERRORS:
+        raise
+    except Exception as exc:
+        retry_count = int(self.request.retries)
+        if retry_count >= MAX_RETRIES:
+            with SessionLocal() as session:
+                attachment = session.get(CaseDocument, parsed_id)
+                if attachment is not None:
+                    build_supporting_extraction_service(session).mark_operational_failure(
+                        attachment
+                    )
             raise
         raise self.retry(exc=exc, countdown=min(2**retry_count, 30)) from exc

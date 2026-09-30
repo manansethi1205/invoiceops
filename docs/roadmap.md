@@ -6,6 +6,15 @@ cumulative allocations, review/risk integration and evaluation.
 ERP integration, payments, production authentication and generic anomaly models remain out of
 scope.
 
+## Evidence-backed multi-document cases — implemented
+
+- Attach actual invoice, purchase-order and multiple receipt/delivery documents to a versioned
+  case with retry-safe idempotency and append-only supersession.
+- Extract supporting documents into typed evidence-linked observations without altering the
+  frozen invoice baseline.
+- Require confirmation before canonical PO/receipt creation and deterministic matching.
+- Stream durable role-aware case events and retain exact match context.
+
 Build this as independently measurable vertical slices. AI handles perception and ambiguity;
 deterministic code handles arithmetic, policy, matching, and approval.
 
