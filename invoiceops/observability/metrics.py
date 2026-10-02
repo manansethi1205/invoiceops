@@ -27,6 +27,7 @@ ALLOWED_LABELS: dict[str, set[str]] = {
     "case": {"event"},
     "case_attachment": {"role", "outcome"},
     "support_extraction": {"role", "method", "status"},
+    "support_vlm": {"role", "reason", "outcome"},
     "confirmation": {"role", "field"},
 }
 ALLOWED_VALUES: dict[tuple[str, str], set[LabelValue]] = {
@@ -73,6 +74,15 @@ ALLOWED_VALUES: dict[tuple[str, str], set[LabelValue]] = {
     },
     ("support_extraction", "method"): {"EMBEDDED_TEXT", "OCR"},
     ("support_extraction", "status"): {"SUCCEEDED", "FAILED"},
+    ("support_vlm", "role"): {"PURCHASE_ORDER", "GOODS_RECEIPT", "DELIVERY_NOTE"},
+    ("support_vlm", "reason"): {
+        "NONE", "REQUIRED_FIELD_MISSING", "REQUIRED_FIELD_AMBIGUOUS",
+        "INCOMPLETE_LINE_ITEMS", "NO_LINE_ITEMS", "TOTAL_CONFLICT",
+        "QUANTITY_ASSOCIATION_INCOMPLETE", "OCR_REQUIRED_FIELD",
+        "QUOTE_NOT_FOUND", "QUOTE_NOT_UNIQUE", "PAGE_OUT_OF_RANGE",
+        "VALUE_NORMALIZATION_FAILED",
+    },
+    ("support_vlm", "outcome"): {"SKIPPED", "SUCCEEDED", "FAILED"},
     ("confirmation", "role"): {"PURCHASE_ORDER", "GOODS_RECEIPT", "DELIVERY_NOTE"},
     ("confirmation", "field"): {
         "external_po_number",
@@ -183,6 +193,18 @@ class InvoiceOpsMetrics:
             )
             self.support_extractions: Counter = meter.create_counter(
                 "invoiceops_support_extractions_total"
+            )
+            self.support_vlm_calls: Counter = meter.create_counter(
+                "invoiceops_support_vlm_calls_total"
+            )
+            self.support_grounding_rejections: Counter = meter.create_counter(
+                "invoiceops_support_grounding_rejections_total"
+            )
+            self.support_vlm_duration: Histogram = meter.create_histogram(
+                "invoiceops_support_vlm_duration_seconds", unit="s"
+            )
+            self.support_vlm_tokens: Histogram = meter.create_histogram(
+                "invoiceops_support_vlm_tokens", unit="1"
             )
             self.confirmed_corrections: Counter = meter.create_counter(
                 "invoiceops_confirmation_corrected_fields_total"

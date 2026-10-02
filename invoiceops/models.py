@@ -770,6 +770,55 @@ class SupportingExtractionRun(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     document: Mapped[Document] = relationship(back_populates="supporting_extraction_runs")
+    model_calls: Mapped[list["SupportingModelCall"]] = relationship(
+        back_populates="supporting_run", cascade="all, delete-orphan"
+    )
+
+
+class SupportingModelCall(Base):
+    __tablename__ = "supporting_model_calls"
+    __table_args__ = (
+        UniqueConstraint(
+            "supporting_run_id", "prompt_version", "request_fingerprint",
+            name="uq_support_model_run_prompt_fingerprint",
+        ),
+        CheckConstraint("length(request_fingerprint) = 64", name="ck_support_model_fingerprint"),
+        CheckConstraint("length(input_document_hash) = 64", name="ck_support_model_document_hash"),
+        CheckConstraint(
+            "role IN ('PURCHASE_ORDER', 'GOODS_RECEIPT', 'DELIVERY_NOTE')",
+            name="ck_support_model_role",
+        ),
+        CheckConstraint("latency_ms IS NULL OR latency_ms >= 0", name="ck_support_model_latency"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    supporting_run_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("supporting_extraction_runs.id", ondelete="CASCADE"), index=True
+    )
+    role: Mapped[DocumentRole] = mapped_column(
+        Enum(DocumentRole, name="support_model_role", native_enum=False)
+    )
+    provider: Mapped[str] = mapped_column(String(50))
+    requested_model: Mapped[str] = mapped_column(String(100))
+    returned_model: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    prompt_version: Mapped[str] = mapped_column(String(100))
+    status: Mapped[ModelCallStatus] = mapped_column(
+        Enum(ModelCallStatus, name="support_model_status", native_enum=False)
+    )
+    input_document_hash: Mapped[str] = mapped_column(String(64))
+    request_fingerprint: Mapped[str] = mapped_column(String(64))
+    routing_json: Mapped[dict[str, object]] = mapped_column(JSON)
+    candidate_json: Mapped[dict[str, object] | None] = mapped_column(JSON, nullable=True)
+    grounding_json: Mapped[dict[str, object] | None] = mapped_column(JSON, nullable=True)
+    provider_response_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    input_tokens: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    output_tokens: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    total_tokens: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    latency_ms: Mapped[float | None] = mapped_column(Float, nullable=True)
+    error_code: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    supporting_run: Mapped[SupportingExtractionRun] = relationship(back_populates="model_calls")
 
 
 class CaseConfirmation(Base):

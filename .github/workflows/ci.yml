@@ -120,6 +120,25 @@ jobs:
           uv run python scripts/run_supporting_evaluation.py \
             --output-dir "$RUNNER_TEMP/supporting-evaluation"
 
+      - name: Run supporting-model replay safety evaluation
+        run: |
+          uv run python scripts/run_supporting_hybrid_evaluation.py \
+            --output "$RUNNER_TEMP/supporting-hybrid-replay.json"
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          report = json.loads(
+              (Path(os.environ["RUNNER_TEMP"]) / "supporting-hybrid-replay.json").read_text()
+          )
+          if report["false_canonical_record_count"] != 0:
+              raise SystemExit("Supporting replay created a canonical record")
+          if report["confirmation_rate"] is not None:
+              raise SystemExit("Replay must not claim measured human confirmations")
+          print("Supporting replay safety invariants passed")
+          PY
+
       - name: Assert no false canonical records
         run: |
           python - <<'PY'

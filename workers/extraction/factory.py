@@ -12,28 +12,69 @@ from invoiceops.extraction.hybrid.service import HybridExtractionService
 from invoiceops.extraction.pipeline import DeterministicInvoiceExtractor
 from invoiceops.extraction.preprocessing import DocumentTextExtractor
 from invoiceops.extraction.service import ExtractionService
+from invoiceops.extraction.supporting_hybrid_service import HybridSupportingExtractionService
+from invoiceops.extraction.supporting_provider import (
+    FakeSupportingVisionProvider,
+    OpenAISupportingVisionProvider,
+    ReplaySupportingVisionProvider,
+    SupportingVisionProvider,
+)
 from invoiceops.extraction.supporting_service import SupportingExtractionService
 from invoiceops.ingestion.storage import S3ObjectStore
 from invoiceops.observability.tracing import span
 
 
-def build_supporting_extraction_service(session: Session) -> SupportingExtractionService:
+def build_supporting_extraction_service(
+    session: Session,
+) -> SupportingExtractionService | HybridSupportingExtractionService:
     settings = get_settings()
-    return SupportingExtractionService(
+    store = S3ObjectStore(settings)
+    text_extractor = DocumentTextExtractor(
+        stage_context=lambda stage: span(f"supporting_extraction.{stage}")
+    )
+    baseline = SupportingExtractionService(
         session=session,
-        object_store=S3ObjectStore(settings),
-        text_extractor=DocumentTextExtractor(
-            stage_context=lambda stage: span(f"supporting_extraction.{stage}")
+        object_store=store,
+        text_extractor=text_extractor,
+    )
+    if not settings.supporting_vlm_enabled:
+        return baseline
+
+    def provider_factory() -> SupportingVisionProvider:
+        if settings.supporting_vlm_provider == "fake":
+            return FakeSupportingVisionProvider()
+        if settings.supporting_vlm_provider == "replay":
+            return ReplaySupportingVisionProvider([])
+        api_key = settings.openai_api_key
+        if api_key is None:
+            raise ValueError("supporting provider credentials are not configured")
+        return OpenAISupportingVisionProvider(
+            api_key=api_key.get_secret_value(),
+            model=settings.supporting_vlm_model,
+            timeout_seconds=settings.vlm_timeout_seconds,
+            image_detail=settings.vlm_image_detail,
+        )
+
+    return HybridSupportingExtractionService(
+        session=session,
+        object_store=store,
+        text_extractor=text_extractor,
+        baseline_service=baseline,
+        renderer=PageRenderer(
+            dpi=settings.vlm_render_dpi,
+            max_dimension=settings.vlm_max_image_dimension,
+            max_pages=settings.vlm_max_pages,
         ),
+        provider_factory=provider_factory,
+        provider_name=settings.supporting_vlm_provider,
+        requested_model=settings.supporting_vlm_model,
     )
 
 
 def build_extraction_service(session: Session) -> ExtractionService | HybridExtractionService:
     settings = get_settings()
     store = S3ObjectStore(settings)
-    text_extractor = DocumentTextExtractor(
-        stage_context=lambda stage: span(f"extraction.{stage}")
-    )
+    text_extractor = DocumentTextExtractor(stage_context=lambda stage: span(f"extraction.{stage}"))
     baseline = ExtractionService(
         session=session,
         object_store=store,

@@ -282,6 +282,8 @@ approval. These findings are product inputs, not measured system results.
 
 See [architecture](docs/architecture.md) and [ADR-001](docs/adr/001-ingestion-boundary.md).
 See [hybrid extraction](docs/hybrid-extraction.md) for routing, grounding, fusion, and privacy.
+See [supporting-document vision fallback](docs/supporting-vlm.md) for the opt-in PO/receipt path,
+human-confirmation boundary, and synthetic replay evaluation.
 See [two-way matching](docs/matching.md) for policy definitions, reason codes, API behavior, and
 known limitations.
 See [three-way matching](docs/three-way-matching.md) for receipt idempotency, context fingerprints,

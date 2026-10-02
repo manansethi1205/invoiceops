@@ -18,6 +18,34 @@ def test_po_line_amount_migration_preserves_legacy_rows(
     database_url = f"sqlite+pysqlite:///{(tmp_path / 'legacy-po.db').as_posix()}"
     monkeypatch.setenv("DATABASE_URL", database_url)
     get_settings.cache_clear()
+
+
+def test_supporting_model_call_migration_is_reversible(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    database_url = f"sqlite+pysqlite:///{(tmp_path / 'support-model.db').as_posix()}"
+    monkeypatch.setenv("DATABASE_URL", database_url)
+    get_settings.cache_clear()
+    config = Config("alembic.ini")
+    command.upgrade(config, "20261001_0014")
+    engine = create_engine(database_url)
+    assert "supporting_model_calls" not in inspect(engine).get_table_names()
+    command.upgrade(config, "head")
+    assert "supporting_model_calls" in inspect(engine).get_table_names()
+    columns = {column["name"] for column in inspect(engine).get_columns("supporting_model_calls")}
+    assert {
+        "supporting_run_id",
+        "role",
+        "input_document_hash",
+        "candidate_json",
+        "grounding_json",
+        "error_code",
+    }.issubset(columns)
+    constraints = inspect(engine).get_unique_constraints("supporting_model_calls")
+    assert any(item["name"] == "uq_support_model_run_prompt_fingerprint" for item in constraints)
+    command.downgrade(config, "20261001_0014")
+    assert "supporting_model_calls" not in inspect(engine).get_table_names()
+    get_settings.cache_clear()
     config = Config("alembic.ini")
     command.upgrade(config, "20260930_0013")
     engine = create_engine(database_url)
@@ -190,11 +218,15 @@ def test_workflow_migrations_upgrade_clean_and_existing_schema(
     reconciled = MetaData()
     reconciled.reflect(engine)
     with engine.connect() as connection:
-        allocation = connection.execute(
-            select(reconciled.tables["three_way_allocations"]).where(
-                reconciled.tables["three_way_allocations"].c.id == allocation_id.hex
+        allocation = (
+            connection.execute(
+                select(reconciled.tables["three_way_allocations"]).where(
+                    reconciled.tables["three_way_allocations"].c.id == allocation_id.hex
+                )
             )
-        ).mappings().one()
+            .mappings()
+            .one()
+        )
     assert str(allocation["document_id"]).replace("-", "") == document_id.hex
     assert str(allocation["purchase_order_id"]).replace("-", "") == purchase_order_id.hex
     assert str(allocation["extraction_run_id"]).replace("-", "") == extraction_id.hex

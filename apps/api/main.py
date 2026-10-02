@@ -38,7 +38,10 @@ from invoiceops.cases.service import (
 )
 from invoiceops.config import Settings, get_settings
 from invoiceops.db import engine, get_db
-from invoiceops.extraction.selection import current_successful_extraction
+from invoiceops.extraction.selection import (
+    current_successful_extraction,
+    current_supporting_extraction,
+)
 from invoiceops.health import dependency_status
 from invoiceops.ingestion.dispatch import JobDispatcher
 from invoiceops.ingestion.service import (
@@ -73,7 +76,6 @@ from invoiceops.models import (
     ModelCallStatus,
     PurchaseOrder,
     ReviewCase,
-    SupportingExtractionRun,
     ThreeWayContext,
 )
 from invoiceops.observability.context import (
@@ -465,14 +467,8 @@ def list_case_extractions(
                     )
                 )
             continue
-        supporting_run = session.scalar(
-            select(SupportingExtractionRun)
-            .where(
-                SupportingExtractionRun.document_id == attachment.document_id,
-                SupportingExtractionRun.role == attachment.role,
-            )
-            .order_by(SupportingExtractionRun.created_at.desc())
-            .limit(1)
+        supporting_run = current_supporting_extraction(
+            session, attachment.document_id, attachment.role
         )
         if supporting_run is not None:
             result.append(

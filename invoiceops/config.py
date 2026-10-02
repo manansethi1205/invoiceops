@@ -19,6 +19,9 @@ class Settings(BaseSettings):
     s3_server_side_encryption: str | None = None
     max_upload_bytes: int = Field(default=15 * 1024 * 1024, gt=0)
     vlm_enabled: bool = False
+    supporting_vlm_enabled: bool = False
+    supporting_vlm_provider: str = "openai"
+    supporting_vlm_model: str = ""
     vlm_provider: str = "openai"
     vlm_model: str = ""
     vlm_prompt_version: str = "invoice-vision-v1"
@@ -49,6 +52,13 @@ class Settings(BaseSettings):
             ("http://", "https://")
         ):
             raise ValueError("OTEL_EXPORTER_OTLP_ENDPOINT must be an HTTP(S) endpoint")
+        if self.supporting_vlm_enabled:
+            if not self.supporting_vlm_model.strip():
+                raise ValueError("SUPPORTING_VLM_MODEL must be configured when enabled")
+            if self.supporting_vlm_provider not in {"openai", "fake", "replay"}:
+                raise ValueError("SUPPORTING_VLM_PROVIDER is unsupported")
+            if self.supporting_vlm_provider == "openai" and self.openai_api_key is None:
+                raise ValueError("OpenAI credentials are required for supporting VLM")
         if not self.vlm_enabled:
             return self
         if not self.vlm_model.strip():

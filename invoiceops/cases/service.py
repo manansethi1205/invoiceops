@@ -11,7 +11,10 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, aliased, selectinload
 
 from invoiceops.cases.events import append_case_event
-from invoiceops.extraction.selection import current_successful_extraction
+from invoiceops.extraction.selection import (
+    current_successful_extraction,
+    current_supporting_extraction,
+)
 from invoiceops.ingestion.dispatch import JobDispatcher
 from invoiceops.ingestion.service import IngestionService, UploadCommand
 from invoiceops.ingestion.storage import ObjectStore
@@ -85,15 +88,7 @@ def case_to_read(payable_case: PayableCase) -> CaseRead:
 def _supporting_run_for(
     session: Session, attachment: CaseDocument
 ) -> SupportingExtractionRun | None:
-    return session.scalar(
-        select(SupportingExtractionRun)
-        .where(
-            SupportingExtractionRun.document_id == attachment.document_id,
-            SupportingExtractionRun.role == attachment.role,
-        )
-        .order_by(SupportingExtractionRun.created_at.desc())
-        .limit(1)
-    )
+    return current_supporting_extraction(session, attachment.document_id, attachment.role)
 
 
 def attachment_to_read(session: Session, attachment: CaseDocument) -> CaseDocumentRead:

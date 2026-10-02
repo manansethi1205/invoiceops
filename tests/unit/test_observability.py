@@ -98,6 +98,18 @@ def test_runtime_metric_failures_are_fail_open(monkeypatch: pytest.MonkeyPatch) 
     runtime.set_review_backlog(1, 60.0)
 
 
+def test_supporting_model_metric_labels_are_bounded_codes_only() -> None:
+    assert validate_labels(
+        "support_vlm",
+        {"role": "PURCHASE_ORDER", "reason": "REQUIRED_FIELD_MISSING", "outcome": "SUCCEEDED"},
+    )
+    with pytest.raises(ValueError, match="unbounded metric label value"):
+        validate_labels(
+            "support_vlm",
+            {"role": "PURCHASE_ORDER", "reason": "PO-PRIVATE-123", "outcome": "SUCCEEDED"},
+        )
+
+
 def test_review_age_advances_at_collection_time(monkeypatch: pytest.MonkeyPatch) -> None:
     metrics_module = importlib.import_module("invoiceops.observability.metrics")
     runtime = InvoiceOpsMetrics()
