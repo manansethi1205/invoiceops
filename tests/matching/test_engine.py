@@ -43,6 +43,33 @@ def test_currency_mismatch_requires_review() -> None:
 
 
 @pytest.mark.parametrize(
+    ("printed_amount", "expected_decision"),
+    [
+        (None, MatchDecision.MATCHED),
+        ("1000.02", MatchDecision.MATCHED),
+        ("1000.0201", MatchDecision.NEEDS_REVIEW),
+    ],
+)
+def test_confirmed_po_line_amount_uses_absolute_tolerance(
+    printed_amount: str | None, expected_decision: MatchDecision
+) -> None:
+    po = purchase_order()
+    po.lines[0].line_total = None if printed_amount is None else Decimal(printed_amount)
+    result = match_invoice(invoice(), po)
+    assert result.decision == expected_decision
+    assert (ReasonCode.PO_LINE_AMOUNT_MISMATCH in result.reason_codes) is (
+        expected_decision == MatchDecision.NEEDS_REVIEW
+    )
+    if printed_amount is not None:
+        check = next(
+            check for check in result.checks if check.code == ReasonCode.PO_LINE_AMOUNT_MISMATCH
+        )
+        assert check.po_line_id == po.lines[0].id
+        assert check.expected == "1000.00"
+        assert check.actual == printed_amount
+
+
+@pytest.mark.parametrize(
     ("invoice_price", "expected_decision"),
     [
         ("101.00", MatchDecision.MATCHED),

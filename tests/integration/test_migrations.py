@@ -12,6 +12,55 @@ from invoiceops.review.audit import AUDIT_HASH_V1, event_hash
 from invoiceops.schemas.review import ReviewEventType
 
 
+def test_po_line_amount_migration_preserves_legacy_rows(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    database_url = f"sqlite+pysqlite:///{(tmp_path / 'legacy-po.db').as_posix()}"
+    monkeypatch.setenv("DATABASE_URL", database_url)
+    get_settings.cache_clear()
+    config = Config("alembic.ini")
+    command.upgrade(config, "20260930_0013")
+    engine = create_engine(database_url)
+    legacy = MetaData()
+    legacy.reflect(engine)
+    po_id = uuid.uuid4()
+    line_id = uuid.uuid4()
+    created_at = datetime(2026, 10, 1, tzinfo=UTC)
+    with engine.begin() as connection:
+        connection.execute(
+            legacy.tables["purchase_orders"].insert(),
+            {
+                "id": po_id.hex,
+                "external_po_number": "PO-LEGACY",
+                "vendor_name": "Synthetic Vendor",
+                "currency": "INR",
+                "created_at": created_at,
+            },
+        )
+        connection.execute(
+            legacy.tables["purchase_order_lines"].insert(),
+            {
+                "id": line_id.hex,
+                "purchase_order_id": po_id.hex,
+                "line_number": "1",
+                "description": "Synthetic item",
+                "ordered_quantity": "2",
+                "unit_price": "10",
+            },
+        )
+    command.upgrade(config, "head")
+    upgraded = MetaData()
+    upgraded.reflect(engine)
+    with engine.begin() as connection:
+        row = connection.execute(select(upgraded.tables["purchase_order_lines"])).one()
+        assert row._mapping["line_total"] is None
+    command.downgrade(config, "20260930_0013")
+    assert "line_total" not in {
+        column["name"] for column in inspect(engine).get_columns("purchase_order_lines")
+    }
+    get_settings.cache_clear()
+
+
 def test_workflow_migrations_upgrade_clean_and_existing_schema(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

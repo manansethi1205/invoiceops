@@ -1433,7 +1433,7 @@ export interface components {
             unit_price_relative_tolerance: string;
             /**
              * Version
-             * @default matching-v1
+             * @default matching-v2
              */
             version: string;
         };
@@ -1517,6 +1517,8 @@ export interface components {
             description: string;
             /** Line Number */
             line_number: string;
+            /** Line Total */
+            line_total?: number | string | null;
             /** Ordered Quantity */
             ordered_quantity: number | string;
             /** Unit Price */
@@ -1533,6 +1535,8 @@ export interface components {
             id: string;
             /** Line Number */
             line_number: string;
+            /** Line Total */
+            line_total?: string | null;
             /** Ordered Quantity */
             ordered_quantity: string;
             /**
@@ -1568,7 +1572,7 @@ export interface components {
          * ReasonCode
          * @enum {string}
          */
-        ReasonCode: "INVOICE_SCHEMA_INCOMPLETE" | "INVOICE_LINE_ARITHMETIC_MISMATCH" | "INVOICE_SUBTOTAL_MISMATCH" | "INVOICE_TOTAL_MISMATCH" | "CURRENCY_MISMATCH" | "INVOICE_LINE_UNMATCHED" | "PO_LINE_UNMATCHED" | "DESCRIPTION_BELOW_THRESHOLD" | "DESCRIPTION_AMBIGUOUS" | "QUANTITY_MISMATCH" | "UNIT_PRICE_MISMATCH" | "EXTRA_INVOICE_LINE" | "LINE_AMOUNT_MISMATCH" | "NEGATIVE_AMOUNT" | "NO_GOODS_RECEIPT" | "RECEIPT_LINE_MISSING" | "GOODS_RECEIPT_REVERSED" | "INVOICE_QUANTITY_EXCEEDS_RECEIVED" | "CUMULATIVE_QUANTITY_EXCEEDS_RECEIVED" | "RECEIVED_QUANTITY_EXCEEDS_ORDERED" | "RECEIPT_AFTER_INVOICE" | "THREE_WAY_UNIT_PRICE_MISMATCH" | "THREE_WAY_LINE_AMOUNT_MISMATCH" | "RECEIPT_CONTEXT_CHANGED" | "ALLOCATION_RECONCILIATION_REQUIRED";
+        ReasonCode: "INVOICE_SCHEMA_INCOMPLETE" | "INVOICE_LINE_ARITHMETIC_MISMATCH" | "INVOICE_SUBTOTAL_MISMATCH" | "INVOICE_TOTAL_MISMATCH" | "CURRENCY_MISMATCH" | "INVOICE_LINE_UNMATCHED" | "PO_LINE_UNMATCHED" | "DESCRIPTION_BELOW_THRESHOLD" | "DESCRIPTION_AMBIGUOUS" | "QUANTITY_MISMATCH" | "UNIT_PRICE_MISMATCH" | "EXTRA_INVOICE_LINE" | "LINE_AMOUNT_MISMATCH" | "PO_LINE_AMOUNT_MISMATCH" | "NEGATIVE_AMOUNT" | "NO_GOODS_RECEIPT" | "RECEIPT_LINE_MISSING" | "GOODS_RECEIPT_REVERSED" | "INVOICE_QUANTITY_EXCEEDS_RECEIVED" | "CUMULATIVE_QUANTITY_EXCEEDS_RECEIVED" | "RECEIVED_QUANTITY_EXCEEDS_ORDERED" | "RECEIPT_AFTER_INVOICE" | "THREE_WAY_UNIT_PRICE_MISMATCH" | "THREE_WAY_LINE_AMOUNT_MISMATCH" | "RECEIPT_CONTEXT_CHANGED" | "ALLOCATION_RECONCILIATION_REQUIRED";
         /** ReceiptConfirmation */
         ReceiptConfirmation: {
             confirmed: components["schemas"]["ReceiptConfirmationValues"];
@@ -2054,7 +2058,7 @@ export interface components {
             unit_price_relative_tolerance: string;
             /**
              * Version
-             * @default three-way-v1
+             * @default three-way-v2
              */
             version: string;
         };

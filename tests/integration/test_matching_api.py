@@ -15,7 +15,7 @@ from invoiceops.models import (
     MatchRun,
 )
 from invoiceops.observability.metrics import metrics
-from invoiceops.schemas.matching import MatchingPolicy, PurchaseOrderCreate
+from invoiceops.schemas.matching import MatchDecision, MatchingPolicy, PurchaseOrderCreate
 from tests.matching.helpers import invoice
 
 
@@ -76,9 +76,24 @@ def test_po_create_and_read_use_stable_decimal_strings(client: TestClient) -> No
     assert body["currency"] == "INR"
     assert body["lines"][0]["ordered_quantity"] == "2.00000000"
     assert body["lines"][0]["unit_price"] == "500.00000000"
+    assert body["lines"][0]["line_total"] is None
     fetched = client.get(f"/v1/purchase-orders/{body['id']}")
     assert fetched.status_code == 200
     assert fetched.json() == body
+
+
+def test_po_line_total_is_optional_decimal_and_persisted(client: TestClient) -> None:
+    payload = po_payload()
+    lines = payload["lines"]
+    assert isinstance(lines, list)
+    lines[0]["line_total"] = "1000.00"
+    response = client.post("/v1/purchase-orders", json=payload)
+    assert response.status_code == 201
+    assert response.json()["lines"][0]["line_total"] == "1000.00000000"
+    lines[0]["line_total"] = 1000.0
+    assert client.post("/v1/purchase-orders", json=payload).status_code == 422
+    lines[0]["line_total"] = "-1"
+    assert client.post("/v1/purchase-orders", json=payload).status_code == 422
 
 
 def test_invalid_po_and_duplicate_line_numbers_return_422(client: TestClient) -> None:
@@ -194,6 +209,26 @@ def test_recreated_service_preserves_existing_policy_snapshot(
         assert second.created is False
         assert second.run.id == first.run.id
         assert second.run.policy_snapshot["amount_absolute_tolerance"] == "0.02"
+
+
+def test_new_matching_policy_version_creates_new_immutable_run(
+    db_session_factory: sessionmaker[Session],
+) -> None:
+    with db_session_factory() as session:
+        document, _ = create_document_with_extraction(session)
+        payload = po_payload()
+        lines = payload["lines"]
+        assert isinstance(lines, list)
+        lines[0]["line_total"] = "1100"
+        po = PurchaseOrderService(session).create(PurchaseOrderCreate.model_validate(payload))
+        prior = MatchingService(session, MatchingPolicy(version="matching-v1")).match(
+            document.id, po.id
+        ).run
+        assert prior.decision == MatchDecision.NEEDS_REVIEW
+        current = MatchingService(session).match(document.id, po.id).run
+        assert current.id != prior.id
+        assert current.policy_version == "matching-v2"
+        assert "PO_LINE_AMOUNT_MISMATCH" in current.result_json["reason_codes"]
 
 
 def test_database_constraint_rejects_duplicate_match_tuple(

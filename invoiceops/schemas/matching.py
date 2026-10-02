@@ -57,6 +57,7 @@ class ReasonCode(StrEnum):
     UNIT_PRICE_MISMATCH = "UNIT_PRICE_MISMATCH"
     EXTRA_INVOICE_LINE = "EXTRA_INVOICE_LINE"
     LINE_AMOUNT_MISMATCH = "LINE_AMOUNT_MISMATCH"
+    PO_LINE_AMOUNT_MISMATCH = "PO_LINE_AMOUNT_MISMATCH"
     NEGATIVE_AMOUNT = "NEGATIVE_AMOUNT"
     NO_GOODS_RECEIPT = "NO_GOODS_RECEIPT"
     RECEIPT_LINE_MISSING = "RECEIPT_LINE_MISSING"
@@ -74,7 +75,7 @@ class ReasonCode(StrEnum):
 class MatchingPolicy(BaseModel):
     model_config = ConfigDict(frozen=True)
 
-    version: str = "matching-v1"
+    version: str = "matching-v2"
     amount_absolute_tolerance: Decimal = Field(default=Decimal("0.02"), ge=0)
     quantity_absolute_tolerance: Decimal = Field(default=Decimal("0"), ge=0)
     unit_price_relative_tolerance: Decimal = Field(default=Decimal("0.01"), ge=0)
@@ -100,7 +101,7 @@ class MatchingPolicy(BaseModel):
 class ThreeWayMatchingPolicy(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
-    version: str = "three-way-v1"
+    version: str = "three-way-v2"
     amount_absolute_tolerance: Decimal = Field(default=Decimal("0.02"), ge=0)
     quantity_absolute_tolerance: Decimal = Field(default=Decimal("0"), ge=0)
     unit_price_relative_tolerance: Decimal = Field(default=Decimal("0.01"), ge=0)
@@ -129,13 +130,14 @@ class PurchaseOrderLineCreate(BaseModel):
     description: str
     ordered_quantity: Decimal = Field(gt=0)
     unit_price: Decimal = Field(ge=0)
+    line_total: Decimal | None = Field(default=None, ge=0)
 
     @field_validator("line_number", "description")
     @classmethod
     def validate_non_blank(cls, value: str) -> str:
         return _non_blank(value)
 
-    @field_validator("ordered_quantity", "unit_price", mode="before")
+    @field_validator("ordered_quantity", "unit_price", "line_total", mode="before")
     @classmethod
     def reject_float_decimals(cls, value: object) -> object:
         return _reject_float(value)
@@ -182,6 +184,7 @@ class PurchaseOrderLineRead(BaseModel):
     description: str
     ordered_quantity: Decimal
     unit_price: Decimal
+    line_total: Decimal | None = None
 
 
 class PurchaseOrderRead(BaseModel):

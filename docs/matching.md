@@ -27,7 +27,8 @@ There is no automatic rejection or approval decision.
 
 ## Matching policy
 
-Every match run stores the full effective `matching-v1` snapshot:
+Every new match run stores the full effective `matching-v2` snapshot. The version changed so
+previously cached decisions are not reused without checking optional confirmed PO line amounts:
 
 | Setting | Default | Meaning |
 |---|---:|---|
@@ -40,6 +41,13 @@ Every match run stores the full effective `matching-v1` snapshot:
 If the PO unit price is zero, only an invoice unit price of exactly zero passes the unit-price
 comparison. Decimal request values must be strings or integers; JSON floating-point values are
 rejected. Addition checks use absolute tolerance, never percentage tolerance.
+When a confirmed PO line amount exists, its difference from ordered quantity times unit price
+beyond the amount tolerance produces `PO_LINE_AMOUNT_MISMATCH` and requires review. Legacy PO
+lines with no confirmed amount remain assessable. The printed amount never changes unit price.
+The PO line amount is optional in create and confirmation requests. An older confirmation client
+that omits `line_total` preserves a null canonical amount without triggering a correction reason;
+an explicit null replacing an extracted amount is a correction and requires a reason. Numeric
+formatting alone (for example `20` versus `20.00`) is not a correction.
 
 ## Assignment rules
 

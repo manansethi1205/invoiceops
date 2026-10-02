@@ -394,7 +394,7 @@ def test_real_stack_upload_is_idempotent_and_worker_completes() -> None:
         assert match_response.status_code == 201
         match = match_response.json()
         assert match["decision"] == "MATCHED"
-        assert match["policy_version"] == "matching-v1"
+        assert match["policy_version"] == "matching-v2"
         assert len(match["result"]["line_assignments"]) == 2
         repeated_match = client.post(
             match_path, json={"purchase_order_id": purchase_order["id"]}

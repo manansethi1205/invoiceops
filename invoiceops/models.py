@@ -244,6 +244,7 @@ class PurchaseOrderLine(Base):
     description: Mapped[str] = mapped_column(String(500))
     ordered_quantity: Mapped[Decimal] = mapped_column(Numeric(24, 8))
     unit_price: Mapped[Decimal] = mapped_column(Numeric(24, 8))
+    line_total: Mapped[Decimal | None] = mapped_column(Numeric(24, 8), nullable=True)
     purchase_order: Mapped[PurchaseOrder] = relationship(back_populates="lines")
     receipt_lines: Mapped[list["GoodsReceiptLine"]] = relationship(
         back_populates="purchase_order_line"

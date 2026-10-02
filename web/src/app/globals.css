@@ -118,6 +118,44 @@ nav { display: grid; gap: 6px; }.nav-link { display: flex; gap: 11px; align-item
 .segmented button.active { color: var(--text-primary); background: var(--surface-3); box-shadow: none; }
 .skip-link { color: var(--text-primary); background: var(--surface-3); }
 
+.confirmation-editor { min-width: 0; }
+.confirmation-editor h2 { margin: 0 0 8px; }
+.confirmation-editor .help-text { margin: 0 0 20px; }
+.confirmation-editor form { display: grid; gap: 18px; }
+.confirmation-fields { display: grid; grid-template-columns: 1fr; gap: 12px; }
+.confirmation-field { min-width: 0; display: grid; align-content: start; gap: 6px; padding: 12px; border: 1px solid var(--border-subtle); background: var(--surface-2); border-radius: 9px; }
+.confirmation-field:not(.confirmation-compact) { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 12px; }
+.confirmation-field:not(.confirmation-compact) > label,.confirmation-field:not(.confirmation-compact) > .confirmation-state,.confirmation-field:not(.confirmation-compact) > .confirmation-evidence,.confirmation-field:not(.confirmation-compact) > .field-error,.confirmation-field:not(.confirmation-compact) > .muted { grid-column: 1 / -1; }
+.confirmation-field label { font-size: .78rem; font-weight: 720; color: var(--text-primary); }
+.confirmation-confirmed { min-width: 0; }
+.confirmation-confirmed > span { display: block; margin-bottom: 3px; color: var(--text-tertiary); font-size: .7rem; }
+.confirmation-field input { min-width: 0; width: 100%; color: var(--text-primary); background: var(--surface-1); border: 1px solid var(--border-strong); border-radius: 7px; padding: 9px 10px; font: inherit; }
+.confirmation-field input[aria-invalid="true"] { border-color: var(--danger); }
+.confirmation-source { display: block; color: var(--text-tertiary); font-size: .7rem; overflow-wrap: anywhere; }
+.confirmation-source strong { display: block; color: var(--text-secondary); font-size: .8rem; font-weight: 550; }
+.confirmation-state { width: fit-content; font: .66rem var(--font-mono); text-transform: uppercase; letter-spacing: .04em; }
+.state-unchanged { color: var(--success); }.state-changed { color: var(--warning); }.state-missing,.state-invalid { color: var(--danger); }
+.confirmation-evidence { width: fit-content; max-width: 100%; padding: 0; background: none; border: 0; color: var(--accent-hover); font-size: .72rem; text-align: left; cursor: pointer; white-space: normal; overflow-wrap: anywhere; }
+.confirmation-evidence:hover { text-decoration: underline; }
+.confirmation-evidence:focus-visible,.confirmation-editor button:focus-visible,.confirmation-field input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.confirmation-section-heading { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; margin-top: 4px; }
+.confirmation-section-heading h3 { margin: 0; }
+.confirmation-table-scroll { max-width: 100%; overflow-x: auto; border: 1px solid var(--border-subtle); border-radius: 9px; }
+.confirmation-table { width: 100%; min-width: 760px; border-collapse: collapse; }
+.confirmation-table th { padding: 10px; color: var(--text-tertiary); font-size: .7rem; text-align: left; text-transform: uppercase; background: var(--surface-2); }
+.confirmation-table td { padding: 8px; vertical-align: top; border-top: 1px solid var(--border-subtle); }
+.confirmation-table td .confirmation-field { padding: 8px; border: 0; background: transparent; }
+.confirmation-compact label { font-size: .7rem; }
+.confirmation-compact input { font-size: .78rem; }
+.confirmation-amount { display: block; margin: 10px 0 3px; font-variant-numeric: tabular-nums; }
+.confirmation-amount-label { display: block; margin-top: 8px; color: var(--text-tertiary); font-size: .68rem; }
+.confirmation-table td small { display: block; color: var(--text-tertiary); font-size: .68rem; }
+.confirmation-summary { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 13px; border: 1px solid var(--border-strong); background: var(--surface-2); }
+.confirmation-summary strong { width: 100%; }
+.confirmation-summary span { padding: 5px 8px; border-radius: 6px; color: var(--text-secondary); background: var(--surface-3); font-size: .75rem; }
+.confirmation-editor .notice { display: grid; justify-items: start; gap: 8px; }
+@media (max-width: 720px) { .confirmation-editor { padding: 16px; }.confirmation-table { min-width: 680px; }.confirmation-table td { padding: 5px; } }
+
 @media (max-width: 720px) { .filter-bar { grid-template-columns: 1fr; } }
 
 @media (prefers-reduced-motion: reduce) {

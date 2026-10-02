@@ -29,7 +29,16 @@ def test_po_normalizes_strings_and_preserves_decimals() -> None:
     assert command.vendor_name == "Synthetic Vendor"
     assert command.currency == "INR"
     assert command.lines[0].ordered_quantity == Decimal("2.500")
+    assert command.lines[0].line_total is None
     assert command.model_dump(mode="json")["lines"][0]["unit_price"] == "10.25"
+
+
+def test_po_accepts_optional_decimal_line_total() -> None:
+    payload = valid_payload()
+    payload["lines"][0]["line_total"] = "25.625"  # type: ignore[index]
+    command = PurchaseOrderCreate.model_validate(payload)
+    assert command.lines[0].line_total == Decimal("25.625")
+    assert command.model_dump(mode="json")["lines"][0]["line_total"] == "25.625"
 
 
 def test_po_rejects_duplicate_line_numbers() -> None:
@@ -41,7 +50,7 @@ def test_po_rejects_duplicate_line_numbers() -> None:
 
 @pytest.mark.parametrize(
     "field,value",
-    [("ordered_quantity", 1.5), ("unit_price", 10.25)],
+    [("ordered_quantity", 1.5), ("unit_price", 10.25), ("line_total", 25.625)],
 )
 def test_po_rejects_float_numeric_inputs(field: str, value: float) -> None:
     payload = valid_payload()

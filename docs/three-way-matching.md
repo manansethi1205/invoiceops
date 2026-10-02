@@ -19,7 +19,7 @@ not production authentication.
 ## Context, concurrency and allocation
 
 The context fingerprint covers active receipt IDs/quantities/timestamps, reversal IDs, allocations
-from other documents, the current document's allocations and the complete `three-way-v1` policy.
+from other documents, the current document's allocations and the complete `three-way-v2` policy.
 Only other-document allocations reduce available quantity, so an invoice never competes with its
 own reserved quantity. The context exposes the two allocation groups separately.
 A later receipt or reversal can therefore create a new immutable match run without allocating the
@@ -46,6 +46,10 @@ The result uses stable reason codes for no receipt, missing receipt line, revers
 invoice/cumulative quantity above receipts, receipts above ordered quantity, receipt after invoice,
 unit-price mismatch and line-amount mismatch. Every line check includes the PO line, relevant
 receipt IDs, ordered/received/prior/available/invoice quantities, tolerance and invoice evidence.
+The `PO_LINE_AMOUNT_MISMATCH` check separately compares a confirmed printed PO amount to full
+ordered quantity times unit price. It blocks automatic matching but never changes the unit-price
+basis used for a partial receipt or invoice allocation. The archived `three-way-v1` report below
+measures the earlier policy, not this new check.
 
 Run the synthetic 25+ scenario evaluation:
 

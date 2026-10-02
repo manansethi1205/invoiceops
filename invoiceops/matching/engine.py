@@ -356,6 +356,29 @@ def match_invoice(
 ) -> MatchResult:
     effective_policy = policy or MatchingPolicy()
     checks = validate_invoice_financials(invoice, effective_policy)
+    for po_line in purchase_order.lines:
+        if po_line.line_total is None:
+            continue
+        calculated = po_line.ordered_quantity * po_line.unit_price
+        difference = abs(po_line.line_total - calculated)
+        passed = difference <= effective_policy.amount_absolute_tolerance
+        checks.append(
+            ValidationCheck(
+                code=ReasonCode.PO_LINE_AMOUNT_MISMATCH,
+                status=CheckStatus.PASSED if passed else CheckStatus.FAILED,
+                severity=CheckSeverity.INFO if passed else CheckSeverity.ERROR,
+                expected=decimal_string(calculated),
+                actual=decimal_string(po_line.line_total),
+                tolerance=decimal_string(effective_policy.amount_absolute_tolerance),
+                message=(
+                    "Confirmed PO line amount agrees with quantity times unit price."
+                    if passed
+                    else "Confirmed PO line amount differs from quantity times unit price."
+                ),
+                po_line_id=po_line.id,
+                evidence=[],
+            )
+        )
     currency = invoice.currency.value
     currency_matches = (
         invoice.currency.status == ExtractionStatus.EXTRACTED

@@ -65,7 +65,7 @@ def _context(
         )
     return po, ThreeWayContextSnapshot(
         purchase_order_id=po.id,
-        policy_version="three-way-v1",
+        policy_version="three-way-v2",
         lines=lines,
     )
 
@@ -140,6 +140,28 @@ def test_unit_price_and_line_amount_tolerances_use_invoice_quantity() -> None:
     )
     result, _ = match_invoice_three_way(amount_failure, po, context, ThreeWayMatchingPolicy())
     assert ReasonCode.THREE_WAY_LINE_AMOUNT_MISMATCH in result.reason_codes
+
+
+def test_partial_receipt_keeps_unit_price_basis_when_po_printed_amount_differs() -> None:
+    po, context = _context()
+    partial = invoice(
+        subtotal="700", tax="0", total="700",
+        lines=[
+            invoice_line("Industrial Filter", "1", "500", "500"),
+            invoice_line("Mounting Bracket", "4", "50", "200"),
+        ],
+    )
+    po.lines[0].line_total = Decimal("1000")
+    clear, allocations = match_invoice_three_way(partial, po, context, ThreeWayMatchingPolicy())
+    assert clear.decision == MatchDecision.MATCHED
+    assert allocations[0].quantity == Decimal("1")
+
+    po.lines[0].line_total = Decimal("1100")
+    review, allocations = match_invoice_three_way(partial, po, context, ThreeWayMatchingPolicy())
+    assert review.decision == MatchDecision.NEEDS_REVIEW
+    assert ReasonCode.PO_LINE_AMOUNT_MISMATCH in review.reason_codes
+    assert ReasonCode.THREE_WAY_LINE_AMOUNT_MISMATCH not in review.reason_codes
+    assert allocations == []
 
 
 def test_quantity_tolerance_boundary_passes_and_immediately_outside_fails() -> None:

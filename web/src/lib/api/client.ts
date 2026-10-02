@@ -10,6 +10,7 @@ export class ApiError extends Error {
   constructor(
     message: string,
     readonly status: number,
+    readonly details?: unknown,
   ) {
     super(message);
     this.name = "ApiError";
@@ -85,7 +86,12 @@ export async function required<T>(
   if (result.data !== undefined) return result.data;
   const detail =
     typeof result.error === "object" && result.error !== null && "detail" in result.error
-      ? JSON.stringify(result.error.detail)
+      ? result.error.detail
+      : undefined;
+  const message = typeof detail === "string"
+    ? detail
+    : typeof detail === "object" && detail !== null && "message" in detail && typeof detail.message === "string"
+      ? detail.message
       : `Request failed (${result.response.status})`;
-  throw new ApiError(sanitizeMessage(detail), result.response.status);
+  throw new ApiError(sanitizeMessage(message), result.response.status, detail);
 }

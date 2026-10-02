@@ -4,6 +4,7 @@ import uuid
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from decimal import Decimal
 
 from sqlalchemy import exists, func, select
 from sqlalchemy.exc import IntegrityError
@@ -505,7 +506,18 @@ class PayableCaseService:
                 .order_by(CaseConfirmation.created_at, CaseConfirmation.id)
             )
         )
+        matching_mode = (
+            MatchingMode.THREE_WAY if receipt_confirmations else MatchingMode.TWO_WAY
+        )
+        matching_service = MatchingService(self.session)
+        matching_policy_version = (
+            matching_service.three_way_policy.version
+            if matching_mode == MatchingMode.THREE_WAY
+            else matching_service.policy.version
+        )
         context = {
+            "matching_mode": matching_mode.value,
+            "matching_policy_version": matching_policy_version,
             "invoice_attachment_id": str(invoice_attachment.id),
             "invoice_document_id": str(invoice_attachment.document_id),
             "invoice_extraction_run_id": str(invoice_run.id),
@@ -527,10 +539,10 @@ class PayableCaseService:
             if run is None:
                 raise RuntimeError("case match context is corrupt")
             return run
-        result = MatchingService(self.session).match(
+        result = matching_service.match(
             invoice_attachment.document_id,
             po_confirmation.canonical_record_id,
-            MatchingMode.THREE_WAY if receipt_confirmations else MatchingMode.TWO_WAY,
+            matching_mode,
         )
         payable_case = self.get(case_id, lock=True)
         self.session.add(
@@ -615,7 +627,13 @@ class PayableCaseService:
             raise CaseConflictError("STALE_CASE_VERSION", "Case version is stale")
         run = self._support_run(attachment, command.extraction_run_id, command.extractor_version)
         extracted = ExtractedPurchaseOrder.model_validate(run.output_json)
-        corrected = self._po_corrected_fields(extracted, payload)
+        corrected = self._po_corrected_fields(
+            extracted,
+            payload,
+            amount_provided=[
+                "line_total" in line.model_fields_set for line in command.confirmed.lines
+            ],
+        )
         if corrected and not command.correction_reason:
             raise CaseConflictError(
                 "CORRECTION_REASON_REQUIRED", "Corrected values require a reason"
@@ -630,6 +648,7 @@ class PayableCaseService:
                     description=item.description,
                     ordered_quantity=item.ordered_quantity,
                     unit_price=item.unit_price,
+                    line_total=item.line_total,
                 )
                 for item in command.confirmed.lines
             ],
@@ -867,7 +886,10 @@ class PayableCaseService:
 
     @staticmethod
     def _po_corrected_fields(
-        extracted: ExtractedPurchaseOrder, confirmed: dict[str, object]
+        extracted: ExtractedPurchaseOrder,
+        confirmed: dict[str, object],
+        *,
+        amount_provided: list[bool],
     ) -> list[str]:
         pairs = {
             "external_po_number": extracted.po_number.value,
@@ -884,17 +906,35 @@ class PayableCaseService:
             for name, value in pairs.items()
             if json.loads(json.dumps(value, default=str)) != confirmed.get(name)
         ]
-        extracted_lines = [
-            {
-                "line_number": item.line_number.value,
-                "description": item.description.value,
-                "ordered_quantity": item.ordered_quantity.value,
-                "unit_price": item.unit_price.value,
-            }
-            for item in extracted.line_items
-        ]
-        normalized_lines = json.loads(json.dumps(extracted_lines, default=str))
-        if normalized_lines != confirmed.get("lines"):
+        confirmed_lines = confirmed.get("lines")
+        lines_changed = not isinstance(confirmed_lines, list) or len(confirmed_lines) != len(
+            extracted.line_items
+        )
+        if isinstance(confirmed_lines, list):
+            for index, (source, candidate) in enumerate(
+                zip(extracted.line_items, confirmed_lines, strict=False)
+            ):
+                if not isinstance(candidate, dict):
+                    lines_changed = True
+                    continue
+                if source.line_number.value != candidate.get("line_number") or (
+                    source.description.value != candidate.get("description")
+                ):
+                    lines_changed = True
+                for name in ("ordered_quantity", "unit_price", "line_total"):
+                    if name == "line_total" and not amount_provided[index]:
+                        continue
+                    source_value = getattr(source, name).value
+                    candidate_value = candidate.get(name)
+                    if source_value is None or candidate_value is None:
+                        different = source_value is not None or candidate_value is not None
+                    else:
+                        different = source_value != Decimal(str(candidate_value))
+                    if different:
+                        lines_changed = True
+                        if name == "line_total":
+                            corrected.append(f"lines.{index}.line_total")
+        if lines_changed:
             corrected.append("lines")
         return sorted(corrected)
 
@@ -905,7 +945,11 @@ class PayableCaseService:
         pairs = {
             "external_receipt_number": extracted.receipt_number.value,
             "referenced_po_number": extracted.referenced_po_number.value,
-            "received_at": extracted.received_date.value,
+            "received_at": (
+                f"{extracted.received_date.value.isoformat()}T00:00:00Z"
+                if extracted.received_date.value is not None
+                else None
+            ),
             "supplier": extracted.supplier.value,
         }
         corrected = [

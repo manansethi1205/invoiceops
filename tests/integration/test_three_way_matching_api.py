@@ -103,7 +103,7 @@ def test_three_way_match_persists_context_and_allocates_once(
     body = first.json()
     assert body["matching_mode"] == "THREE_WAY"
     assert body["decision"] == "MATCHED"
-    assert body["policy_version"] == "three-way-v1"
+    assert body["policy_version"] == "three-way-v2"
     assert body["context_fingerprint"]
     assert replay.status_code == 200
     assert replay.json()["id"] == body["id"]

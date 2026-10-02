@@ -14,6 +14,6 @@ def test_business_evaluation_is_safe_and_aggregate_only() -> None:
     assert report.expected_decision_accuracy == 1
     assert report.false_auto_match_count == 0
     assert report.reason_code_accuracy == 1
-    assert report.policy_version == "matching-v1"
+    assert report.policy_version == "matching-v2"
     assert "Industrial Filter" not in markdown
     assert "C:\\" not in markdown

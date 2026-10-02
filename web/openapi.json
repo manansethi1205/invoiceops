@@ -2168,7 +2168,7 @@
             "type": "string"
           },
           "version": {
-            "default": "matching-v1",
+            "default": "matching-v2",
             "title": "Version",
             "type": "string"
           }
@@ -2470,6 +2470,22 @@
             "title": "Line Number",
             "type": "string"
           },
+          "line_total": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Line Total"
+          },
           "ordered_quantity": {
             "anyOf": [
               {
@@ -2520,6 +2536,18 @@
           "line_number": {
             "title": "Line Number",
             "type": "string"
+          },
+          "line_total": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Line Total"
           },
           "ordered_quantity": {
             "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
@@ -2613,6 +2641,7 @@
           "UNIT_PRICE_MISMATCH",
           "EXTRA_INVOICE_LINE",
           "LINE_AMOUNT_MISMATCH",
+          "PO_LINE_AMOUNT_MISMATCH",
           "NEGATIVE_AMOUNT",
           "NO_GOODS_RECEIPT",
           "RECEIPT_LINE_MISSING",
@@ -3821,7 +3850,7 @@
             "type": "string"
           },
           "version": {
-            "default": "three-way-v1",
+            "default": "three-way-v2",
             "title": "Version",
             "type": "string"
           }

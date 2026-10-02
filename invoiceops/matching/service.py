@@ -135,6 +135,7 @@ class PurchaseOrderService:
                     description=line.description,
                     ordered_quantity=line.ordered_quantity,
                     unit_price=line.unit_price,
+                    line_total=line.line_total,
                 )
                 for line in command.lines
             ],
