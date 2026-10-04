@@ -6,7 +6,7 @@ import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import nullcontext
 from datetime import UTC, datetime
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import (
     Depends,
@@ -20,6 +20,7 @@ from fastapi import (
     UploadFile,
     status,
 )
+from fastapi.openapi.utils import get_openapi
 from opentelemetry import trace
 from opentelemetry.instrumentation.utils import suppress_instrumentation
 from sqlalchemy import func, select
@@ -27,6 +28,8 @@ from sqlalchemy.orm import Session, sessionmaker
 from starlette.responses import JSONResponse, Response, StreamingResponse
 
 from apps.api.dependencies import get_dispatcher, get_object_store, get_session_factory
+from apps.api.security import authorize_request, get_principal
+from invoiceops.auth import Principal
 from invoiceops.cases.events import event_to_read as case_event_to_read
 from invoiceops.cases.service import (
     CaseConflictError,
@@ -102,6 +105,7 @@ from invoiceops.review.service import (
 )
 from invoiceops.review.state import ReviewTransitionError
 from invoiceops.risk.service import DuplicateRiskService, RiskAssessmentNotFoundError
+from invoiceops.schemas.auth import PrincipalRead
 from invoiceops.schemas.cases import (
     CaseAttachmentAccepted,
     CaseCreate,
@@ -153,40 +157,18 @@ from invoiceops.schemas.three_way import ThreeWayContextRead, ThreeWayContextSna
 
 configure_logging(get_settings().log_level)
 logger = logging.getLogger(__name__)
-app = FastAPI(title="InvoiceOps API", version="0.1.0")
+_auth_settings = get_settings()
+app = FastAPI(
+    title="InvoiceOps API",
+    version="0.1.0",
+    dependencies=[Depends(authorize_request)],
+    openapi_url=None if _auth_settings.auth_mode == "oidc" else "/openapi.json",
+    docs_url=None if _auth_settings.auth_mode == "oidc" else "/docs",
+    redoc_url=None if _auth_settings.auth_mode == "oidc" else "/redoc",
+)
 setup_observability(
     get_settings(), service_name=get_settings().otel_service_name, app=app, engine=engine
 )
-
-
-def get_reviewer_id(
-    value: Annotated[str | None, Header(alias="X-Reviewer-ID")] = None,
-) -> str:
-    reviewer_id = value.strip() if value is not None else ""
-    if not reviewer_id or len(reviewer_id) > 100:
-        raise HTTPException(
-            status_code=422,
-            detail={
-                "code": "INVALID_REVIEWER_ID",
-                "message": "X-Reviewer-ID must contain 1 to 100 nonblank characters",
-            },
-        )
-    return reviewer_id
-
-
-def get_actor_id(
-    value: Annotated[str | None, Header(alias="X-Actor-ID")] = None,
-) -> str:
-    actor_id = value.strip() if value is not None else ""
-    if not actor_id or len(actor_id) > 100:
-        raise HTTPException(
-            status_code=422,
-            detail={
-                "code": "INVALID_ACTOR_ID",
-                "message": "X-Actor-ID must contain 1 to 100 nonblank characters",
-            },
-        )
-    return actor_id
 
 
 def review_conflict(exc: ReviewTransitionError) -> HTTPException:
@@ -314,8 +296,17 @@ def _readiness_response(settings: Settings) -> Response:
     ready = all(value == "ready" for value in components.values())
     return JSONResponse(
         status_code=200 if ready else 503,
-        content={"status": "ready" if ready else "unavailable", "components": components},
+        content=(
+            {"status": "ready" if ready else "unavailable"}
+            if settings.auth_mode == "oidc"
+            else {"status": "ready" if ready else "unavailable", "components": components}
+        ),
     )
+
+
+@app.get("/v1/me", response_model=PrincipalRead, tags=["identity"])
+def who_am_i(principal: Annotated[Principal, Depends(get_principal)]) -> PrincipalRead:
+    return PrincipalRead(subject=principal.subject, roles=sorted(principal.roles))
 
 
 def _case_http_error(exc: Exception) -> HTTPException:
@@ -1068,11 +1059,14 @@ def get_goods_receipt(
 def reverse_goods_receipt(
     receipt_id: uuid.UUID,
     command: ReverseGoodsReceiptCommand,
-    actor_id: Annotated[str, Depends(get_actor_id)],
+    principal: Annotated[Principal, Depends(get_principal)],
     session: Annotated[Session, Depends(get_db)],
 ) -> GoodsReceiptRead:
     try:
-        receipt = GoodsReceiptService(session).reverse(receipt_id, actor_id, command.reason)
+        receipt = GoodsReceiptService(session).reverse(
+            receipt_id, principal.subject, command.reason,
+            actor_roles=tuple(sorted(role.value for role in principal.roles)),
+        )
     except GoodsReceiptNotFoundError as exc:
         raise HTTPException(status_code=404, detail="Goods receipt not found") from exc
     except GoodsReceiptAlreadyReversedError as exc:
@@ -1243,11 +1237,14 @@ def get_review_case(
 def claim_review_case(
     case_id: uuid.UUID,
     command: VersionedCommand,
-    reviewer_id: Annotated[str, Depends(get_reviewer_id)],
+    principal: Annotated[Principal, Depends(get_principal)],
     session: Annotated[Session, Depends(get_db)],
 ) -> ReviewCaseRead:
     try:
-        case = ReviewService(session).claim(case_id, reviewer_id, command.expected_version)
+        case = ReviewService(session).claim(
+            case_id, principal.subject, command.expected_version,
+            actor_roles=tuple(sorted(role.value for role in principal.roles)),
+        )
     except ReviewCaseNotFoundError as exc:
         raise review_not_found() from exc
     except ReviewTransitionError as exc:
@@ -1259,12 +1256,13 @@ def claim_review_case(
 def release_review_case(
     case_id: uuid.UUID,
     command: ReleaseCommand,
-    reviewer_id: Annotated[str, Depends(get_reviewer_id)],
+    principal: Annotated[Principal, Depends(get_principal)],
     session: Annotated[Session, Depends(get_db)],
 ) -> ReviewCaseRead:
     try:
         case = ReviewService(session).release(
-            case_id, reviewer_id, command.expected_version, command.reason
+            case_id, principal.subject, command.expected_version, command.reason,
+            actor_roles=tuple(sorted(role.value for role in principal.roles)),
         )
     except ReviewCaseNotFoundError as exc:
         raise review_not_found() from exc
@@ -1277,12 +1275,13 @@ def release_review_case(
 def add_review_comment(
     case_id: uuid.UUID,
     command: CommentCommand,
-    reviewer_id: Annotated[str, Depends(get_reviewer_id)],
+    principal: Annotated[Principal, Depends(get_principal)],
     session: Annotated[Session, Depends(get_db)],
 ) -> ReviewCaseRead:
     try:
         case = ReviewService(session).comment(
-            case_id, reviewer_id, command.expected_version, command.comment
+            case_id, principal.subject, command.expected_version, command.comment,
+            actor_roles=tuple(sorted(role.value for role in principal.roles)),
         )
     except ReviewCaseNotFoundError as exc:
         raise review_not_found() from exc
@@ -1295,16 +1294,17 @@ def add_review_comment(
 def resolve_review_case(
     case_id: uuid.UUID,
     command: ResolveCommand,
-    reviewer_id: Annotated[str, Depends(get_reviewer_id)],
+    principal: Annotated[Principal, Depends(get_principal)],
     session: Annotated[Session, Depends(get_db)],
 ) -> ReviewCaseRead:
     try:
         case = ReviewService(session).resolve(
             case_id,
-            reviewer_id,
+            principal.subject,
             command.expected_version,
             command.resolution,
             command.reason,
+            actor_roles=tuple(sorted(role.value for role in principal.roles)),
         )
     except ReviewCaseNotFoundError as exc:
         raise review_not_found() from exc
@@ -1339,3 +1339,23 @@ def verify_review_audit(
         return ReviewService(session).verify_audit(case_id)
     except ReviewCaseNotFoundError as exc:
         raise review_not_found() from exc
+
+
+def _secured_openapi() -> dict[str, Any]:
+    if app.openapi_schema is not None:
+        return app.openapi_schema
+    schema = get_openapi(title=app.title, version=app.version, routes=app.routes)
+    components = schema.setdefault("components", {})
+    components.setdefault("securitySchemes", {})["BearerAuth"] = {
+        "type": "http", "scheme": "bearer", "bearerFormat": "JWT",
+    }
+    for path, operations in schema.get("paths", {}).items():
+        if path.startswith("/v1/"):
+            for operation in operations.values():
+                if isinstance(operation, dict):
+                    operation["security"] = [{"BearerAuth": []}]
+    app.openapi_schema = schema
+    return schema
+
+
+app.openapi = _secured_openapi  # type: ignore[method-assign]

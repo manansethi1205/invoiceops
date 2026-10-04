@@ -1,0 +1,1 @@
+export default function SessionExpiredPage() { return <main className="card" role="alert"><h1>Session expired</h1><p>Sign in again to continue. No changes were submitted.</p><a href="/login">Sign in</a></main>; }

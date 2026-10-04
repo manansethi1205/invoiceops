@@ -360,23 +360,30 @@ class ReviewService:
             items=[review_case_to_read(case) for case in page], next_cursor=next_cursor
         )
 
-    def claim(self, case_id: uuid.UUID, actor_id: str, expected_version: int) -> ReviewCase:
+    def claim(
+        self, case_id: uuid.UUID, actor_id: str, expected_version: int,
+        *, actor_roles: tuple[str, ...] = (),
+    ) -> ReviewCase:
         case = self.get(case_id)
-        return self._apply(case, claim(self._state(case), actor_id, expected_version), actor_id)
+        return self._apply(
+            case, claim(self._state(case), actor_id, expected_version), actor_id, actor_roles
+        )
 
     def release(
-        self, case_id: uuid.UUID, actor_id: str, expected_version: int, reason: str
+        self, case_id: uuid.UUID, actor_id: str, expected_version: int, reason: str,
+        *, actor_roles: tuple[str, ...] = (),
     ) -> ReviewCase:
         case = self.get(case_id)
         transition = release(self._state(case), actor_id, expected_version, reason)
-        return self._apply(case, transition, actor_id)
+        return self._apply(case, transition, actor_id, actor_roles)
 
     def comment(
-        self, case_id: uuid.UUID, actor_id: str, expected_version: int, text: str
+        self, case_id: uuid.UUID, actor_id: str, expected_version: int, text: str,
+        *, actor_roles: tuple[str, ...] = (),
     ) -> ReviewCase:
         case = self.get(case_id)
         transition = comment(self._state(case), actor_id, expected_version, text)
-        return self._apply(case, transition, actor_id)
+        return self._apply(case, transition, actor_id, actor_roles)
 
     def resolve(
         self,
@@ -385,12 +392,13 @@ class ReviewService:
         expected_version: int,
         resolution: ReviewResolution,
         reason: str,
+        *, actor_roles: tuple[str, ...] = (),
     ) -> ReviewCase:
         case = self.get(case_id)
         transition = resolve(
             self._state(case), actor_id, expected_version, resolution, reason
         )
-        return self._apply(case, transition, actor_id)
+        return self._apply(case, transition, actor_id, actor_roles)
 
     def events(self, case_id: uuid.UUID) -> list[ReviewEventRead]:
         self.get(case_id)
@@ -494,7 +502,8 @@ class ReviewService:
         )
 
     def _apply(
-        self, case: ReviewCase, transition: Transition, actor_id: str
+        self, case: ReviewCase, transition: Transition, actor_id: str,
+        actor_roles: tuple[str, ...] = (),
     ) -> ReviewCase:
         occurred_at = _now()
         expected_version = case.version
@@ -531,13 +540,16 @@ class ReviewService:
             self.session.rollback()
             raise RuntimeError("Review event history is incomplete")
         sequence = expected_version + 1
+        payload = dict(transition.payload)
+        if actor_roles:
+            payload["actor_roles"] = list(actor_roles)
         event = ReviewEvent(
             id=uuid.uuid4(),
             review_case_id=case.id,
             sequence_number=sequence,
             event_type=transition.event_type,
             actor_id=actor_id,
-            payload=transition.payload,
+            payload=payload,
             hash_version=AUDIT_HASH_V2,
             previous_hash=previous.event_hash,
             event_hash=event_hash(
@@ -546,7 +558,7 @@ class ReviewService:
                 event_type=transition.event_type,
                 actor_id=actor_id,
                 occurred_at=occurred_at,
-                payload=transition.payload,
+                payload=payload,
                 previous_hash=previous.event_hash,
                 hash_version=AUDIT_HASH_V2,
             ),

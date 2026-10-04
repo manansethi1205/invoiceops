@@ -7,16 +7,25 @@ services:
       dockerfile: infrastructure/docker/Dockerfile.web
     environment:
       INVOICEOPS_API_URL: http://api:8000
+      WEB_AUTH_MODE: ${WEB_AUTH_MODE:-development}
+      WEB_ENVIRONMENT: ${WEB_ENVIRONMENT:-local}
+      WEB_PUBLIC_ORIGIN: ${WEB_PUBLIC_ORIGIN:-}
+      AUTH_SESSION_REDIS_URL: redis://redis:6379/1
+      OIDC_ISSUER: ${OIDC_ISSUER:-}
+      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-}
+      OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-}
+      OIDC_REDIRECT_URI: ${OIDC_REDIRECT_URI:-}
     ports: ["127.0.0.1:3000:3000"]
     depends_on:
       api: {condition: service_healthy}
+      redis: {condition: service_healthy}
     healthcheck:
       test:
         [
           "CMD",
           "node",
           "-e",
-          "require('http').get('http://127.0.0.1:3000/dashboard',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))",
+        "require('http').get('http://127.0.0.1:3000/login',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))",
         ]
       interval: 10s
       timeout: 5s

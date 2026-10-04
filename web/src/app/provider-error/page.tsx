@@ -1,0 +1,1 @@
+export default function ProviderErrorPage() { return <main className="card" role="alert"><h1>Sign-in unavailable</h1><p>The identity provider could not complete sign-in. Please retry.</p><a href="/login">Retry sign-in</a></main>; }

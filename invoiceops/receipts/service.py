@@ -144,7 +144,10 @@ class GoodsReceiptService:
             query = query.where(GoodsReceipt.purchase_order_id == purchase_order_id)
         return list(self.session.scalars(query.order_by(GoodsReceipt.created_at, GoodsReceipt.id)))
 
-    def reverse(self, receipt_id: uuid.UUID, actor_id: str, reason: str) -> GoodsReceipt:
+    def reverse(
+        self, receipt_id: uuid.UUID, actor_id: str, reason: str,
+        *, actor_roles: tuple[str, ...] = (),
+    ) -> GoodsReceipt:
         purchase_order_id = self.session.scalar(
             select(GoodsReceipt.purchase_order_id).where(GoodsReceipt.id == receipt_id)
         )
@@ -159,6 +162,7 @@ class GoodsReceiptService:
             GoodsReceiptReversal(
                 goods_receipt_id=receipt.id,
                 actor_id=actor_id,
+                actor_roles=list(actor_roles) if actor_roles else None,
                 reason=reason,
                 reversed_at=datetime.now(UTC),
             )

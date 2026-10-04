@@ -1,0 +1,1 @@
+export default function ForbiddenPage() { return <main className="card" role="alert"><h1>Access denied</h1><p>Your account does not have the required InvoiceOps role.</p><a href="/dashboard">Return to dashboard</a></main>; }

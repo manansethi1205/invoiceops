@@ -1,6 +1,9 @@
 import type { NextConfig } from "next";
 
-const backend = process.env.INVOICEOPS_API_URL ?? "http://127.0.0.1:8000";
+if (process.env.WEB_ENVIRONMENT === "production" && process.env.WEB_AUTH_MODE !== "oidc") {
+  throw new Error("Production web deployment requires WEB_AUTH_MODE=oidc");
+}
+
 const contentSecurityPolicy = [
   "default-src 'self'",
   "script-src 'self' 'unsafe-inline'",
@@ -29,9 +32,6 @@ const nextConfig: NextConfig = {
         { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
       ],
     }];
-  },
-  async rewrites() {
-    return [{ source: "/api/backend/:path*", destination: `${backend}/:path*` }];
   },
 };
 

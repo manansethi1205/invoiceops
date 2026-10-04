@@ -24,9 +24,9 @@ send the current `expected_version`; stale requests return `409` with code `STAL
 not create an event. Only the assigned reviewer may release or resolve a claimed case. Resolution
 requires a nonblank reason and is terminal in this slice.
 
-The API requires `X-Reviewer-ID` on mutations. This header is an **unverified development identity
-boundary**, not authentication or authorization suitable for production. Deployments must replace
-it with organization-controlled identity and role enforcement.
+In OIDC mode, the API derives reviewer identity and roles from a verified access token. The
+`X-Reviewer-ID` header is required only in explicit local development mode and is ignored in
+OIDC mode. See [authentication](authentication.md) for deployment requirements.
 
 `ACCEPTED_EXCEPTION` records a reviewer outcome. It does **not** approve or authorize payment.
 

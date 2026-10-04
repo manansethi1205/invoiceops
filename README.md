@@ -41,8 +41,8 @@ comes from the FastAPI service.
 
 A useful demonstration path is: upload synthetic invoice, PO and receipt evidence at `/intake`,
 watch the resumable event timeline, confirm supporting evidence at `/cases/{case_id}`, then
-claim and resolve any generated exception at `/reviews/{case_id}`. The reviewer header is only a
-development identity boundary; an accepted exception is not payment authorization.
+claim and resolve any generated exception at `/reviews/{case_id}`. Local synthetic login is only
+for development; an accepted exception is not payment authorization.
 
 ## Implemented vertical slice
 
@@ -87,8 +87,8 @@ historical context. Existing requests remain two-way by default.
 Every `NEEDS_REVIEW` result now opens exactly one evidence-linked case and opening audit event in
 the same transaction as the immutable match run. Reviewers can claim, comment, release and resolve
 with optimistic concurrency and ownership checks. Events form an application-level SHA-256 chain
-that can reconstruct materialized state. `X-Reviewer-ID` is explicitly an unverified development
-identity boundary, and `ACCEPTED_EXCEPTION` never authorizes payment.
+that can reconstruct materialized state. Reviewer identity comes from a verified access token in
+OIDC mode; local identity headers are development-only. `ACCEPTED_EXCEPTION` never authorizes payment.
 
 Every match also receives one immutable `duplicate-risk-v1` assessment. It compares normalized
 business features with prior assessments and emits explicit exact-key, reused-number, same-PO,
@@ -113,6 +113,7 @@ Grafana is at `http://localhost:3001`. Docker Compose runs Alembic migrations be
 starting the API or worker and uses S3Mock only for synthetic local object storage.
 For the local telemetry stack, follow [the observability guide](docs/observability.md).
 Frontend setup, contract generation and browser tests are in [the web console guide](docs/web-console.md).
+OIDC, local synthetic login, the RBAC matrix and production configuration are in [the authentication guide](docs/authentication.md).
 
 Run local quality checks:
 

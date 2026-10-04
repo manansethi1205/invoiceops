@@ -1,5 +1,5 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./auth-fixture";
 
 test.beforeEach(async ({ page }) => {
   await page.route("**/api/backend/**", (route) => {

@@ -28,11 +28,13 @@
     "motion": "13.4.4",
     "next": "16.3.6",
     "openapi-fetch": "0.17.0",
+    "openid-client": "6.8.8",
     "pdfjs-dist": "5.5.207",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "react-hook-form": "7.89.0",
     "react-pdf": "11.0.0",
+    "redis": "6.3.0",
     "zod": "4.6.5"
   },
   "devDependencies": {

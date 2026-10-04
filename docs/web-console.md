@@ -12,7 +12,7 @@ Browser -> Next.js App Router -> same-origin /api/backend proxy -> FastAPI
    +-- TanStack Query reads/mutations                      +-- PostgreSQL state
    +-- resumable SSE timeline                              +-- durable job events
    +-- PDF/image evidence overlays                         +-- normalized evidence
-   +-- reviewer expected_version + X-Reviewer-ID           +-- review state machine
+   +-- verified session + expected_version                 +-- review state machine
 ```
 
 The UI uses a near-black enterprise palette, controlled blue actions, semantic status colors,
@@ -35,8 +35,8 @@ creation calls. `/cases/{case_id}` keeps the selected document in the URL, shows
 validates role-aware case SSE events with Zod and exposes editable confirmation payloads.
 
 Document roles are chosen by the operator, not automatically classified. Supporting extraction
-always requires confirmation. Authentication is still absent, so this workflow must not be
-publicly deployed until verified OIDC identity and role-based authorization are added.
+always requires confirmation. The API now enforces OIDC/RBAC when configured; production still
+requires a real provider, secrets management, TLS and deployment-specific security review.
 
 ## Local development
 
@@ -54,8 +54,10 @@ pnpm dev
 Open `http://localhost:3000`. Alternatively, `docker compose up --build` runs the complete stack,
 including the web container. Grafana uses `http://localhost:3001` to avoid a port collision.
 
-The Next.js server proxies `/api/backend/*` to `INVOICEOPS_API_URL`; browser code therefore uses a
-same-origin API path. Never place provider credentials in `NEXT_PUBLIC_*` variables.
+The Next.js server authenticates `/api/backend/*` with an HTTP-only session and proxies it to
+`INVOICEOPS_API_URL`; browser code uses a same-origin API path. In local mode, use the synthetic
+login page. OIDC configuration and production requirements are in [authentication](authentication.md).
+Never place provider credentials in `NEXT_PUBLIC_*` variables.
 
 ## Contract generation and checks
 
@@ -92,7 +94,7 @@ page navigation and `+`/`-` zoom controls, while evidence coordinates remain bac
 - Only synthetic or de-identified documents belong in development and test environments.
 - The document response is private/no-store and does not reveal object-storage keys.
 - Error displays use bounded API messages and never render raw HTML.
-- `X-Reviewer-ID` is an unverified development identity boundary, not authentication.
+- Development actor headers are accepted only in explicit local mode; OIDC mode ignores them.
 - `ACCEPTED_EXCEPTION` records a review outcome and never authorizes payment.
 - Evidence boxes use the backend's normalized 0–1 coordinates and retain page/source provenance.
 - Live job updates are durable database events. `Last-Event-ID` resumes a disconnected stream;
@@ -100,8 +102,5 @@ page navigation and `+`/`-` zoom controls, while evidence coordinates remain bac
 
 ## Current limitations
 
-The supporting-document extractor is deterministic and conservative. It does not infer missing
-quantities or financial values, and ambiguous layouts remain unconfirmed. The invoice-only
-grounded VLM fallback is not applied to PO or receipt schemas in this slice. The confirmation
-editor currently presents the typed JSON contract rather than a field-by-field grid. Production
-authentication and authorization are not implemented.
+The supporting-document extractor remains conservative. Ambiguous layouts remain unconfirmed.
+The OIDC path has synthetic-key tests but still needs a real-provider deployment smoke test.

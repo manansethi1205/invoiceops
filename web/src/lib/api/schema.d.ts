@@ -435,6 +435,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Who Am I */
+        get: operations["who_am_i_v1_me_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/purchase-orders": {
         parameters: {
             query?: never;
@@ -1437,6 +1454,13 @@ export interface components {
              */
             version: string;
         };
+        /** PrincipalRead */
+        PrincipalRead: {
+            /** Roles */
+            roles: components["schemas"]["Role"][];
+            /** Subject */
+            subject: string;
+        };
         /** PriorAllocationRead */
         PriorAllocationRead: {
             /** Allocated Quantity */
@@ -1986,6 +2010,11 @@ export interface components {
             };
             severity: components["schemas"]["RiskSeverity"];
         };
+        /**
+         * Role
+         * @enum {string}
+         */
+        Role: "operator" | "reviewer" | "auditor" | "admin";
         /**
          * SupportingExtractionStatus
          * @enum {string}
@@ -2689,9 +2718,7 @@ export interface operations {
     reverse_goods_receipt_v1_goods_receipts__receipt_id__reverse_post: {
         parameters: {
             query?: never;
-            header?: {
-                "X-Actor-ID"?: string | null;
-            };
+            header?: never;
             path: {
                 receipt_id: string;
             };
@@ -3034,6 +3061,26 @@ export interface operations {
             };
         };
     };
+    who_am_i_v1_me_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PrincipalRead"];
+                };
+            };
+        };
+    };
     list_purchase_orders_v1_purchase_orders_get: {
         parameters: {
             query?: {
@@ -3264,9 +3311,7 @@ export interface operations {
     claim_review_case_v1_review_cases__case_id__claim_post: {
         parameters: {
             query?: never;
-            header?: {
-                "X-Reviewer-ID"?: string | null;
-            };
+            header?: never;
             path: {
                 case_id: string;
             };
@@ -3301,9 +3346,7 @@ export interface operations {
     add_review_comment_v1_review_cases__case_id__comments_post: {
         parameters: {
             query?: never;
-            header?: {
-                "X-Reviewer-ID"?: string | null;
-            };
+            header?: never;
             path: {
                 case_id: string;
             };
@@ -3369,9 +3412,7 @@ export interface operations {
     release_review_case_v1_review_cases__case_id__release_post: {
         parameters: {
             query?: never;
-            header?: {
-                "X-Reviewer-ID"?: string | null;
-            };
+            header?: never;
             path: {
                 case_id: string;
             };
@@ -3406,9 +3447,7 @@ export interface operations {
     resolve_review_case_v1_review_cases__case_id__resolve_post: {
         parameters: {
             query?: never;
-            header?: {
-                "X-Reviewer-ID"?: string | null;
-            };
+            header?: never;
             path: {
                 case_id: string;
             };

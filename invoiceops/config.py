@@ -1,4 +1,5 @@
 from functools import lru_cache
+from typing import Literal
 
 from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -8,6 +9,11 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     environment: str = "local"
+    auth_mode: Literal["development", "oidc"] = "development"
+    oidc_issuer: str = ""
+    oidc_audience: str = ""
+    oidc_roles_claim: str = "roles"
+    oidc_jwks_ttl_seconds: int = Field(default=300, ge=30, le=3600)
     log_level: str = "INFO"
     database_url: str = "postgresql+psycopg://invoiceops:invoiceops@localhost:5432/invoiceops"
     redis_url: str = "redis://localhost:6379/0"
@@ -48,6 +54,18 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_vlm_configuration(self) -> "Settings":
+        if self.environment.casefold() == "production" and self.auth_mode != "oidc":
+            raise ValueError("production requires OIDC authentication")
+        if self.auth_mode == "oidc":
+            if not self.oidc_issuer or not self.oidc_audience:
+                raise ValueError("OIDC_ISSUER and OIDC_AUDIENCE are required")
+            if not self.oidc_issuer.startswith("https://") and not (
+                self.environment.casefold() != "production"
+                and self.oidc_issuer.startswith("http://localhost:")
+            ):
+                raise ValueError("OIDC_ISSUER must use HTTPS outside local development")
+            if not self.oidc_roles_claim.isidentifier():
+                raise ValueError("OIDC_ROLES_CLAIM must be a simple claim name")
         if self.otel_enabled and not self.otel_exporter_otlp_endpoint.startswith(
             ("http://", "https://")
         ):

@@ -2176,6 +2176,27 @@
         "title": "MatchingPolicy",
         "type": "object"
       },
+      "PrincipalRead": {
+        "properties": {
+          "roles": {
+            "items": {
+              "$ref": "#/components/schemas/Role"
+            },
+            "title": "Roles",
+            "type": "array"
+          },
+          "subject": {
+            "title": "Subject",
+            "type": "string"
+          }
+        },
+        "required": [
+          "subject",
+          "roles"
+        ],
+        "title": "PrincipalRead",
+        "type": "object"
+      },
       "PriorAllocationRead": {
         "properties": {
           "allocated_quantity": {
@@ -3736,6 +3757,16 @@
         "title": "RiskSignalRead",
         "type": "object"
       },
+      "Role": {
+        "enum": [
+          "operator",
+          "reviewer",
+          "auditor",
+          "admin"
+        ],
+        "title": "Role",
+        "type": "string"
+      },
       "SupportingExtractionStatus": {
         "enum": [
           "PROCESSING",
@@ -4109,6 +4140,13 @@
         "title": "VersionedCommand",
         "type": "object"
       }
+    },
+    "securitySchemes": {
+      "BearerAuth": {
+        "bearerFormat": "JWT",
+        "scheme": "bearer",
+        "type": "http"
+      }
     }
   },
   "info": {
@@ -4222,6 +4260,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
         "summary": "Create Payable Case",
         "tags": [
           "cases"
@@ -4265,6 +4308,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
         "summary": "Get Payable Case",
         "tags": [
           "cases"
@@ -4312,6 +4360,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
         "summary": "List Case Documents",
         "tags": [
           "cases"
@@ -4363,6 +4416,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
         "summary": "Attach Case Document",
         "tags": [
           "cases"
@@ -4415,6 +4473,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
         "summary": "Stream Case Events",
         "tags": [
           "cases"
@@ -4462,6 +4525,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
         "summary": "List Case Extractions",
         "tags": [
           "cases"
@@ -4515,6 +4583,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
         "summary": "Match Payable Case",
         "tags": [
           "cases"
@@ -4568,6 +4641,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
         "summary": "Confirm Case Purchase Order",
         "tags": [
           "cases"
@@ -4631,6 +4709,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
         "summary": "Confirm Case Receipt",
         "tags": [
           "cases"
@@ -4652,6 +4735,11 @@
             "description": "Successful Response"
           }
         },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
         "summary": "Get Dashboard Summary",
         "tags": [
           "dashboard"
@@ -4693,6 +4781,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
         "summary": "Get Document Content",
         "tags": [
           "invoices"
@@ -4746,6 +4839,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
         "summary": "Create Match",
         "tags": [
           "matching"
@@ -4800,6 +4898,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
         "summary": "List Goods Receipts",
         "tags": [
           "goods-receipts"
@@ -4839,6 +4942,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
         "summary": "Create Goods Receipt",
         "tags": [
           "goods-receipts"
@@ -4882,6 +4990,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
         "summary": "Get Goods Receipt",
         "tags": [
           "goods-receipts"
@@ -4900,22 +5013,6 @@
               "format": "uuid",
               "title": "Receipt Id",
               "type": "string"
-            }
-          },
-          {
-            "in": "header",
-            "name": "X-Actor-ID",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Actor-Id"
             }
           }
         ],
@@ -4951,6 +5048,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
         "summary": "Reverse Goods Receipt",
         "tags": [
           "goods-receipts"
@@ -5013,6 +5115,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
         "summary": "List Invoices",
         "tags": [
           "invoices"
@@ -5082,6 +5189,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
         "summary": "Upload Invoice",
         "tags": [
           "invoices"
@@ -5125,6 +5237,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
         "summary": "Get Invoice Summary",
         "tags": [
           "invoices"
@@ -5176,6 +5293,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
         "summary": "Get Extraction",
         "tags": [
           "invoices"
@@ -5219,6 +5341,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
         "summary": "Get Job",
         "tags": [
           "jobs"
@@ -5274,6 +5401,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
         "summary": "Stream Job Events",
         "tags": [
           "jobs"
@@ -5317,6 +5449,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
         "summary": "Get Match",
         "tags": [
           "matching"
@@ -5360,6 +5497,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
         "summary": "Get Match Risk",
         "tags": [
           "risk"
@@ -5403,9 +5545,40 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
         "summary": "Get Three Way Context",
         "tags": [
           "matching"
+        ]
+      }
+    },
+    "/v1/me": {
+      "get": {
+        "operationId": "who_am_i_v1_me_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PrincipalRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "Who Am I",
+        "tags": [
+          "identity"
         ]
       }
     },
@@ -5452,6 +5625,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
         "summary": "List Purchase Orders",
         "tags": [
           "purchase-orders"
@@ -5491,6 +5669,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
         "summary": "Create Purchase Order",
         "tags": [
           "purchase-orders"
@@ -5534,6 +5717,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
         "summary": "Get Purchase Order",
         "tags": [
           "purchase-orders"
@@ -5581,6 +5769,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
         "summary": "List Purchase Order Goods Receipts",
         "tags": [
           "goods-receipts"
@@ -5758,6 +5951,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
         "summary": "List Review Cases",
         "tags": [
           "review"
@@ -5801,6 +5999,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
         "summary": "Get Review Case",
         "tags": [
           "review"
@@ -5844,6 +6047,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
         "summary": "Verify Review Audit",
         "tags": [
           "review"
@@ -5862,22 +6070,6 @@
               "format": "uuid",
               "title": "Case Id",
               "type": "string"
-            }
-          },
-          {
-            "in": "header",
-            "name": "X-Reviewer-ID",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Reviewer-Id"
             }
           }
         ],
@@ -5913,6 +6105,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
         "summary": "Claim Review Case",
         "tags": [
           "review"
@@ -5931,22 +6128,6 @@
               "format": "uuid",
               "title": "Case Id",
               "type": "string"
-            }
-          },
-          {
-            "in": "header",
-            "name": "X-Reviewer-ID",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Reviewer-Id"
             }
           }
         ],
@@ -5982,6 +6163,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
         "summary": "Add Review Comment",
         "tags": [
           "review"
@@ -6029,6 +6215,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
         "summary": "Get Review Events",
         "tags": [
           "review"
@@ -6047,22 +6238,6 @@
               "format": "uuid",
               "title": "Case Id",
               "type": "string"
-            }
-          },
-          {
-            "in": "header",
-            "name": "X-Reviewer-ID",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Reviewer-Id"
             }
           }
         ],
@@ -6098,6 +6273,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
         "summary": "Release Review Case",
         "tags": [
           "review"
@@ -6116,22 +6296,6 @@
               "format": "uuid",
               "title": "Case Id",
               "type": "string"
-            }
-          },
-          {
-            "in": "header",
-            "name": "X-Reviewer-ID",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Reviewer-Id"
             }
           }
         ],
@@ -6167,6 +6331,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
         "summary": "Resolve Review Case",
         "tags": [
           "review"
@@ -6210,6 +6379,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
         "summary": "Get Risk Assessment",
         "tags": [
           "risk"

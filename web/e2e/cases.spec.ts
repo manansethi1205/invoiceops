@@ -1,5 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test, type Page } from "@playwright/test";
+import type { Page } from "@playwright/test";
+import { expect, test } from "./auth-fixture";
 
 const caseId = "00000000-0000-4000-8000-000000000101";
 const documentId = "00000000-0000-4000-8000-000000000102";

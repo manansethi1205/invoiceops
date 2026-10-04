@@ -326,6 +326,7 @@ class GoodsReceiptReversal(Base):
         ForeignKey("goods_receipts.id", ondelete="RESTRICT"), unique=True, index=True
     )
     actor_id: Mapped[str] = mapped_column(String(100))
+    actor_roles: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
     reason: Mapped[str] = mapped_column(Text)
     reversed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     goods_receipt: Mapped[GoodsReceipt] = relationship(back_populates="reversal")
