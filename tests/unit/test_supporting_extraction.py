@@ -78,6 +78,118 @@ def test_extracts_purchase_order_with_evidence() -> None:
     assert result.line_items[0].line_number.value == "1"
     assert result.line_items[0].line_number.evidence
     assert result.line_items[0].ordered_quantity.value == Decimal("2")
+    assert result.line_items[0].description.value == "Widgets"
+    assert result.line_items[0].description.evidence[0].text == "Widgets"
+    assert result.line_items[0].line_number.evidence[0].text == "1"
+
+
+def test_po_numeric_leading_description_and_missing_number() -> None:
+    document = document_from_rows(
+        [
+            [("Description", 0.10), ("Qty", 0.50), ("Price", 0.68), ("Amount", 0.85)],
+            [("12mm", 0.10), ("bolts", 0.18), ("3", 0.51), ("2.00", 0.69), ("6.00", 0.86)],
+        ]
+    )
+    rows = extract_purchase_order(document).line_items
+    assert len(rows) == 1
+    assert rows[0].line_number.value is None
+    assert rows[0].description.value == "12mm bolts"
+
+
+def test_po_duplicate_numbers_abstain_for_number_only() -> None:
+    document = document_from_rows(
+        [
+            [
+                ("Line", 0.01),
+                ("Description", 0.10),
+                ("Qty", 0.50),
+                ("Price", 0.68),
+                ("Amount", 0.85),
+            ],
+            [("1", 0.01), ("Bolts", 0.10), ("2", 0.51), ("3", 0.69), ("6", 0.86)],
+            [("1", 0.01), ("Nuts", 0.10), ("2", 0.51), ("3", 0.69), ("6", 0.86)],
+        ]
+    )
+    rows = extract_purchase_order(document).line_items
+    assert [row.description.value for row in rows] == ["Bolts", "Nuts"]
+    assert all(row.line_number.status.value == "ambiguous" for row in rows)
+
+
+def test_po_wrapped_description_repeated_header_and_incomplete_row() -> None:
+    header = [
+        ("Line", 0.01),
+        ("Description", 0.10),
+        ("Qty", 0.50),
+        ("Price", 0.68),
+        ("Amount", 0.85),
+    ]
+    document = document_from_rows(
+        [
+            header,
+            [("1", 0.01), ("Custom", 0.10), ("2", 0.51), ("3", 0.69), ("6", 0.86)],
+            [("steel", 0.10), ("part", 0.18)],
+            header,
+            [("2", 0.01), ("Widget", 0.10), ("2", 0.51), ("bad", 0.69), ("6", 0.86)],
+            [("3", 0.01), ("Nut", 0.10), ("2", 0.51), ("3", 0.69), ("6", 0.86)],
+        ]
+    )
+    rows = extract_purchase_order(document).line_items
+    assert [row.description.value for row in rows] == ["Custom steel part", "Nut"]
+    assert len(rows[0].description.evidence) == 2
+
+
+def test_po_repeated_header_on_second_page_keeps_cell_provenance() -> None:
+    header = [
+        ("Line", 0.01),
+        ("Description", 0.10),
+        ("Qty", 0.50),
+        ("Price", 0.68),
+        ("Amount", 0.85),
+    ]
+    first = document_from_rows(
+        [header, [("1", 0.01), ("Bolts", 0.10), ("2", 0.51), ("3", 0.69), ("6", 0.86)]]
+    )
+    second = document_from_rows(
+        [header, [("2", 0.01), ("Nuts", 0.10), ("3", 0.51), ("4", 0.69), ("12", 0.86)]]
+    )
+    second_page = second.pages[0].model_copy(
+        update={
+            "page": 1,
+            "words": [word.model_copy(update={"page": 1}) for word in second.pages[0].words],
+        }
+    )
+    document = DocumentText(pages=[first.pages[0], second_page], used_ocr=False)
+    rows = extract_purchase_order(document).line_items
+    assert [row.description.value for row in rows] == ["Bolts", "Nuts"]
+    assert rows[1].line_number.evidence[0].page == 1
+    assert rows[1].line_total.evidence[0].page == 1
+
+
+def test_po_ocr_spaced_number_does_not_contaminate_description() -> None:
+    document = document_from_rows(
+        [
+            [
+                ("Line", 0.01),
+                ("Description", 0.10),
+                ("Qty", 0.50),
+                ("Price", 0.68),
+                ("Amount", 0.85),
+            ],
+            [
+                ("1", 0.01),
+                ("12", 0.10),
+                ("mm", 0.16),
+                ("bolts", 0.22),
+                ("2", 0.51),
+                ("3.00", 0.69),
+                ("6.00", 0.86),
+            ],
+        ]
+    )
+    rows = extract_purchase_order(document).line_items
+    assert len(rows) == 1
+    assert rows[0].description.value == "12 mm bolts"
+    assert rows[0].line_number.value == "1"
 
 
 def test_conflicting_purchase_order_numbers_abstain_as_ambiguous() -> None:

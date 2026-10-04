@@ -53,6 +53,10 @@ canonical payload fingerprint and expected case version. Raw bytes still use the
 document identity, so retries and cross-case reuse do not duplicate storage.
 
 Purchase-order and receipt extraction is typed and evidence-linked, but never authoritative.
+The current supporting extractor is `deterministic-supporting-documents@0.2.0`; its unified PO
+table parser separates printed line numbers from descriptions. The optional supporting hybrid is
+`supporting-hybrid-routed@0.3.0`. The six-case before report remains frozen; a generated synthetic
+document holdout records both improvements and remaining failures.
 Confirmation endpoints create canonical records only after explicit human confirmation, while the
 original extraction JSON remains immutable. Case matching consumes only confirmed records and
 delegates arithmetic, policy, risk and review routing to the existing deterministic services.
@@ -284,7 +288,7 @@ approval. These findings are product inputs, not measured system results.
 See [architecture](docs/architecture.md) and [ADR-001](docs/adr/001-ingestion-boundary.md).
 See [hybrid extraction](docs/hybrid-extraction.md) for routing, grounding, fusion, and privacy.
 See [supporting-document vision fallback](docs/supporting-vlm.md) for the opt-in PO/receipt path,
-human-confirmation boundary, and synthetic replay evaluation.
+human-confirmation boundary, frozen replay comparison, and generated PDF/PNG holdout.
 See [two-way matching](docs/matching.md) for policy definitions, reason codes, API behavior, and
 known limitations.
 See [three-way matching](docs/three-way-matching.md) for receipt idempotency, context fingerprints,

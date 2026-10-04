@@ -18,12 +18,17 @@ RUN groupadd --gid 10001 invoiceops \
        --home-dir /nonexistent --shell /usr/sbin/nologin invoiceops \
     && chown 10001:10001 /app
 ENV UV_CACHE_DIR=/tmp/invoiceops-uv-cache
+# Large evaluation wheels can stall on slow Docker Desktop connections. uv's
+# default 30-second per-request timeout is too short for those downloads.
+ARG UV_HTTP_TIMEOUT=180
+ENV UV_HTTP_TIMEOUT=${UV_HTTP_TIMEOUT}
 COPY --chown=10001:10001 pyproject.toml uv.lock README.md ./
 COPY --chown=10001:10001 apps apps
 COPY --chown=10001:10001 invoiceops invoiceops
 COPY --chown=10001:10001 workers workers
 USER 10001:10001
-RUN if [ "$INSTALL_EVALUATION" = "true" ]; then \
+RUN --mount=type=cache,target=/tmp/invoiceops-uv-cache,uid=10001,gid=10001,sharing=locked \
+    if [ "$INSTALL_EVALUATION" = "true" ]; then \
       uv sync --frozen --no-dev --group evaluation; \
     elif [ "$INSTALL_DEV" = "true" ]; then \
       uv sync --frozen; \

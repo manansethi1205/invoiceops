@@ -82,3 +82,12 @@ deterministic code handles arithmetic, policy, matching, and approval.
 - Add MLflow only when experiment lineage becomes a measured requirement.
 - Add Terraform for one real cloud path using S3, SQS, RDS, and a container service.
 - Publish measured service and business metrics separately from external benchmarks.
+
+## 11. Supporting-document extraction generalization — in progress
+
+- Unified PO visual-row parsing now separates printed line numbers from descriptions and keeps
+  per-cell evidence. Historical 0.1.0 runs are immutable; version-aware selection prevents a
+  stale hybrid result from outranking the new deterministic baseline.
+- The six-example report is frozen as the before result. A fixed 45-document synthetic PDF/PNG
+  generator provides 30 holdout cases. Local PNG evaluation requires Tesseract; unprocessed
+  images are reported as failures, not guessed. This is not a real-vendor benchmark.

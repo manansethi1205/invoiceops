@@ -1,0 +1,272 @@
+{
+  "dataset_id": "supporting-generated-documents-v1",
+  "fingerprint": "4d60400a29d0893216de3e191f46de2557b89a1577160e04b8a07252fcc6ea3a",
+  "split_counts": {
+    "train": 9,
+    "development": 6,
+    "holdout": 30
+  },
+  "holdout_documents": 30,
+  "evaluated_documents": 24,
+  "schema_validity_on_all_holdout": 0.8,
+  "source_counts": {
+    "image/png": 6,
+    "application/pdf": 24
+  },
+  "failure_categories": {
+    "ocr_unavailable": 6
+  },
+  "runtime": {
+    "python": "3.12.11",
+    "pymupdf": "1.28.2",
+    "ocr": "unavailable"
+  },
+  "comparison": {
+    "dataset_id": "supporting-generated-documents-v1",
+    "dataset_fingerprint": "969e912d812e2769057e71458d2829c66307838f3daf865418a1b15d5e129952",
+    "example_count": 24,
+    "old_deterministic": {
+      "PURCHASE_ORDER": {
+        "documents": 8,
+        "header_exact": {
+          "po_number": 0.0,
+          "issue_date": 1.0,
+          "currency": 1.0
+        },
+        "header_exact_counts": {
+          "po_number": 0,
+          "issue_date": 8,
+          "currency": 8
+        },
+        "line_true_positive": 0,
+        "line_predicted": 4,
+        "line_actual": 16,
+        "line_item_precision": 0.0,
+        "line_item_recall": 0.0,
+        "line_item_f1": 0.0,
+        "schema_validity_rate": 1.0,
+        "p50_latency_ms": 10.77065005665645,
+        "p95_latency_ms": 14.895409962628037,
+        "estimated_model_cost_per_document": "0"
+      },
+      "GOODS_RECEIPT": {
+        "documents": 8,
+        "header_exact": {
+          "receipt_number": 1.0,
+          "received_date": 1.0,
+          "referenced_po_number": 0.0
+        },
+        "header_exact_counts": {
+          "receipt_number": 8,
+          "received_date": 8,
+          "referenced_po_number": 0
+        },
+        "line_true_positive": 16,
+        "line_predicted": 16,
+        "line_actual": 16,
+        "line_item_precision": 1.0,
+        "line_item_recall": 1.0,
+        "line_item_f1": 1.0,
+        "schema_validity_rate": 1.0,
+        "p50_latency_ms": 2.601900021545589,
+        "p95_latency_ms": 5.586519971257074,
+        "estimated_model_cost_per_document": "0"
+      },
+      "DELIVERY_NOTE": {
+        "documents": 8,
+        "header_exact": {
+          "receipt_number": 1.0,
+          "received_date": 1.0,
+          "referenced_po_number": 0.0
+        },
+        "header_exact_counts": {
+          "receipt_number": 8,
+          "received_date": 8,
+          "referenced_po_number": 0
+        },
+        "line_true_positive": 16,
+        "line_predicted": 16,
+        "line_actual": 16,
+        "line_item_precision": 1.0,
+        "line_item_recall": 1.0,
+        "line_item_f1": 1.0,
+        "schema_validity_rate": 1.0,
+        "p50_latency_ms": 2.007399976719171,
+        "p95_latency_ms": 4.195574950426815,
+        "estimated_model_cost_per_document": "0"
+      }
+    },
+    "deterministic": {
+      "PURCHASE_ORDER": {
+        "documents": 8,
+        "header_exact": {
+          "po_number": 0.0,
+          "issue_date": 1.0,
+          "currency": 1.0
+        },
+        "header_exact_counts": {
+          "po_number": 0,
+          "issue_date": 8,
+          "currency": 8
+        },
+        "line_true_positive": 16,
+        "line_predicted": 16,
+        "line_actual": 16,
+        "line_item_precision": 1.0,
+        "line_item_recall": 1.0,
+        "line_item_f1": 1.0,
+        "schema_validity_rate": 1.0,
+        "p50_latency_ms": 4.606249975040555,
+        "p95_latency_ms": 11.39409497845918,
+        "estimated_model_cost_per_document": "0"
+      },
+      "GOODS_RECEIPT": {
+        "documents": 8,
+        "header_exact": {
+          "receipt_number": 1.0,
+          "received_date": 1.0,
+          "referenced_po_number": 0.0
+        },
+        "header_exact_counts": {
+          "receipt_number": 8,
+          "received_date": 8,
+          "referenced_po_number": 0
+        },
+        "line_true_positive": 16,
+        "line_predicted": 16,
+        "line_actual": 16,
+        "line_item_precision": 1.0,
+        "line_item_recall": 1.0,
+        "line_item_f1": 1.0,
+        "schema_validity_rate": 1.0,
+        "p50_latency_ms": 2.0367000834085047,
+        "p95_latency_ms": 5.798040027730163,
+        "estimated_model_cost_per_document": "0"
+      },
+      "DELIVERY_NOTE": {
+        "documents": 8,
+        "header_exact": {
+          "receipt_number": 1.0,
+          "received_date": 1.0,
+          "referenced_po_number": 0.0
+        },
+        "header_exact_counts": {
+          "receipt_number": 8,
+          "received_date": 8,
+          "referenced_po_number": 0
+        },
+        "line_true_positive": 16,
+        "line_predicted": 16,
+        "line_actual": 16,
+        "line_item_precision": 1.0,
+        "line_item_recall": 1.0,
+        "line_item_f1": 1.0,
+        "schema_validity_rate": 1.0,
+        "p50_latency_ms": 1.9523499649949372,
+        "p95_latency_ms": 5.951225035823879,
+        "estimated_model_cost_per_document": "0"
+      }
+    },
+    "hybrid_replay": {
+      "PURCHASE_ORDER": {
+        "documents": 8,
+        "header_exact": {
+          "po_number": 0.25,
+          "issue_date": 1.0,
+          "currency": 1.0
+        },
+        "header_exact_counts": {
+          "po_number": 2,
+          "issue_date": 8,
+          "currency": 8
+        },
+        "line_true_positive": 16,
+        "line_predicted": 16,
+        "line_actual": 16,
+        "line_item_precision": 1.0,
+        "line_item_recall": 1.0,
+        "line_item_f1": 1.0,
+        "schema_validity_rate": 1.0,
+        "p50_latency_ms": 8.007549971807748,
+        "p95_latency_ms": 18.86081000207923,
+        "estimated_model_cost_per_document": null
+      },
+      "GOODS_RECEIPT": {
+        "documents": 8,
+        "header_exact": {
+          "receipt_number": 1.0,
+          "received_date": 1.0,
+          "referenced_po_number": 0.25
+        },
+        "header_exact_counts": {
+          "receipt_number": 8,
+          "received_date": 8,
+          "referenced_po_number": 2
+        },
+        "line_true_positive": 16,
+        "line_predicted": 16,
+        "line_actual": 16,
+        "line_item_precision": 1.0,
+        "line_item_recall": 1.0,
+        "line_item_f1": 1.0,
+        "schema_validity_rate": 1.0,
+        "p50_latency_ms": 2.2597999777644873,
+        "p95_latency_ms": 12.672019990859553,
+        "estimated_model_cost_per_document": null
+      },
+      "DELIVERY_NOTE": {
+        "documents": 8,
+        "header_exact": {
+          "receipt_number": 1.0,
+          "received_date": 1.0,
+          "referenced_po_number": 0.25
+        },
+        "header_exact_counts": {
+          "receipt_number": 8,
+          "received_date": 8,
+          "referenced_po_number": 2
+        },
+        "line_true_positive": 16,
+        "line_predicted": 16,
+        "line_actual": 16,
+        "line_item_precision": 1.0,
+        "line_item_recall": 1.0,
+        "line_item_f1": 1.0,
+        "schema_validity_rate": 1.0,
+        "p50_latency_ms": 2.554150007199496,
+        "p95_latency_ms": 12.19136003870517,
+        "estimated_model_cost_per_document": null
+      }
+    },
+    "routed_document_rate": 1.0,
+    "routed_documents": 24,
+    "grounded_acceptance_rate": 1.0,
+    "grounded_acceptances": 10,
+    "proposed_candidates": 10,
+    "abstention_rate": 0.75,
+    "abstained_documents": 18,
+    "conflict_rate": 0.0,
+    "conflicting_candidates": 0,
+    "grounded_candidates": 10,
+    "confirmation_rate": null,
+    "confirmation_required_rate": 1.0,
+    "false_canonical_record_count": 0,
+    "p50_latency_ms": 4.372299998067319,
+    "p95_latency_ms": 14.679534945171321,
+    "estimated_model_cost_per_document": null,
+    "latency_source": "local parser measured; replay provider milliseconds simulated",
+    "usage_source": "synthetic replay; no live provider or human confirmation",
+    "limitations": [
+      "24 synthetic examples; not a production accuracy estimate.",
+      "Old 0.1.0 PO line reconstruction may include the printed line number.",
+      "No canonical records are written; actual confirmation rate is unmeasured.",
+      "Replay token counts and provider latency are synthetic; cost needs explicit rates."
+    ]
+  },
+  "limitations": [
+    "All documents, truth, and replay are synthetic.",
+    "Unprocessed image examples are failures, never surrogate OCR predictions.",
+    "Hybrid replay has no live provider; routing is measured, model accuracy is not.",
+    "Latency is local and replay provider latency is simulated; no model cost is claimed."
+  ]
+}

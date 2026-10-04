@@ -13,8 +13,8 @@ margin inherited from two-way line assignment, so historical decisions remain re
 quantities keyed by PO-line ID. The `(purchase_order_id, external_receipt_number)` business key is
 unique. An identical canonical replay returns the existing row; a changed replay returns `409`.
 Receipts are immutable. `POST /v1/goods-receipts/{id}/reverse` appends one immutable reversal.
-`X-Actor-ID` is required for reversal but is only an unverified development identity boundary,
-not production authentication.
+Reversal records the verified subject in OIDC mode. `X-Actor-ID` is accepted only in explicit
+development authentication mode; it is not production authentication.
 
 ## Context, concurrency and allocation
 

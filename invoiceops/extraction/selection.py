@@ -3,7 +3,14 @@ import uuid
 from sqlalchemy import case, select
 from sqlalchemy.orm import Session
 
-from invoiceops.extraction.supporting_hybrid import SUPPORTING_HYBRID_NAME
+from invoiceops.extraction.supporting import (
+    SUPPORTING_EXTRACTOR_NAME,
+    SUPPORTING_EXTRACTOR_VERSION,
+)
+from invoiceops.extraction.supporting_hybrid import (
+    SUPPORTING_HYBRID_NAME,
+    SUPPORTING_HYBRID_VERSION,
+)
 from invoiceops.extraction.version import CURRENT_EXTRACTION_STRATEGIES
 from invoiceops.models import (
     ExtractionRun,
@@ -37,11 +44,22 @@ def current_supporting_extraction(
     priority = case(
         (
             (SupportingExtractionRun.extractor_name == SUPPORTING_HYBRID_NAME)
+            & (SupportingExtractionRun.extractor_version == SUPPORTING_HYBRID_VERSION)
             & (SupportingExtractionRun.status == SupportingExtractionStatus.SUCCEEDED),
             0,
         ),
-        (SupportingExtractionRun.status == SupportingExtractionStatus.SUCCEEDED, 1),
-        else_=2,
+        (
+            (SupportingExtractionRun.extractor_name == SUPPORTING_EXTRACTOR_NAME)
+            & (SupportingExtractionRun.extractor_version == SUPPORTING_EXTRACTOR_VERSION)
+            & (SupportingExtractionRun.status == SupportingExtractionStatus.SUCCEEDED),
+            1,
+        ),
+        (
+            (SupportingExtractionRun.extractor_name == SUPPORTING_EXTRACTOR_NAME)
+            & (SupportingExtractionRun.extractor_version == SUPPORTING_EXTRACTOR_VERSION),
+            2,
+        ),
+        else_=3,
     )
     return session.scalar(
         select(SupportingExtractionRun)

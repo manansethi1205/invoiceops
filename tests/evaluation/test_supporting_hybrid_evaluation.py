@@ -14,6 +14,9 @@ def test_frozen_supporting_replay_reports_both_roles_and_never_writes_canonical_
         "PURCHASE_ORDER", "GOODS_RECEIPT", "DELIVERY_NOTE"
     }
     assert first.deterministic["PURCHASE_ORDER"].header_exact["po_number"] == 2 / 3
+    assert first.old_deterministic["PURCHASE_ORDER"].line_item_f1 == 0
+    assert first.deterministic["PURCHASE_ORDER"].line_item_f1 == 1
+    assert first.hybrid_replay["PURCHASE_ORDER"].line_item_f1 == 1
     assert first.hybrid_replay["PURCHASE_ORDER"].header_exact["po_number"] == 2 / 3
     assert first.hybrid_replay["GOODS_RECEIPT"].header_exact["receipt_number"] == 1
     assert first.routed_document_rate == 3 / 6

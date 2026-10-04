@@ -29,7 +29,7 @@ from invoiceops.schemas.cases import (
 from invoiceops.schemas.extraction import DocumentText, ExtractedField, ExtractionStatus, WordToken
 
 SUPPORTING_EXTRACTOR_NAME = "deterministic-supporting-documents"
-SUPPORTING_EXTRACTOR_VERSION = "0.1.0"
+SUPPORTING_EXTRACTOR_VERSION = "0.2.0"
 SUPPORTING_SCHEMA_VERSION = "1.0"
 _OTHER_LABEL = re.compile(
     r"^\s*(?:order date|po date|issue date|vendor|supplier|seller|buyer|customer|"
@@ -111,13 +111,13 @@ def _labeled_date(
 
 def extract_purchase_order(document: DocumentText) -> ExtractedPurchaseOrder:
     lines = reconstruct_lines(document)
-    invoice_style_lines = extract_line_items(document)
-    line_numbers = _purchase_order_line_numbers(document)
-    aligned_line_numbers: list[ExtractedField[str]] = (
-        line_numbers
-        if len(line_numbers) == len(invoice_style_lines)
-        else [_missing() for _item in invoice_style_lines]
-    )
+    po_lines = _purchase_order_rows(document)
+    return _purchase_order_from_lines(lines, po_lines)
+
+
+def _purchase_order_from_lines(
+    lines: list[TextLine], po_lines: list[ExtractedPurchaseOrderLine]
+) -> ExtractedPurchaseOrder:
     return ExtractedPurchaseOrder(
         po_number=_labeled_text(
             lines,
@@ -143,18 +143,7 @@ def extract_purchase_order(document: DocumentText) -> ExtractedPurchaseOrder:
         subtotal=extract_subtotal(lines),
         tax=extract_tax(lines),
         total=extract_total(lines),
-        line_items=[
-            ExtractedPurchaseOrderLine(
-                line_number=line_number,
-                description=item.description,
-                ordered_quantity=item.quantity,
-                unit_price=item.unit_price,
-                line_total=item.line_total,
-            )
-            for item, line_number in zip(
-                invoice_style_lines, aligned_line_numbers, strict=True
-            )
-        ],
+        line_items=po_lines,
     )
 
 
@@ -183,22 +172,169 @@ def _po_header_anchors(row: VisualRow) -> dict[str, float] | None:
                     anchors[name] = sum(
                         (item.bbox.x0 + item.bbox.x1) / 2 for item in segment
                     ) / len(segment)
-    required = {"line_number", "description", "line_total"}
+    required = {"description", "line_total"}
     if not required.issubset(anchors) or not {"quantity", "unit_price"}.intersection(anchors):
         return None
     return anchors
 
 
-def _purchase_order_line_numbers(document: DocumentText) -> list[ExtractedField[str]]:
-    result: list[ExtractedField[str]] = []
+def _purchase_order_rows(document: DocumentText) -> list[ExtractedPurchaseOrderLine]:
+    result: list[ExtractedPurchaseOrderLine] = []
     boundaries: list[tuple[str, float, float]] = []
+    previous_page = -1
+    previous_y1 = 0.0
     for row in reconstruct_visual_rows(document):
         anchors = _po_header_anchors(row)
         if anchors is not None:
             ordered = sorted(anchors.items(), key=lambda item: item[1])
             cuts = [
-                (left[1] + right[1]) / 2
-                for left, right in zip(ordered, ordered[1:], strict=False)
+                (left[1] + right[1]) / 2 for left, right in zip(ordered, ordered[1:], strict=False)
+            ]
+            boundaries = [
+                (item[0], [0.0, *cuts][index], [*cuts, 1.0][index])
+                for index, item in enumerate(ordered)
+            ]
+            continue
+        if not boundaries:
+            continue
+        if _PO_TABLE_FOOTER.search(_row_text(row)):
+            boundaries = []
+            continue
+        cells: dict[str, list[WordToken]] = {name: [] for name in _PO_LINE_HEADERS}
+        for word in row.words:
+            center = (word.bbox.x0 + word.bbox.x1) / 2
+            for name, x0, x1 in boundaries:
+                if x0 <= center <= x1:
+                    cells[name].append(word)
+                    break
+        description = normalize_whitespace(" ".join(word.text for word in cells["description"]))
+        numbers = {
+            name: parse_money(" ".join(word.text for word in cells[name])) if cells[name] else None
+            for name in ("quantity", "unit_price", "line_total")
+        }
+        if description and not cells["line_number"] and not any(cells[name] for name in numbers):
+            # Only a close, description-only row may continue the preceding row.
+            if result and row.page == previous_page and 0 <= row.y0 - previous_y1 <= 0.045:
+                old = result[-1].description
+                if old.value is not None:
+                    result[-1] = result[-1].model_copy(
+                        update={
+                            "description": ExtractedField[str](
+                                value=f"{old.value} {description}",
+                                status=ExtractionStatus.EXTRACTED,
+                                evidence=[
+                                    *old.evidence,
+                                    *evidence_from_words(cells["description"]),
+                                ],
+                                rule_id="purchase_order.line.description.wrapped.v2",
+                            )
+                        }
+                    )
+                    previous_y1 = row.y1
+            continue
+        # A populated but undecodable numeric cell makes row association uncertain.
+        if not description or not any(value is not None for value in numbers.values()):
+            continue
+        if any(cells[name] and numbers[name] is None for name in numbers):
+            continue
+        raw_number = normalize_whitespace(" ".join(word.text for word in cells["line_number"]))
+        normalized = normalize_identifier(raw_number) if raw_number else ""
+
+        def text_field(
+            name: str, value: str, *, row_cells: dict[str, list[WordToken]] = cells
+        ) -> ExtractedField[str]:
+            if not value:
+                return _missing()
+            return ExtractedField[str](
+                value=value,
+                status=ExtractionStatus.EXTRACTED,
+                evidence=evidence_from_words(row_cells[name]),
+                rule_id=f"purchase_order.line.{name}.column.v2",
+            )
+
+        def money_field(
+            name: str,
+            *,
+            row_cells: dict[str, list[WordToken]] = cells,
+            row_numbers: dict[str, Decimal | None] = numbers,
+        ) -> ExtractedField[Decimal]:
+            value = row_numbers[name]
+            if value is None:
+                return _missing()
+            return ExtractedField[Decimal](
+                value=value,
+                status=ExtractionStatus.EXTRACTED,
+                evidence=evidence_from_words(row_cells[name]),
+                rule_id=f"purchase_order.line.{name}.column.v2",
+            )
+
+        result.append(
+            ExtractedPurchaseOrderLine(
+                line_number=text_field("line_number", normalized),
+                description=text_field("description", description),
+                ordered_quantity=money_field("quantity"),
+                unit_price=money_field("unit_price"),
+                line_total=money_field("line_total"),
+            )
+        )
+        previous_page, previous_y1 = row.page, row.y1
+    seen: dict[str, int] = {}
+    for index, line in enumerate(result):
+        if line.line_number.value is None:
+            continue
+        number = line.line_number.value
+        if number in seen:
+            for duplicate_index in (seen[number], index):
+                current = result[duplicate_index].line_number
+                result[duplicate_index] = result[duplicate_index].model_copy(
+                    update={
+                        "line_number": ExtractedField[str](
+                            value=None,
+                            status=ExtractionStatus.AMBIGUOUS,
+                            evidence=current.evidence,
+                            rule_id="purchase_order.line.number.duplicate.v2",
+                        )
+                    }
+                )
+        else:
+            seen[number] = index
+    return result
+
+
+def extract_purchase_order_v1(document: DocumentText) -> ExtractedPurchaseOrder:
+    """Historical 0.1.0 behavior for reproducible before/after evaluation only."""
+    lines = reconstruct_lines(document)
+    invoice_style_lines = extract_line_items(document)
+    line_numbers = _legacy_purchase_order_line_numbers(document)
+    aligned = (
+        line_numbers
+        if len(line_numbers) == len(invoice_style_lines)
+        else [_missing() for _ in invoice_style_lines]
+    )
+    return _purchase_order_from_lines(
+        lines,
+        [
+            ExtractedPurchaseOrderLine(
+                line_number=number,
+                description=item.description,
+                ordered_quantity=item.quantity,
+                unit_price=item.unit_price,
+                line_total=item.line_total,
+            )
+            for item, number in zip(invoice_style_lines, aligned, strict=True)
+        ],
+    )
+
+
+def _legacy_purchase_order_line_numbers(document: DocumentText) -> list[ExtractedField[str]]:
+    result: list[ExtractedField[str]] = []
+    boundaries: list[tuple[str, float, float]] = []
+    for row in reconstruct_visual_rows(document):
+        anchors = _po_header_anchors(row)
+        if anchors is not None and "line_number" in anchors:
+            ordered = sorted(anchors.items(), key=lambda item: item[1])
+            cuts = [
+                (left[1] + right[1]) / 2 for left, right in zip(ordered, ordered[1:], strict=False)
             ]
             boundaries = [
                 (item[0], [0.0, *cuts][index], [*cuts, 1.0][index])
@@ -231,16 +367,15 @@ def _purchase_order_line_numbers(document: DocumentText) -> list[ExtractedField[
         ):
             continue
         normalized = normalize_identifier(raw_number)
-        if not normalized:
-            continue
-        result.append(
-            ExtractedField[str](
-                value=normalized,
-                status=ExtractionStatus.EXTRACTED,
-                evidence=evidence_from_words(cells["line_number"]),
-                rule_id="purchase_order.line.number.column.v1",
+        if normalized:
+            result.append(
+                ExtractedField[str](
+                    value=normalized,
+                    status=ExtractionStatus.EXTRACTED,
+                    evidence=evidence_from_words(cells["line_number"]),
+                    rule_id="purchase_order.line.number.column.v1",
+                )
             )
-        )
     return result
 
 
@@ -286,8 +421,7 @@ def _receipt_rows(document: DocumentText) -> list[ExtractedGoodsReceiptLine]:
             anchors = detected
             ordered = sorted(anchors.items(), key=lambda item: item[1])
             cuts = [
-                (left[1] + right[1]) / 2
-                for left, right in zip(ordered, ordered[1:], strict=False)
+                (left[1] + right[1]) / 2 for left, right in zip(ordered, ordered[1:], strict=False)
             ]
             boundaries = [
                 (item[0], ([0.0, *cuts][index]), ([*cuts, 1.0][index]))

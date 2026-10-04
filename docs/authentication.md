@@ -1,6 +1,8 @@
 # Authentication and authorization
 
 InvoiceOps never authorizes or executes payment. Matching, human resolution and payment authorization remain distinct.
+Supporting extraction selection is version-aware but never creates canonical PO or receipt data;
+explicit reviewer confirmation remains necessary in both authentication modes.
 
 ## Policy
 

@@ -29,7 +29,7 @@ from invoiceops.schemas.cases import (
 from invoiceops.schemas.extraction import DocumentText, ExtractedField, ExtractionStatus
 
 SUPPORTING_HYBRID_NAME = "supporting-hybrid-routed"
-SUPPORTING_HYBRID_VERSION = "0.2.0"
+SUPPORTING_HYBRID_VERSION = "0.3.0"
 PO_PROMPT_VERSION = "supporting-po-vision-v1"
 RECEIPT_PROMPT_VERSION = "supporting-receipt-vision-v1"
 DELIVERY_PROMPT_VERSION = "supporting-delivery-vision-v1"

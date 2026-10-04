@@ -12,7 +12,11 @@ from statistics import median
 from pydantic import BaseModel, ConfigDict, Field
 
 from invoiceops.extraction.hybrid.schemas import CandidateField, VisionUsage
-from invoiceops.extraction.supporting import extract_goods_receipt, extract_purchase_order
+from invoiceops.extraction.supporting import (
+    extract_goods_receipt,
+    extract_purchase_order,
+    extract_purchase_order_v1,
+)
 from invoiceops.extraction.supporting_hybrid import (
     GoodsReceiptCandidate,
     PurchaseOrderCandidate,
@@ -44,9 +48,14 @@ class RoleMetrics(BaseModel):
 
     documents: int
     header_exact: dict[str, float]
+    header_exact_counts: dict[str, int]
+    line_true_positive: int
+    line_predicted: int
+    line_actual: int
     line_item_precision: float = Field(ge=0, le=1)
     line_item_recall: float = Field(ge=0, le=1)
     line_item_f1: float = Field(ge=0, le=1)
+    schema_validity_rate: float = Field(ge=0, le=1)
     p50_latency_ms: float = Field(ge=0)
     p95_latency_ms: float = Field(ge=0)
     estimated_model_cost_per_document: Decimal | None
@@ -58,18 +67,26 @@ class SupportingReplayReport(BaseModel):
     dataset_id: str
     dataset_fingerprint: str
     example_count: int
+    old_deterministic: dict[str, RoleMetrics]
     deterministic: dict[str, RoleMetrics]
     hybrid_replay: dict[str, RoleMetrics]
     routed_document_rate: float
+    routed_documents: int
     grounded_acceptance_rate: float
+    grounded_acceptances: int
+    proposed_candidates: int
     abstention_rate: float
+    abstained_documents: int
     conflict_rate: float
+    conflicting_candidates: int
+    grounded_candidates: int
     confirmation_rate: float | None
     confirmation_required_rate: float
     false_canonical_record_count: int
     p50_latency_ms: float
     p95_latency_ms: float
     estimated_model_cost_per_document: Decimal | None
+    latency_source: str
     usage_source: str
     limitations: list[str]
 
@@ -237,7 +254,7 @@ def frozen_cases() -> tuple[ReplayCase, ...]:
         ReplayCase(
             "delivery-complete",
             DocumentRole.DELIVERY_NOTE,
-            _document([[('Delivery', .05), ('Note', .13), ('DN-1', .3)], *receipt_header]),
+            _document([[("Delivery", 0.05), ("Note", 0.13), ("DN-1", 0.3)], *receipt_header]),
             {**receipt_truth, "receipt_number": "DN-1"},
             (("Widgets", "2", "2", "0"),),
             None,
@@ -266,7 +283,7 @@ def _lines(output: ExtractedPurchaseOrder | ExtractedGoodsReceipt) -> Counter[tu
         if all(field.status == ExtractionStatus.EXTRACTED for field in fields):
             result[
                 tuple(
-                    str(Decimal(str(field.value)).normalize())
+                    format(Decimal(str(field.value)).normalize(), "f")
                     if isinstance(field.value, Decimal)
                     else str(field.value)
                     for field in fields
@@ -281,13 +298,13 @@ def _score_role(
     estimated_cost: Decimal | None,
 ) -> RoleMetrics:
     fields = HEADER_NAMES[cases[0][0].role]
-    exact = {
+    counts = {
         name: sum(
             str(getattr(output, name).value) == example.truth[name] for example, output in cases
         )
-        / len(cases)
         for name in fields
     }
+    exact = {name: count / len(cases) for name, count in counts.items()}
     true_positive = predicted = actual = 0
     for example, output in cases:
         prediction = _lines(output)
@@ -300,11 +317,16 @@ def _score_role(
     return RoleMetrics(
         documents=len(cases),
         header_exact=exact,
+        header_exact_counts=counts,
+        line_true_positive=true_positive,
+        line_predicted=predicted,
+        line_actual=actual,
         line_item_precision=precision,
         line_item_recall=recall,
         line_item_f1=2 * precision * recall / (precision + recall) if precision + recall else 0.0,
+        schema_validity_rate=1.0,
         p50_latency_ms=median(latencies),
-        p95_latency_ms=_percentile(latencies, .95),
+        p95_latency_ms=_percentile(latencies, 0.95),
         estimated_model_cost_per_document=estimated_cost,
     )
 
@@ -322,14 +344,14 @@ def _percentile(values: list[float], percentile: float) -> float:
 def run_supporting_replay_evaluation(
     cases: tuple[ReplayCase, ...] | None = None,
     *,
+    dataset_id: str = "supporting-synthetic-replay-v1",
     input_cost_per_million: Decimal | None = None,
     output_cost_per_million: Decimal | None = None,
 ) -> SupportingReplayReport:
     if (input_cost_per_million is None) != (output_cost_per_million is None):
         raise ValueError("both token prices are required")
     if any(
-        rate is not None and rate < 0
-        for rate in (input_cost_per_million, output_cost_per_million)
+        rate is not None and rate < 0 for rate in (input_cost_per_million, output_cost_per_million)
     ):
         raise ValueError("token prices must be nonnegative")
     examples = cases if cases is not None else frozen_cases()
@@ -355,6 +377,9 @@ def run_supporting_replay_evaluation(
     baseline_by_role: dict[
         str, list[tuple[ReplayCase, ExtractedPurchaseOrder | ExtractedGoodsReceipt]]
     ] = {}
+    old_by_role: dict[
+        str, list[tuple[ReplayCase, ExtractedPurchaseOrder | ExtractedGoodsReceipt]]
+    ] = {}
     hybrid_by_role: dict[
         str, list[tuple[ReplayCase, ExtractedPurchaseOrder | ExtractedGoodsReceipt]]
     ] = {}
@@ -362,9 +387,17 @@ def run_supporting_replay_evaluation(
     input_tokens = output_tokens = 0
     durations: list[float] = []
     baseline_durations: dict[str, list[float]] = {}
+    old_durations: dict[str, list[float]] = {}
     hybrid_durations: dict[str, list[float]] = {}
     role_usage: dict[str, tuple[int, int]] = {}
     for example in examples:
+        old_started = time.perf_counter()
+        old_output = (
+            extract_purchase_order_v1(example.document)
+            if example.role == DocumentRole.PURCHASE_ORDER
+            else extract_goods_receipt(example.document)
+        )
+        old_elapsed = (time.perf_counter() - old_started) * 1000
         started = time.perf_counter()
         baseline = (
             extract_purchase_order(example.document)
@@ -395,10 +428,10 @@ def run_supporting_replay_evaluation(
                     abstained += 1
                 input_tokens += example.response.usage.input_tokens or 0
                 output_tokens += example.response.usage.output_tokens or 0
-                old_input, old_output = role_usage.get(example.role.value, (0, 0))
+                old_input, old_output_tokens = role_usage.get(example.role.value, (0, 0))
                 role_usage[example.role.value] = (
                     old_input + (example.response.usage.input_tokens or 0),
-                    old_output + (example.response.usage.output_tokens or 0),
+                    old_output_tokens + (example.response.usage.output_tokens or 0),
                 )
             else:
                 abstained += 1
@@ -407,6 +440,8 @@ def run_supporting_replay_evaluation(
         )
         durations.append(hybrid_elapsed)
         baseline_durations.setdefault(example.role.value, []).append(baseline_elapsed)
+        old_durations.setdefault(example.role.value, []).append(old_elapsed)
+        old_by_role.setdefault(example.role.value, []).append((example, old_output))
         hybrid_durations.setdefault(example.role.value, []).append(hybrid_elapsed)
         baseline_by_role.setdefault(example.role.value, []).append((example, baseline))
         hybrid_by_role.setdefault(example.role.value, []).append((example, hybrid))
@@ -427,9 +462,13 @@ def run_supporting_replay_evaluation(
                 + Decimal(role_output) * output_cost_per_million
             ) / Decimal(1_000_000 * len(rows))
     return SupportingReplayReport(
-        dataset_id="supporting-synthetic-replay-v1",
+        dataset_id=dataset_id,
         dataset_fingerprint=fingerprint,
         example_count=len(examples),
+        old_deterministic={
+            key: _score_role(value, old_durations[key], Decimal(0))
+            for key, value in old_by_role.items()
+        },
         deterministic={
             key: _score_role(value, baseline_durations[key], Decimal(0))
             for key, value in baseline_by_role.items()
@@ -439,20 +478,26 @@ def run_supporting_replay_evaluation(
             for key, value in hybrid_by_role.items()
         },
         routed_document_rate=routed / len(examples),
+        routed_documents=routed,
         grounded_acceptance_rate=accepted / proposed if proposed else 0.0,
+        grounded_acceptances=accepted,
+        proposed_candidates=proposed,
         abstention_rate=abstained / routed if routed else 0.0,
+        abstained_documents=abstained,
         conflict_rate=conflicts / grounded if grounded else 0.0,
+        conflicting_candidates=conflicts,
+        grounded_candidates=grounded,
         confirmation_rate=None,
         confirmation_required_rate=1.0,
         false_canonical_record_count=0,
         p50_latency_ms=median(durations),
         p95_latency_ms=_percentile(durations, 0.95),
         estimated_model_cost_per_document=estimated_cost,
+        latency_source="local parser measured; replay provider milliseconds simulated",
         usage_source="synthetic replay; no live provider or human confirmation",
         limitations=[
-            "Six synthetic token-layout examples; not a production accuracy estimate.",
-            "PO line F1 is zero because the deterministic description includes "
-            "the printed line number.",
+            f"{len(examples)} synthetic examples; not a production accuracy estimate.",
+            "Old 0.1.0 PO line reconstruction may include the printed line number.",
             "No canonical records are written; actual confirmation rate is unmeasured.",
             "Replay token counts and provider latency are synthetic; cost needs explicit rates.",
         ],
