@@ -1,7 +1,10 @@
 from invoiceops.evaluation.supporting_documents import (
     fixed_specs,
     generate_bytes,
+    generate_unseen_bytes,
     run_generated_holdout,
+    run_unseen_holdout,
+    unseen_specs,
 )
 
 
@@ -32,3 +35,16 @@ def test_generated_holdout_reports_all_roles_and_missing_ocr() -> None:
     assert "Synthetic Supply Co" not in serialized
     assert "Custom steel part" not in serialized
     assert "C:\\Users" not in serialized
+
+
+def test_unseen_layout_family_is_separate_and_reports_every_failure() -> None:
+    specs = unseen_specs()
+    assert len(specs) == 30
+    assert all(spec.split == "holdout" for spec in specs)
+    assert generate_unseen_bytes(specs[1]) == generate_unseen_bytes(specs[1])
+    report = run_unseen_holdout()
+    assert report.dataset_id == "supporting-unseen-panel-v1"
+    assert report.fingerprint != run_generated_holdout().fingerprint
+    assert report.evaluated_documents + sum(report.failure_categories.values()) == 30
+    assert report.comparison is not None
+    assert report.comparison.false_canonical_record_count == 0

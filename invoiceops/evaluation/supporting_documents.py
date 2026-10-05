@@ -3,6 +3,7 @@
 import hashlib
 import json
 import platform
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
@@ -67,6 +68,22 @@ def fixed_specs() -> tuple[GeneratedSpec, ...]:
         )
         for role in roles
         for index in range(15)
+    )
+
+
+def unseen_specs() -> tuple[GeneratedSpec, ...]:
+    """A separate, fixed right-panel layout, never used to choose extraction rules."""
+    roles = (DocumentRole.PURCHASE_ORDER, DocumentRole.GOODS_RECEIPT, DocumentRole.DELIVERY_NOTE)
+    return tuple(
+        GeneratedSpec(
+            index=index,
+            role=role,
+            split="holdout",
+            source="image/png" if index % 5 == 0 else "application/pdf",
+            family="stacked_panel" if index % 2 else "right_panel",
+        )
+        for role in roles
+        for index in range(10)
     )
 
 
@@ -188,6 +205,83 @@ def generate_bytes(spec: GeneratedSpec) -> bytes:
     return body
 
 
+def _unseen_truth(spec: GeneratedSpec) -> tuple[dict[str, str], tuple[tuple[str, ...], ...]]:
+    number = spec.index + 500
+    if spec.role == DocumentRole.PURCHASE_ORDER:
+        return (
+            {"po_number": f"PO-{number}", "issue_date": "2026-09-30", "currency": "INR"},
+            (("Synthetic gears", "2", "10", "20"),),
+        )
+    prefix = "GR" if spec.role == DocumentRole.GOODS_RECEIPT else "DN"
+    return (
+        {
+            "receipt_number": f"{prefix}-{number}",
+            "received_date": "2026-10-01",
+            "referenced_po_number": f"PO-{number}",
+        },
+        (("Synthetic gears", "2", "2", "0"),),
+    )
+
+
+def generate_unseen_bytes(spec: GeneratedSpec) -> bytes:
+    number = spec.index + 500
+    pdf = pymupdf.open()  # type: ignore[no-untyped-call]
+    page = pdf.new_page(width=612, height=792)
+    if spec.role == DocumentRole.PURCHASE_ORDER:
+        headers = [
+            ("Purchase Order Number:", f"PO-{number}"),
+            ("Order Date:", "30/09/2026"),
+            ("Currency:", "INR"),
+            ("Vendor:", "Synthetic Supply Co"),
+        ]
+        table = [("Line", 35), ("Description", 100), ("Qty", 310), ("Price", 420), ("Amount", 520)]
+        item = [("1", 35), ("Synthetic gears", 100), ("2", 310), ("10.00", 420), ("20.00", 520)]
+    else:
+        title = (
+            "Goods Receipt Number:"
+            if spec.role == DocumentRole.GOODS_RECEIPT
+            else "Delivery Note Number:"
+        )
+        prefix = "GR" if spec.role == DocumentRole.GOODS_RECEIPT else "DN"
+        headers = [
+            (title, f"{prefix}-{number}"),
+            ("Purchase Order Number:", f"PO-{number}"),
+            (
+                "Received Date:" if spec.role == DocumentRole.GOODS_RECEIPT else "Delivery Date:",
+                "01/10/2026",
+            ),
+            ("Supplier:", "Synthetic Supply Co"),
+        ]
+        table = [("Description", 35), ("Received", 310), ("Accepted", 420), ("Rejected", 520)]
+        item = [("Synthetic gears", 35), ("2", 310), ("2", 420), ("0", 520)]
+    y = 65
+    for label, value in headers:
+        page.insert_text((42, y), label, fontsize=10)
+        value_y = y + 18 if spec.family == "stacked_panel" else y
+        page.insert_text((350, value_y), value, fontsize=10)
+        y += 48
+    y += 20
+    for text, x in table:
+        page.insert_text((x, y), text, fontsize=10)
+    y += 35
+    for text, x in item:
+        page.insert_text((x, y), text, fontsize=10)
+    y += 35
+    page.insert_text((35, y), "Total", fontsize=10)
+    page.insert_text((520, y), "20.00", fontsize=10)
+    if spec.source == "image/png":
+        body = cast(
+            bytes,
+            page.get_pixmap(
+                matrix=pymupdf.Matrix(2, 2)  # type: ignore[no-untyped-call]
+            ).tobytes("png"),
+        )
+    else:
+        body = cast(bytes, pdf.tobytes(no_new_id=True, garbage=4, deflate=True))  # type: ignore[no-untyped-call]
+    pdf.close()  # type: ignore[no-untyped-call]
+    return body
+
+
 def _replay(spec: GeneratedSpec) -> SupportingResponse | None:
     # Frozen synthetic replay on a subset; no model invocation or measured tokens.
     if spec.index not in (6, 7):
@@ -216,16 +310,22 @@ def _replay(spec: GeneratedSpec) -> SupportingResponse | None:
     )
 
 
-def run_generated_holdout() -> GeneratedReport:
-    specs = fixed_specs()
+def _evaluate_specs(
+    specs: tuple[GeneratedSpec, ...],
+    *,
+    dataset_id: str,
+    generate: Callable[[GeneratedSpec], bytes],
+    truth_for: Callable[[GeneratedSpec], tuple[dict[str, str], tuple[tuple[str, ...], ...]]],
+    replay_for: Callable[[GeneratedSpec], SupportingResponse | None],
+) -> GeneratedReport:
     digest = hashlib.sha256()
     examples: list[ReplayCase] = []
     failures: dict[str, int] = {}
     sources: dict[str, int] = {}
     extractor = DocumentTextExtractor()
     for spec in specs:
-        body = generate_bytes(spec)
-        truth, truth_lines = _truth(spec)
+        body = generate(spec)
+        truth, truth_lines = truth_for(spec)
         digest.update(
             json.dumps(
                 {
@@ -257,23 +357,24 @@ def run_generated_holdout() -> GeneratedReport:
             )
             continue
         examples.append(
-            ReplayCase(spec.case_id, spec.role, document, truth, truth_lines, _replay(spec))
+            ReplayCase(spec.case_id, spec.role, document, truth, truth_lines, replay_for(spec))
         )
     comparison = (
-        run_supporting_replay_evaluation(tuple(examples), dataset_id=DATASET_ID)
+        run_supporting_replay_evaluation(tuple(examples), dataset_id=dataset_id)
         if examples
         else None
     )
+    holdout_count = sum(spec.split == "holdout" for spec in specs)
     return GeneratedReport(
-        dataset_id=DATASET_ID,
+        dataset_id=dataset_id,
         fingerprint=digest.hexdigest(),
         split_counts={
             name: sum(spec.split == name for spec in specs)
             for name in ("train", "development", "holdout")
         },
-        holdout_documents=30,
+        holdout_documents=holdout_count,
         evaluated_documents=len(examples),
-        schema_validity_on_all_holdout=len(examples) / 30,
+        schema_validity_on_all_holdout=len(examples) / holdout_count,
         source_counts=sources,
         failure_categories=failures,
         runtime={
@@ -291,8 +392,35 @@ def run_generated_holdout() -> GeneratedReport:
     )
 
 
+def run_generated_holdout() -> GeneratedReport:
+    return _evaluate_specs(
+        fixed_specs(),
+        dataset_id=DATASET_ID,
+        generate=generate_bytes,
+        truth_for=_truth,
+        replay_for=_replay,
+    )
+
+
+def run_unseen_holdout() -> GeneratedReport:
+    return _evaluate_specs(
+        unseen_specs(),
+        dataset_id="supporting-unseen-panel-v1",
+        generate=generate_unseen_bytes,
+        truth_for=_unseen_truth,
+        replay_for=lambda _spec: None,
+    )
+
+
 def write_report(path: Path) -> GeneratedReport:
     report = run_generated_holdout()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(report.model_dump_json(indent=2) + "\n", encoding="utf-8")
+    return report
+
+
+def write_unseen_report(path: Path) -> GeneratedReport:
+    report = run_unseen_holdout()
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(report.model_dump_json(indent=2) + "\n", encoding="utf-8")
     return report

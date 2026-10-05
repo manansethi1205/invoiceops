@@ -1,5 +1,19 @@
 # Reproducible deterministic evaluation
 
+## Generated supporting-document identifier evaluation
+
+The frozen `supporting-documents-v1-docker.json` report measured 30/30 synthetic PDF/PNG
+documents and found 0/10 PO identifiers and 0/20 receipt/delivery PO references. The current
+0.3.0 supporting extractor distinguishes explicit labels from bare identifiers and associates
+values by page and visual-row geometry. `supporting-documents-v2-local.json` is the same known
+dataset after the fix: 24/30 decoded locally, 8/8 PO identifiers and 16/16 references; six
+images are `ocr_unavailable`. `supporting-unseen-v1-local.json` is a separate right/stacked-panel
+family: 24/30 decoded locally, 8/8 plus 16/16 identifiers. These local measurements are not
+30-document Docker OCR results. The new CI job runs both families with Tesseract, requires full
+coverage, checks the known identifier regressions and `false_canonical_record_count == 0`, and
+publishes aggregate-only reports. Replay latency and token usage are simulated; no live-model
+quality or cost is claimed. Neither evaluator writes canonical PO or receipt records.
+
 ## Supporting-document case evaluation
 
 The `supporting-documents-synthetic-v1` corpus contains 15 purchase orders and 15 goods receipts

@@ -29,7 +29,7 @@ from invoiceops.schemas.cases import (
 from invoiceops.schemas.extraction import DocumentText, ExtractedField, ExtractionStatus, WordToken
 
 SUPPORTING_EXTRACTOR_NAME = "deterministic-supporting-documents"
-SUPPORTING_EXTRACTOR_VERSION = "0.2.0"
+SUPPORTING_EXTRACTOR_VERSION = "0.3.0"
 SUPPORTING_SCHEMA_VERSION = "1.0"
 _OTHER_LABEL = re.compile(
     r"^\s*(?:order date|po date|issue date|vendor|supplier|seller|buyer|customer|"
@@ -109,17 +109,118 @@ def _labeled_date(
     )
 
 
+_PO_LABEL = re.compile(
+    r"(?:purchase\s+order(?:\s+(?:no\.?|number|#))?|"
+    r"p\.?o\.?(?:\s+(?:no\.?|number|#)|:))\s*:?",
+    re.I,
+)
+_RECEIPT_LABEL = re.compile(
+    r"(?:goods\s+receipt|receipt|delivery\s+note)"
+    r"(?:\s+(?:no\.?|number|#)|:)?\s*:?",
+    re.I,
+)
+_OTHER_HEADER = re.compile(
+    r"^(?:order\s+date|po\s+date|issue\s+date|received\s+date|"
+    r"delivery\s+date|receipt\s+date|vendor|supplier|seller|buyer|"
+    r"customer|bill\s+to|currency|subtotal|sub\s+total|tax|"
+    r"grand\s+total|total|description|item|line)\b",
+    re.I,
+)
+_IDENTIFIER_VALUE = re.compile(r"[A-Z0-9][A-Z0-9./_-]*", re.I)
+
+
+def _identifier_label_length(words: list[WordToken], pattern: re.Pattern[str]) -> int:
+    # Match only a complete label prefix. A bare PO token and PO-106 are not labels.
+    for size in range(min(4, len(words)), 0, -1):
+        candidate = normalize_whitespace(" ".join(word.text for word in words[:size]))
+        if pattern.fullmatch(candidate):
+            return size
+    return 0
+
+
+def _identifier_value(words: list[WordToken]) -> tuple[str, list[WordToken]] | None:
+    if not words or _OTHER_HEADER.match(" ".join(word.text for word in words)):
+        return None
+    chosen: list[WordToken] = []
+    for word in words[:3]:
+        if not re.fullmatch(r"[A-Za-z0-9./_-]+", word.text):
+            break
+        if chosen and word.bbox.x0 - chosen[-1].bbox.x1 > 0.08:
+            break
+        chosen.append(word)
+    if not chosen:
+        return None
+    raw = normalize_whitespace(" ".join(word.text for word in chosen))
+    raw = re.sub(r"\s*([/-])\s*", r"\1", raw)
+    if not _IDENTIFIER_VALUE.fullmatch(raw) or not normalize_identifier(raw):
+        return None
+    return raw, chosen
+
+
+def _layout_identifier(
+    document: DocumentText, *, pattern: re.Pattern[str], rule: str
+) -> ExtractedField[str]:
+    rows = reconstruct_visual_rows(document)
+    candidates: list[FieldCandidate[str]] = []
+    for index, row in enumerate(rows):
+        length = _identifier_label_length(row.words, pattern)
+        if not length:
+            continue
+        label = row.words[:length]
+        value_words = row.words[length:]
+        if value_words:
+            # The value must follow the label on the same row, not overlap it.
+            value_words = [word for word in value_words if word.bbox.x0 >= label[-1].bbox.x0]
+            if value_words and value_words[0].bbox.x0 - label[-1].bbox.x1 > 0.45:
+                value_words = []
+        if not value_words and index + 1 < len(rows):
+            below = rows[index + 1]
+            gap = below.y0 - row.y1
+            if (
+                below.page == row.page
+                and 0 <= gap <= 0.045
+                and below.words[0].bbox.x0 >= label[0].bbox.x0 - 0.025
+                and below.words[0].bbox.x0 - label[-1].bbox.x1 <= 0.45
+                and not _identifier_label_length(below.words, pattern)
+            ):
+                value_words = below.words
+        parsed = _identifier_value(value_words)
+        if parsed is None:
+            continue
+        value, evidence_words = parsed
+        candidates.append(
+            FieldCandidate(
+                value=value,
+                evidence=evidence_from_words(evidence_words),
+                rule_id=f"{rule}.layout.v2",
+                priority=100,
+            )
+        )
+    return resolve_candidates(
+        candidates, comparison_key=normalize_identifier, ambiguous_rule_id=f"{rule}.ambiguous.v2"
+    )
+
+
 def extract_purchase_order(document: DocumentText) -> ExtractedPurchaseOrder:
     lines = reconstruct_lines(document)
     po_lines = _purchase_order_rows(document)
-    return _purchase_order_from_lines(lines, po_lines)
+    return _purchase_order_from_lines(
+        lines,
+        po_lines,
+        po_number=_layout_identifier(document, pattern=_PO_LABEL, rule="purchase_order.number"),
+    )
 
 
 def _purchase_order_from_lines(
-    lines: list[TextLine], po_lines: list[ExtractedPurchaseOrderLine]
+    lines: list[TextLine],
+    po_lines: list[ExtractedPurchaseOrderLine],
+    *,
+    po_number: ExtractedField[str] | None = None,
 ) -> ExtractedPurchaseOrder:
     return ExtractedPurchaseOrder(
-        po_number=_labeled_text(
+        po_number=po_number
+        if po_number is not None
+        else _labeled_text(
             lines,
             re.compile(r"\b(?:purchase\s*order|po)\s*(?:number|no\.?|#)?\b", re.I),
             rule="purchase_order.number",
@@ -484,6 +585,17 @@ def _receipt_rows(document: DocumentText) -> list[ExtractedGoodsReceiptLine]:
 
 
 def extract_goods_receipt(document: DocumentText) -> ExtractedGoodsReceipt:
+    return _extract_goods_receipt(document, legacy_identifiers=False)
+
+
+def extract_goods_receipt_v1(document: DocumentText) -> ExtractedGoodsReceipt:
+    """Historical identifier behavior for before/after evaluation only."""
+    return _extract_goods_receipt(document, legacy_identifiers=True)
+
+
+def _extract_goods_receipt(
+    document: DocumentText, *, legacy_identifiers: bool
+) -> ExtractedGoodsReceipt:
     lines = reconstruct_lines(document)
     return ExtractedGoodsReceipt(
         receipt_number=_labeled_text(
@@ -492,11 +604,17 @@ def extract_goods_receipt(document: DocumentText) -> ExtractedGoodsReceipt:
                 r"\b(?:goods\s*receipt|receipt|delivery\s*note)\s*(?:number|no\.?|#)?\b", re.I
             ),
             rule="goods_receipt.number",
-        ),
+        )
+        if legacy_identifiers
+        else _layout_identifier(document, pattern=_RECEIPT_LABEL, rule="goods_receipt.number"),
         referenced_po_number=_labeled_text(
             lines,
             re.compile(r"\b(?:purchase\s*order|po)\s*(?:number|no\.?|#)?\b", re.I),
             rule="goods_receipt.purchase_order_number",
+        )
+        if legacy_identifiers
+        else _layout_identifier(
+            document, pattern=_PO_LABEL, rule="goods_receipt.purchase_order_number"
         ),
         received_date=_labeled_date(
             lines,

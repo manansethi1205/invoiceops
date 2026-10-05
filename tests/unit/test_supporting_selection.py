@@ -43,11 +43,12 @@ def test_current_version_baseline_beats_old_hybrid_and_current_hybrid_wins(
             session.flush()
             return run
 
-        old_hybrid = add_run(SUPPORTING_HYBRID_NAME, "0.2.0")
-        assert (
-            current_supporting_extraction(session, document.id, DocumentRole.PURCHASE_ORDER)
-            == old_hybrid
-        )
+        old_baseline = add_run(SUPPORTING_EXTRACTOR_NAME, "0.2.0")
+        assert current_supporting_extraction(
+            session, document.id, DocumentRole.PURCHASE_ORDER
+        ) == old_baseline
+        old_hybrid = add_run(SUPPORTING_HYBRID_NAME, "0.3.0")
+        assert old_hybrid.id != old_baseline.id
         current_baseline = add_run(SUPPORTING_EXTRACTOR_NAME, SUPPORTING_EXTRACTOR_VERSION)
         assert (
             current_supporting_extraction(session, document.id, DocumentRole.PURCHASE_ORDER)

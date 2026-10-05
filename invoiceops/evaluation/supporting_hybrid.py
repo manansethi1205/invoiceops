@@ -14,6 +14,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from invoiceops.extraction.hybrid.schemas import CandidateField, VisionUsage
 from invoiceops.extraction.supporting import (
     extract_goods_receipt,
+    extract_goods_receipt_v1,
     extract_purchase_order,
     extract_purchase_order_v1,
 )
@@ -395,7 +396,7 @@ def run_supporting_replay_evaluation(
         old_output = (
             extract_purchase_order_v1(example.document)
             if example.role == DocumentRole.PURCHASE_ORDER
-            else extract_goods_receipt(example.document)
+            else extract_goods_receipt_v1(example.document)
         )
         old_elapsed = (time.perf_counter() - old_started) * 1000
         started = time.perf_counter()

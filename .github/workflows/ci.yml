@@ -318,6 +318,82 @@ jobs:
           print("All three-way matching safety invariants passed.")
           PY
 
+  supporting-document-holdout:
+    name: Generated supporting PDF/PNG holdout
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure synthetic environment
+        run: cp .env.example .env
+
+      - name: Build Tesseract-equipped evaluator
+        env:
+          COMPOSE_BAKE: "false"
+        run: docker compose --profile evaluation build evaluator
+
+      - name: Evaluate known regression set and untouched layout family
+        run: |
+          mkdir -p "$RUNNER_TEMP/supporting-ci"
+          chmod 777 "$RUNNER_TEMP/supporting-ci"
+          docker compose --profile evaluation run --rm \
+            --volume "$RUNNER_TEMP/supporting-ci:/app/work" \
+            --entrypoint python evaluator \
+            scripts/run_supporting_document_holdout.py \
+            --output /app/work/known.json
+          docker compose --profile evaluation run --rm \
+            --volume "$RUNNER_TEMP/supporting-ci:/app/work" \
+            --entrypoint python evaluator \
+            scripts/run_supporting_document_holdout.py --unseen \
+            --output /app/work/unseen.json
+
+      - name: Assert coverage, identifier regressions and safety
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          reports = Path("evals/reports")
+          outputs = Path(os.environ["RUNNER_TEMP"]) / "supporting-ci"
+          known = json.loads((outputs / "known.json").read_text())
+          unseen = json.loads((outputs / "unseen.json").read_text())
+          before = json.loads((reports / "supporting-documents-v1-docker.json").read_text())
+          if known["fingerprint"] != before["fingerprint"]:
+              raise SystemExit("Known regression dataset fingerprint changed")
+          for name, report in (("known", known), ("unseen", unseen)):
+              if report["evaluated_documents"] != report["holdout_documents"]:
+                  raise SystemExit(f"{name}: incomplete document coverage")
+              if report["failure_categories"]:
+                  raise SystemExit(f"{name}: document failures: {report['failure_categories']}")
+              if report["source_counts"].get("image/png", 0) == 0:
+                  raise SystemExit(f"{name}: no OCR images evaluated")
+              if report["comparison"]["false_canonical_record_count"] != 0:
+                  raise SystemExit(f"{name}: canonical record safety failure")
+          counts = known["comparison"]["deterministic"]
+          if counts["PURCHASE_ORDER"]["header_exact_counts"]["po_number"] != 10:
+              raise SystemExit("Known PO number regression failed")
+          for role in ("GOODS_RECEIPT", "DELIVERY_NOTE"):
+              if counts[role]["header_exact_counts"]["referenced_po_number"] != 10:
+                  raise SystemExit(f"Known {role} PO-reference regression failed")
+          for role in counts:
+              prior = before["comparison"]["deterministic"][role]["line_item_f1"]
+              current = counts[role]["line_item_f1"]
+              if current < prior:
+                  raise SystemExit(f"Known {role} line-item F1 regressed: {current} < {prior}")
+          print("Generated-document coverage, identifier and safety gates passed")
+          PY
+
+      - name: Upload aggregate reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: supporting-document-holdout
+          path: ${{ runner.temp }}/supporting-ci/*.json
+          if-no-files-found: ignore
+
   migrations:
     name: PostgreSQL Migrations
     runs-on: ubuntu-latest

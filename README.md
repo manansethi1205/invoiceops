@@ -1,8 +1,9 @@
 # InvoiceOps
 
-InvoiceOps is an evidence-first accounts-payable automation project. AI will handle document
-perception and ambiguity; deterministic code will perform arithmetic, apply policy, and authorize
-decisions. Only synthetic or de-identified financial documents belong in this repository.
+InvoiceOps is an evidence-first accounts-payable automation project. AI handles document
+perception and ambiguity; deterministic code performs arithmetic and applies matching policy.
+Neither extraction nor matching authorizes payment. Only synthetic or de-identified financial
+documents belong in this repository.
 
 ## Measured results at a glance
 
@@ -10,6 +11,9 @@ decisions. Only synthetic or de-identified financial documents belong in this re
 | --- | --- | --- |
 | Deterministic extraction 0.2.0 | 15-document synthetic holdout in Docker | 100% header overall exact, 100% exact line-item F1, 0 failures |
 | Hybrid replay 0.3.0 | 12 synthetic stress documents, no network | 93.06% header coverage, 100% line-item F1, all grounded conflicts abstained |
+| Supporting documents 0.2.0, before | 30 generated PDF/PNG documents in Docker | PO number 0/10; receipt/delivery PO reference 0/20; PO line F1 1.0 |
+| Supporting documents 0.3.0, local PDF subset | 24/30 generated documents; six PNGs lacked local OCR | PO number 8/8; receipt/delivery PO reference 16/16; PO line F1 1.0 |
+| New supporting panel family, local PDF subset | 24/30 separately generated documents; six PNGs lacked local OCR | PO number 8/8; receipt/delivery PO reference 16/16; image results pending container evaluation |
 | Two-way matching v1 | 18 synthetic business scenarios | 100% expected-decision accuracy, 0 false auto-matches |
 | Review workflow v1 | 17 synthetic state/concurrency scenarios | 100% category accuracy, 0 false automatic resolutions |
 | Duplicate risk v1 | 25 synthetic business scenarios | 100% disposition/signal accuracy, 0 known-duplicate false clears |
@@ -53,9 +57,9 @@ canonical payload fingerprint and expected case version. Raw bytes still use the
 document identity, so retries and cross-case reuse do not duplicate storage.
 
 Purchase-order and receipt extraction is typed and evidence-linked, but never authoritative.
-The current supporting extractor is `deterministic-supporting-documents@0.2.0`; its unified PO
+The current supporting extractor is `deterministic-supporting-documents@0.3.0`; its unified PO
 table parser separates printed line numbers from descriptions. The optional supporting hybrid is
-`supporting-hybrid-routed@0.3.0`. The six-case before report remains frozen; a generated synthetic
+`supporting-hybrid-routed@0.4.0`. The six-case before report remains frozen; a generated synthetic
 document holdout records both improvements and remaining failures.
 Confirmation endpoints create canonical records only after explicit human confirmation, while the
 original extraction JSON remains immutable. Case matching consumes only confirmed records and

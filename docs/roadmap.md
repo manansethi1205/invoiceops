@@ -3,8 +3,9 @@
 The explainable three-way slice is implemented: immutable/idempotent receipts, append-only
 reversals, reconciliation-safe allocation reuse, shared PO serialization, versioned context,
 cumulative allocations, review/risk integration and evaluation.
-ERP integration, payments, production authentication and generic anomaly models remain out of
-scope.
+OIDC authentication and server-enforced RBAC are implemented, though real-provider deployment
+validation remains outstanding. ERP integration, payment execution and generic anomaly models
+remain out of scope.
 
 ## Evidence-backed multi-document cases — implemented
 
@@ -83,7 +84,7 @@ deterministic code handles arithmetic, policy, matching, and approval.
 - Add Terraform for one real cloud path using S3, SQS, RDS, and a container service.
 - Publish measured service and business metrics separately from external benchmarks.
 
-## 11. Supporting-document extraction generalization — in progress
+## 11. Supporting-document extraction generalization — PO rows complete; headers current
 
 - Unified PO visual-row parsing now separates printed line numbers from descriptions and keeps
   per-cell evidence. Historical 0.1.0 runs are immutable; version-aware selection prevents a
@@ -91,3 +92,7 @@ deterministic code handles arithmetic, policy, matching, and approval.
 - The six-example report is frozen as the before result. A fixed 45-document synthetic PDF/PNG
   generator provides 30 holdout cases. Local PNG evaluation requires Tesseract; unprocessed
   images are reported as failures, not guessed. This is not a real-vendor benchmark.
+- The PO row defect is fixed at supporting extractor 0.2.0. The current 0.3.0 header path
+  separates explicit identifier labels from bare values and uses bounded visual-row association.
+  A new untuned right/stacked-panel layout family is reported separately. Full OCR coverage is
+  gated in CI; these synthetic results are not production accuracy claims.
