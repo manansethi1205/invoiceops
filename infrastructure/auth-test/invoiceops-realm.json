@@ -1,0 +1,92 @@
+{
+  "realm": "invoiceops",
+  "enabled": true,
+  "displayName": "InvoiceOps synthetic local identity test",
+  "sslRequired": "none",
+  "registrationAllowed": false,
+  "resetPasswordAllowed": false,
+  "loginWithEmailAllowed": false,
+  "accessTokenLifespan": 60,
+  "revokeRefreshToken": true,
+  "refreshTokenMaxReuse": 0,
+  "roles": {
+    "realm": [
+      {"name": "operator"},
+      {"name": "reviewer"},
+      {"name": "auditor"},
+      {"name": "admin"}
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "invoiceops-api",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "bearerOnly": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false
+    },
+    {
+      "clientId": "invoiceops-web",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "LocalOnly-Web-Client-NotAProductionSecret",
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "redirectUris": ["http://127.0.0.1:3000/api/auth/callback"],
+      "webOrigins": ["http://127.0.0.1:3000"],
+      "defaultClientScopes": ["web-origins", "acr", "basic", "profile", "email", "roles"],
+      "optionalClientScopes": ["offline_access"],
+      "protocolMappers": [
+        {
+          "name": "invoiceops-top-level-roles",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "invoiceops_roles",
+            "claim.name": "roles",
+            "jsonType.label": "String",
+            "multivalued": "true",
+            "access.token.claim": "true",
+            "id.token.claim": "false",
+            "userinfo.token.claim": "false"
+          }
+        },
+        {
+          "name": "invoiceops-api-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "invoiceops-api",
+            "access.token.claim": "true",
+            "id.token.claim": "false"
+          }
+        },
+        {
+          "name": "invoiceops-local-not-before",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-hardcoded-claim-mapper",
+          "consentRequired": false,
+          "config": {
+            "claim.name": "nbf",
+            "claim.value": "1767225600",
+            "jsonType.label": "long",
+            "access.token.claim": "true",
+            "id.token.claim": "false"
+          }
+        }
+      ]
+    }
+  ],
+  "users": [
+    {"username": "operator", "firstName": "Synthetic", "lastName": "Operator", "email": "operator@example.invalid", "enabled": true, "emailVerified": true, "realmRoles": ["operator", "offline_access"], "attributes": {"invoiceops_roles": ["operator"]}, "credentials": [{"type": "password", "value": "LocalOnly-User-ChangeMe123!", "temporary": false}]},
+    {"username": "reviewer", "firstName": "Synthetic", "lastName": "Reviewer", "email": "reviewer@example.invalid", "enabled": true, "emailVerified": true, "realmRoles": ["reviewer", "offline_access"], "attributes": {"invoiceops_roles": ["reviewer"]}, "credentials": [{"type": "password", "value": "LocalOnly-User-ChangeMe123!", "temporary": false}]},
+    {"username": "auditor", "firstName": "Synthetic", "lastName": "Auditor", "email": "auditor@example.invalid", "enabled": true, "emailVerified": true, "realmRoles": ["auditor", "offline_access"], "attributes": {"invoiceops_roles": ["auditor"]}, "credentials": [{"type": "password", "value": "LocalOnly-User-ChangeMe123!", "temporary": false}]},
+    {"username": "admin", "firstName": "Synthetic", "lastName": "Admin", "email": "admin@example.invalid", "enabled": true, "emailVerified": true, "realmRoles": ["admin", "offline_access"], "attributes": {"invoiceops_roles": ["admin"]}, "credentials": [{"type": "password", "value": "LocalOnly-User-ChangeMe123!", "temporary": false}]}
+  ]
+}

@@ -29,7 +29,7 @@
     "next": "16.3.6",
     "openapi-fetch": "0.17.0",
     "openid-client": "6.8.8",
-    "pdfjs-dist": "5.5.207",
+    "pdfjs-dist": "6.3.289",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "react-hook-form": "7.89.0",

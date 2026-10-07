@@ -12,8 +12,8 @@ documents belong in this repository.
 | Deterministic extraction 0.2.0 | 15-document synthetic holdout in Docker | 100% header overall exact, 100% exact line-item F1, 0 failures |
 | Hybrid replay 0.3.0 | 12 synthetic stress documents, no network | 93.06% header coverage, 100% line-item F1, all grounded conflicts abstained |
 | Supporting documents 0.2.0, before | 30 generated PDF/PNG documents in Docker | PO number 0/10; receipt/delivery PO reference 0/20; PO line F1 1.0 |
-| Supporting documents 0.3.0, local PDF subset | 24/30 generated documents; six PNGs lacked local OCR | PO number 8/8; receipt/delivery PO reference 16/16; PO line F1 1.0 |
-| New supporting panel family, local PDF subset | 24/30 separately generated documents; six PNGs lacked local OCR | PO number 8/8; receipt/delivery PO reference 16/16; image results pending container evaluation |
+| Supporting documents 0.3.0, Docker OCR regression | 30/30 generated PDF/PNG documents | PO number 10/10; receipt/delivery PO reference 20/20; PO line F1 1.0 |
+| New supporting panel family, Docker OCR | 30/30 separately generated PDF/PNG documents | PO number 10/10; receipt/delivery PO reference 20/20; PO line F1 1.0 |
 | Two-way matching v1 | 18 synthetic business scenarios | 100% expected-decision accuracy, 0 false auto-matches |
 | Review workflow v1 | 17 synthetic state/concurrency scenarios | 100% category accuracy, 0 false automatic resolutions |
 | Duplicate risk v1 | 25 synthetic business scenarios | 100% disposition/signal accuracy, 0 known-duplicate false clears |
@@ -122,6 +122,9 @@ starting the API or worker and uses S3Mock only for synthetic local object stora
 For the local telemetry stack, follow [the observability guide](docs/observability.md).
 Frontend setup, contract generation and browser tests are in [the web console guide](docs/web-console.md).
 OIDC, local synthetic login, the RBAC matrix and production configuration are in [the authentication guide](docs/authentication.md).
+An opt-in synthetic Keycloak walkthrough is in [the local OIDC smoke runbook](docs/oidc-smoke.md);
+it passed 4/4 local browser tests on 2026-10-08, is not enabled by default, and does
+not constitute production identity-provider validation.
 
 Run local quality checks:
 

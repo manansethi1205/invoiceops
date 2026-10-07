@@ -13,7 +13,20 @@ export async function oidcConfiguration(): Promise<oidc.Configuration> {
   const clientId = process.env.OIDC_CLIENT_ID;
   const clientSecret = process.env.OIDC_CLIENT_SECRET;
   if (!issuer || !clientId || !clientSecret) throw new Error("OIDC issuer and client credentials are required");
-  const config = await oidc.discovery(new URL(issuer), clientId, clientSecret);
+  const issuerUrl = new URL(issuer);
+  const localHttp = process.env.WEB_ENVIRONMENT !== "production"
+    && issuerUrl.protocol === "http:"
+    && issuerUrl.hostname === "localhost";
+  if (issuerUrl.protocol !== "https:" && !localHttp) {
+    throw new Error("OIDC issuer must use HTTPS outside a local smoke test");
+  }
+  const config = await oidc.discovery(
+    issuerUrl,
+    clientId,
+    clientSecret,
+    undefined,
+    localHttp ? { execute: [oidc.allowInsecureRequests] } : undefined,
+  );
   if (config.serverMetadata().issuer !== issuer) throw new Error("OIDC issuer mismatch");
   configuration = config;
   return config;

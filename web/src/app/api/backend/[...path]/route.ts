@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 
 import { resolveSession } from "@/lib/auth/resolve";
-import { authMode, SESSION_COOKIE } from "@/lib/auth/session";
+import { authMode, sameOriginSubmission, SESSION_COOKIE } from "@/lib/auth/session";
 
 export const runtime = "nodejs";
 
@@ -9,6 +9,9 @@ const requestHeaders = ["accept", "content-type", "last-event-id", "idempotency-
 const responseHeaders = ["content-type", "content-disposition", "etag", "last-event-id", "retry-after"];
 
 async function proxy(request: NextRequest, context: { params: Promise<{ path: string[] }> }): Promise<Response> {
+  if (["POST", "PUT", "PATCH", "DELETE"].includes(request.method) && !sameOriginSubmission(request)) {
+    return Response.json({ detail: "Cross-origin mutation denied" }, { status: 403 });
+  }
   const path = (await context.params).path;
   if (!path?.length || path.some((segment) => segment === ".." || segment.includes("/"))) return new Response(null, { status: 404 });
   let session;

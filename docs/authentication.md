@@ -27,4 +27,13 @@ The browser uses authorization-code flow with PKCE, state and nonce. An opaque, 
 
 OIDC requires reachable discovery/JWKS endpoints and Redis. If either is unavailable, verification/session access fails closed; users see a provider or session error and may retry later. Review audit events record the verified subject and role context, not tokens. Existing non-review event schemas retain their historical actor metadata; do not infer a role from legacy events.
 
-No real identity provider or credentials are used in CI. Backend tests generate ephemeral RSA keys and synthetic JWTs. The web browser suite uses local synthetic identities. Before production deployment, add a real provider smoke test, external secret management, Redis TLS/HA, incident procedures, and a deployment-specific threat review.
+Default CI uses ephemeral RSA keys and synthetic JWTs, while its normal browser
+suite uses development identities. An **opt-in** local Keycloak realm and
+browser/API walkthrough are described in [the OIDC smoke runbook](oidc-smoke.md).
+The fixture uses deliberately public synthetic credentials and is never part of
+the normal Compose startup. The local Keycloak browser suite passed 4/4 on
+2026-10-08 with the pinned synthetic realm; this is a local integration result,
+not a claim about CI or a production provider.
+Before production deployment, validate the chosen real provider, external
+secret management, TLS, multi-instance refresh coordination, Redis TLS/HA,
+incident procedures, and a deployment-specific threat review.

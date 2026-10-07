@@ -3,8 +3,9 @@
 The explainable three-way slice is implemented: immutable/idempotent receipts, append-only
 reversals, reconciliation-safe allocation reuse, shared PO serialization, versioned context,
 cumulative allocations, review/risk integration and evaluation.
-OIDC authentication and server-enforced RBAC are implemented, though real-provider deployment
-validation remains outstanding. ERP integration, payment execution and generic anomaly models
+OIDC authentication and server-enforced RBAC are implemented. An opt-in local
+Keycloak fixture and smoke walkthrough are available; real-provider production
+deployment validation remains outstanding. ERP integration, payment execution and generic anomaly models
 remain out of scope.
 
 ## Evidence-backed multi-document cases — implemented

@@ -1,4 +1,16 @@
 services:
+  keycloak:
+    profiles: ["auth-test"]
+    # Deliberately local-only: start-dev, in-memory database, synthetic users.
+    image: quay.io/keycloak/keycloak:26.4.7
+    command: ["start-dev", "--import-realm", "--hostname=http://localhost:8080"]
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: local-admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: LocalOnly-Admin-ChangeMe123!
+    volumes:
+      - ./infrastructure/auth-test/invoiceops-realm.json:/opt/keycloak/data/import/invoiceops-realm.json:ro
+    ports: ["127.0.0.1:8080:8080"]
+
   web:
     image: invoiceops-web:local
     pull_policy: never
