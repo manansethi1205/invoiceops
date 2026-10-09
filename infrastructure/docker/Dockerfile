@@ -1,4 +1,5 @@
-FROM python:3.12-slim
+# Use the public Docker Hub cache to avoid shared-runner pull quotas.
+FROM mirror.gcr.io/library/python:3.12-slim
 
 WORKDIR /app
 ARG INSTALL_DEV=false

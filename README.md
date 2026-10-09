@@ -120,6 +120,14 @@ retry, and a terminal failed state.
 
 ## Run locally
 
+Container builds and Compose use public publisher registries or Google's Docker Hub cache,
+avoiding unauthenticated Docker Hub pull limits on shared CI runners. Image version tags and
+validation gates are unchanged; no registry secrets are required. The migration service uses
+the mirror directly because GitHub starts service containers before workflow steps.
+[Google documents the cache](https://docs.cloud.google.com/artifact-registry/docs/pull-cached-dockerhub-images)
+as a subset of Docker Hub images: tags can be evicted, so an unavailable cached image should
+be replaced with a verified publisher registry or authenticated source, rather than skipping checks.
+
 ```powershell
 Copy-Item .env.example .env
 docker compose up --build

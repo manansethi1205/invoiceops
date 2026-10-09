@@ -104,11 +104,11 @@ jobs:
           docker run --rm \
             --entrypoint /bin/promtool \
             -v "$PWD/infrastructure/observability:/etc/invoiceops-observability:ro" \
-            prom/prometheus:v3.5.0 \
+            quay.io/prometheus/prometheus:v3.5.0 \
             check rules /etc/invoiceops-observability/prometheus-rules.yml
           docker run --rm \
             -v "$PWD/infrastructure/observability/otel-collector.yml:/etc/otelcol-contrib/config.yml:ro" \
-            otel/opentelemetry-collector-contrib:0.135.0 \
+            ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-contrib:0.135.0 \
             validate --config=/etc/otelcol-contrib/config.yml
 
       - name: Pytest
@@ -400,7 +400,7 @@ jobs:
 
     services:
       postgres:
-        image: postgres:16
+        image: mirror.gcr.io/library/postgres:16
         env:
           POSTGRES_USER: invoiceops
           POSTGRES_PASSWORD: invoiceops

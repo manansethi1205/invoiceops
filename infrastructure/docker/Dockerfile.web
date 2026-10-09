@@ -1,4 +1,4 @@
-FROM node:24-alpine AS dependencies
+FROM mirror.gcr.io/library/node:24-alpine AS dependencies
 WORKDIR /app
 RUN corepack enable && corepack prepare pnpm@11.24.0 --activate
 COPY web/package.json web/pnpm-lock.yaml web/pnpm-workspace.yaml ./
@@ -11,7 +11,7 @@ ARG INVOICEOPS_API_URL=http://api:8000
 ENV INVOICEOPS_API_URL=$INVOICEOPS_API_URL
 RUN pnpm build
 
-FROM node:24-alpine AS runner
+FROM mirror.gcr.io/library/node:24-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0
 RUN addgroup --system --gid 10001 invoiceops && adduser --system --uid 10001 --ingroup invoiceops invoiceops
