@@ -105,7 +105,7 @@ OIDC mode; local identity headers are development-only. `ACCEPTED_EXCEPTION` nev
 
 Every match also receives one immutable `duplicate-risk-v1` assessment. It compares normalized
 business features with prior assessments and emits explicit exact-key, reused-number, same-PO,
-near-duplicate or incomplete-check signalsâ€”never an opaque score. A `MATCHED` invoice can be routed
+near-duplicate or incomplete-check signals—never an opaque score. A `MATCHED` invoice can be routed
 to the same review queue without changing its match decision. Risk never rejects an invoice or
 authorizes payment. See [the risk guide](docs/risk.md).
 
