@@ -92,12 +92,32 @@ def invoice_to_docile_predictions(
     return kile, lir
 
 
-def write_docile_predictions(
-    path: Path, predictions: dict[str, list[DocilePrediction]]
-) -> None:
+def write_docile_predictions(path: Path, predictions: dict[str, list[DocilePrediction]]) -> None:
     payload = {
         document_id: [prediction.model_dump(exclude_none=True) for prediction in fields]
         for document_id, fields in sorted(predictions.items())
     }
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def official_docile_fields(
+    predictions: dict[str, list[DocilePrediction]],
+) -> dict[str, list[Any]]:
+    """Convert predictions to the installed evaluator's types without exporting them."""
+    from docile.dataset import BBox
+    from docile.dataset import Field as DocileField
+
+    return {
+        document_id: [
+            DocileField(
+                page=prediction.page,
+                bbox=BBox(*prediction.bbox),
+                fieldtype=prediction.fieldtype,
+                text=prediction.text,
+                line_item_id=prediction.line_item_id,
+            )
+            for prediction in fields
+        ]
+        for document_id, fields in predictions.items()
+    }

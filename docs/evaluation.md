@@ -169,3 +169,12 @@ Replace `smoke.json` with `benchmark.json` and the output directory with
 official `evaluate_dataset` implementation for KILE and LIR. Raw KILE/LIR prediction files remain
 ignored. The committed report contains only aggregate supported-subset F1 and full official
 F1/AP, with the two OCR modes kept separate.
+
+### Aggregate failure analysis and targeted localization
+
+The validation split contains 500 documents; the frozen benchmark selects 100.
+The opt-in value-grounded extractor and aggregate comparison runner are documented in
+[the failure analysis](docile-failure-analysis.md).
+Both runners require a fresh explicit output directory. Never reuse the frozen 0.2.0 or
+0.2.0-smoke directories; an existing directory is rejected before predictions are written.
+The new analysis runner writes only aggregate reports and never exports source text or predictions.

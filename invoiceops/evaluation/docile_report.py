@@ -47,8 +47,7 @@ def render_docile_markdown(report: DocileAggregateReport) -> str:
         "",
         "## Supported fields",
         "",
-        "KILE: document_id, date_issue, amount_total_net, amount_total_tax, "
-        "amount_total_gross.",
+        "KILE: document_id, date_issue, amount_total_net, amount_total_tax, amount_total_gross.",
         "",
         "LIR: line_item_description, line_item_quantity.",
         "",
@@ -88,9 +87,16 @@ def render_docile_markdown(report: DocileAggregateReport) -> str:
     return "\n".join(lines)
 
 
+def reserve_docile_output(path: Path) -> None:
+    """Reserve a fresh output directory before any prediction or report writes."""
+    path.mkdir(parents=True, exist_ok=False)
+
+
 def write_docile_aggregate_report(path: Path, report: DocileAggregateReport) -> None:
+    if any((path / name).exists() for name in ("report.json", "report.md")):
+        raise FileExistsError("DocILE reports are immutable; choose a fresh output directory")
     path.mkdir(parents=True, exist_ok=True)
-    (path / "report.json").write_text(
-        json.dumps(report.model_dump(), indent=2, sort_keys=True) + "\n", encoding="utf-8"
-    )
-    (path / "report.md").write_text(render_docile_markdown(report), encoding="utf-8")
+    with (path / "report.json").open("x", encoding="utf-8") as output:
+        output.write(json.dumps(report.model_dump(), indent=2, sort_keys=True) + "\n")
+    with (path / "report.md").open("x", encoding="utf-8") as output:
+        output.write(render_docile_markdown(report))

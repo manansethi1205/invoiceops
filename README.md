@@ -19,10 +19,15 @@ documents belong in this repository.
 | Duplicate risk v1 | 25 synthetic business scenarios | 100% disposition/signal accuracy, 0 known-duplicate false clears |
 | Three-way matching v1 | 26 synthetic receiving scenarios | 100% expected-decision accuracy, 0 false auto-matches |
 | DocILE external context | Fixed 100-document validation sample | supported LIR F1 18.49% end-to-end / 22.28% precomputed OCR; supported KILE F1 0% |
+| DocILE localization candidate, external context | Full 500-document validation split | supported KILE F1 12.23% end-to-end / 14.38% precomputed OCR; unchanged supported LIR F1 4.09% / 5.18% |
 
 Synthetic results are project measurements, not production claims. DocILE results are reported
 separately as an external stress benchmark and expose the deterministic baseline's generalization
 limits.
+
+The DocILE localization candidate is evaluated separately from the frozen baseline.
+See [the aggregate failure analysis and targeted fix](docs/docile-failure-analysis.md) for
+value-only source evidence, the 500-document validation scope, and immutable report outputs.
 
 ```text
 invoice -> extraction + evidence -> TWO_WAY: invoice + PO ---------+
@@ -100,7 +105,7 @@ OIDC mode; local identity headers are development-only. `ACCEPTED_EXCEPTION` nev
 
 Every match also receives one immutable `duplicate-risk-v1` assessment. It compares normalized
 business features with prior assessments and emits explicit exact-key, reused-number, same-PO,
-near-duplicate or incomplete-check signals—never an opaque score. A `MATCHED` invoice can be routed
+near-duplicate or incomplete-check signalsâ€”never an opaque score. A `MATCHED` invoice can be routed
 to the same review queue without changing its match decision. Risk never rejects an invoice or
 authorizes payment. See [the risk guide](docs/risk.md).
 

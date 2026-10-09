@@ -2,7 +2,6 @@
 import argparse
 import hashlib
 from pathlib import Path
-from typing import Any
 
 from invoiceops.evaluation.adapters.docile import (
     DocileDatasetAdapter,
@@ -19,31 +18,17 @@ from invoiceops.evaluation.docile_predictions import (
     invoice_to_docile_predictions,
     write_docile_predictions,
 )
+from invoiceops.evaluation.docile_predictions import (
+    official_docile_fields as _official_fields,
+)
 from invoiceops.evaluation.docile_report import (
     DocileAggregateReport,
     DocileModeMetrics,
+    reserve_docile_output,
     write_docile_aggregate_report,
 )
 from invoiceops.extraction.ocr_runtime import inspect_ocr_runtime, require_ocr_runtime
 from invoiceops.extraction.version import EXTRACTOR_NAME, EXTRACTOR_VERSION
-
-
-def _official_fields(predictions: dict[str, list[DocilePrediction]]) -> dict[str, list[Any]]:
-    from docile.dataset import BBox, Field
-
-    return {
-        document_id: [
-            Field(
-                page=prediction.page,
-                bbox=BBox(*prediction.bbox),
-                fieldtype=prediction.fieldtype,
-                text=prediction.text,
-                line_item_id=prediction.line_item_id,
-            )
-            for prediction in fields
-        ]
-        for document_id, fields in predictions.items()
-    }
 
 
 def evaluate_mode(
@@ -72,12 +57,8 @@ def evaluate_mode(
     return DocileModeMetrics(
         mode=mode.value,
         document_count=len(examples),
-        supported_subset_kile_f1=supported_f1(
-            result, "kile", set(DOCILE_KILE_TO_INVOICEOPS)
-        ),
-        supported_subset_lir_f1=supported_f1(
-            result, "lir", set(DOCILE_LIR_TO_INVOICEOPS)
-        ),
+        supported_subset_kile_f1=supported_f1(result, "kile", set(DOCILE_KILE_TO_INVOICEOPS)),
+        supported_subset_lir_f1=supported_f1(result, "lir", set(DOCILE_LIR_TO_INVOICEOPS)),
         official_full_kile_f1=float(kile_full["f1"]),
         official_full_lir_f1=float(lir_full["f1"]),
         official_full_kile_ap=float(kile_full["AP"]),
@@ -89,16 +70,13 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Run both DocILE evaluation modes")
     parser.add_argument("--dataset-path", type=Path, required=True)
     parser.add_argument("--sample-manifest", type=Path, required=True)
-    parser.add_argument(
-        "--output-dir", type=Path, default=Path("evals/reports/docile/0.2.0")
-    )
+    parser.add_argument("--output-dir", type=Path, required=True)
     arguments = parser.parse_args()
     require_ocr_runtime(inspect_ocr_runtime())
     manifest = load_sample_manifest(arguments.sample_manifest)
+    reserve_docile_output(arguments.output_dir)
     modes = [
-        evaluate_mode(
-            arguments.dataset_path, arguments.sample_manifest, arguments.output_dir, mode
-        )
+        evaluate_mode(arguments.dataset_path, arguments.sample_manifest, arguments.output_dir, mode)
         for mode in DocileEvaluationMode
     ]
     report = DocileAggregateReport(

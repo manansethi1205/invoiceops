@@ -1,0 +1,568 @@
+{
+  "dataset": "DocILE",
+  "modes": [
+    {
+      "changed_header_evidence": {
+        "invoice_date": 6,
+        "invoice_number": 112,
+        "subtotal": 22,
+        "tax": 2,
+        "total": 169
+      },
+      "document_types": {
+        "credit_note": 1,
+        "order": 107,
+        "proforma": 1,
+        "purchase_order": 11,
+        "receipt": 21,
+        "sales_order": 21,
+        "tax_invoice": 338
+      },
+      "evaluated_documents": 500,
+      "mode": "end_to_end",
+      "variants": {
+        "deterministic-baseline": {
+          "header_status_counts": {
+            "amount_total_gross": {
+              "ambiguous": 45,
+              "extracted": 206,
+              "missing": 249
+            },
+            "amount_total_net": {
+              "ambiguous": 1,
+              "extracted": 23,
+              "missing": 476
+            },
+            "amount_total_tax": {
+              "extracted": 2,
+              "missing": 498
+            },
+            "date_issue": {
+              "extracted": 7,
+              "missing": 493
+            },
+            "document_id": {
+              "ambiguous": 11,
+              "extracted": 119,
+              "missing": 370
+            }
+          },
+          "tasks": {
+            "kile": {
+              "fields": {
+                "amount_total_gross": {
+                  "AP": 0.0,
+                  "FN": 519,
+                  "FP": 201,
+                  "TP": 0,
+                  "f1": 0.0,
+                  "precision": 0.0,
+                  "recall": 0.0
+                },
+                "amount_total_net": {
+                  "AP": 0.0,
+                  "FN": 68,
+                  "FP": 23,
+                  "TP": 0,
+                  "f1": 0.0,
+                  "precision": 0.0,
+                  "recall": 0.0
+                },
+                "amount_total_tax": {
+                  "AP": 0.0,
+                  "FN": 45,
+                  "FP": 2,
+                  "TP": 0,
+                  "f1": 0.0,
+                  "precision": 0.0,
+                  "recall": 0.0
+                },
+                "date_issue": {
+                  "AP": 0.0,
+                  "FN": 512,
+                  "FP": 6,
+                  "TP": 0,
+                  "f1": 0.0,
+                  "precision": 0.0,
+                  "recall": 0.0
+                },
+                "document_id": {
+                  "AP": 0.0,
+                  "FN": 453,
+                  "FP": 117,
+                  "TP": 0,
+                  "f1": 0.0,
+                  "precision": 0.0,
+                  "recall": 0.0
+                }
+              },
+              "localization_diagnostics": {
+                "unmatched_with_same_class_overlap": 209,
+                "unmatched_without_same_class_overlap": 140
+              },
+              "official_full": {
+                "AP": 0.0,
+                "FN": 5862,
+                "FP": 349,
+                "TP": 0,
+                "f1": 0.0,
+                "precision": 0.0,
+                "recall": 0.0
+              },
+              "supported_f1": 0.0
+            },
+            "lir": {
+              "fields": {
+                "line_item_description": {
+                  "AP": 0.0072087658592848896,
+                  "FN": 1806,
+                  "FP": 39,
+                  "TP": 30,
+                  "f1": 0.03149606299212599,
+                  "precision": 0.43478260869565216,
+                  "recall": 0.016339869281045753
+                },
+                "line_item_quantity": {
+                  "AP": 0.026171580890389314,
+                  "FN": 1534,
+                  "FP": 2,
+                  "TP": 42,
+                  "f1": 0.05185185185185186,
+                  "precision": 0.9545454545454546,
+                  "recall": 0.0266497461928934
+                }
+              },
+              "localization_diagnostics": {
+                "unmatched_with_same_class_overlap": 33,
+                "unmatched_without_same_class_overlap": 8
+              },
+              "official_full": {
+                "AP": 0.0043269362544402275,
+                "FN": 10571,
+                "FP": 41,
+                "TP": 72,
+                "f1": 0.013387876534027518,
+                "precision": 0.6371681415929203,
+                "recall": 0.006765009865639387
+              },
+              "supported_f1": 0.04085106382978723
+            }
+          },
+          "version": "0.2.0"
+        },
+        "deterministic-value-grounded": {
+          "header_status_counts": {
+            "amount_total_gross": {
+              "ambiguous": 45,
+              "extracted": 206,
+              "missing": 249
+            },
+            "amount_total_net": {
+              "ambiguous": 1,
+              "extracted": 23,
+              "missing": 476
+            },
+            "amount_total_tax": {
+              "extracted": 2,
+              "missing": 498
+            },
+            "date_issue": {
+              "extracted": 7,
+              "missing": 493
+            },
+            "document_id": {
+              "ambiguous": 11,
+              "extracted": 119,
+              "missing": 370
+            }
+          },
+          "tasks": {
+            "kile": {
+              "fields": {
+                "amount_total_gross": {
+                  "AP": 0.09383700076742366,
+                  "FN": 429,
+                  "FP": 111,
+                  "TP": 90,
+                  "f1": 0.25,
+                  "precision": 0.44776119402985076,
+                  "recall": 0.17341040462427745
+                },
+                "amount_total_net": {
+                  "AP": 0.048692303008159785,
+                  "FN": 61,
+                  "FP": 16,
+                  "TP": 7,
+                  "f1": 0.15384615384615385,
+                  "precision": 0.30434782608695654,
+                  "recall": 0.10294117647058823
+                },
+                "amount_total_tax": {
+                  "AP": 0.0,
+                  "FN": 45,
+                  "FP": 2,
+                  "TP": 0,
+                  "f1": 0.0,
+                  "precision": 0.0,
+                  "recall": 0.0
+                },
+                "date_issue": {
+                  "AP": 0.01171875,
+                  "FN": 506,
+                  "FP": 0,
+                  "TP": 6,
+                  "f1": 0.023166023166023165,
+                  "precision": 1.0,
+                  "recall": 0.01171875
+                },
+                "document_id": {
+                  "AP": 0.006287437780572698,
+                  "FN": 437,
+                  "FP": 101,
+                  "TP": 16,
+                  "f1": 0.056140350877192984,
+                  "precision": 0.13675213675213677,
+                  "recall": 0.03532008830022075
+                }
+              },
+              "localization_diagnostics": {
+                "unmatched_with_same_class_overlap": 50,
+                "unmatched_without_same_class_overlap": 180
+              },
+              "official_full": {
+                "AP": 0.007576386924506302,
+                "FN": 5743,
+                "FP": 230,
+                "TP": 119,
+                "f1": 0.03831911125422637,
+                "precision": 0.34097421203438394,
+                "recall": 0.020300238826339134
+              },
+              "supported_f1": 0.12230215827338131
+            },
+            "lir": {
+              "fields": {
+                "line_item_description": {
+                  "AP": 0.0072087658592848896,
+                  "FN": 1806,
+                  "FP": 39,
+                  "TP": 30,
+                  "f1": 0.03149606299212599,
+                  "precision": 0.43478260869565216,
+                  "recall": 0.016339869281045753
+                },
+                "line_item_quantity": {
+                  "AP": 0.026171580890389314,
+                  "FN": 1534,
+                  "FP": 2,
+                  "TP": 42,
+                  "f1": 0.05185185185185186,
+                  "precision": 0.9545454545454546,
+                  "recall": 0.0266497461928934
+                }
+              },
+              "localization_diagnostics": {
+                "unmatched_with_same_class_overlap": 33,
+                "unmatched_without_same_class_overlap": 8
+              },
+              "official_full": {
+                "AP": 0.0043269362544402275,
+                "FN": 10571,
+                "FP": 41,
+                "TP": 72,
+                "f1": 0.013387876534027518,
+                "precision": 0.6371681415929203,
+                "recall": 0.006765009865639387
+              },
+              "supported_f1": 0.04085106382978723
+            }
+          },
+          "version": "0.3.0"
+        }
+      }
+    },
+    {
+      "changed_header_evidence": {
+        "invoice_date": 7,
+        "invoice_number": 134,
+        "subtotal": 22,
+        "tax": 3,
+        "total": 172
+      },
+      "document_types": {
+        "credit_note": 1,
+        "order": 107,
+        "proforma": 1,
+        "purchase_order": 11,
+        "receipt": 21,
+        "sales_order": 21,
+        "tax_invoice": 338
+      },
+      "evaluated_documents": 500,
+      "mode": "precomputed_ocr",
+      "variants": {
+        "deterministic-baseline": {
+          "header_status_counts": {
+            "amount_total_gross": {
+              "ambiguous": 41,
+              "extracted": 197,
+              "missing": 262
+            },
+            "amount_total_net": {
+              "ambiguous": 1,
+              "extracted": 22,
+              "missing": 477
+            },
+            "amount_total_tax": {
+              "extracted": 3,
+              "missing": 497
+            },
+            "date_issue": {
+              "extracted": 8,
+              "missing": 492
+            },
+            "document_id": {
+              "ambiguous": 18,
+              "extracted": 137,
+              "missing": 345
+            }
+          },
+          "tasks": {
+            "kile": {
+              "fields": {
+                "amount_total_gross": {
+                  "AP": 0.0,
+                  "FN": 519,
+                  "FP": 195,
+                  "TP": 0,
+                  "f1": 0.0,
+                  "precision": 0.0,
+                  "recall": 0.0
+                },
+                "amount_total_net": {
+                  "AP": 0.0,
+                  "FN": 68,
+                  "FP": 22,
+                  "TP": 0,
+                  "f1": 0.0,
+                  "precision": 0.0,
+                  "recall": 0.0
+                },
+                "amount_total_tax": {
+                  "AP": 0.0,
+                  "FN": 45,
+                  "FP": 3,
+                  "TP": 0,
+                  "f1": 0.0,
+                  "precision": 0.0,
+                  "recall": 0.0
+                },
+                "date_issue": {
+                  "AP": 0.0,
+                  "FN": 512,
+                  "FP": 7,
+                  "TP": 0,
+                  "f1": 0.0,
+                  "precision": 0.0,
+                  "recall": 0.0
+                },
+                "document_id": {
+                  "AP": 0.0,
+                  "FN": 453,
+                  "FP": 137,
+                  "TP": 0,
+                  "f1": 0.0,
+                  "precision": 0.0,
+                  "recall": 0.0
+                }
+              },
+              "localization_diagnostics": {
+                "unmatched_with_same_class_overlap": 253,
+                "unmatched_without_same_class_overlap": 111
+              },
+              "official_full": {
+                "AP": 0.0,
+                "FN": 5862,
+                "FP": 364,
+                "TP": 0,
+                "f1": 0.0,
+                "precision": 0.0,
+                "recall": 0.0
+              },
+              "supported_f1": 0.0
+            },
+            "lir": {
+              "fields": {
+                "line_item_description": {
+                  "AP": 0.0123925316841193,
+                  "FN": 1790,
+                  "FP": 47,
+                  "TP": 46,
+                  "f1": 0.047693105235873515,
+                  "precision": 0.4946236559139785,
+                  "recall": 0.02505446623093682
+                },
+                "line_item_quantity": {
+                  "AP": 0.0280486365246134,
+                  "FN": 1530,
+                  "FP": 4,
+                  "TP": 46,
+                  "f1": 0.05658056580565806,
+                  "precision": 0.92,
+                  "recall": 0.02918781725888325
+                }
+              },
+              "localization_diagnostics": {
+                "unmatched_with_same_class_overlap": 41,
+                "unmatched_without_same_class_overlap": 10
+              },
+              "official_full": {
+                "AP": 0.005561290161496867,
+                "FN": 10551,
+                "FP": 51,
+                "TP": 92,
+                "f1": 0.017059150750973487,
+                "precision": 0.6433566433566433,
+                "recall": 0.00864417927276144
+              },
+              "supported_f1": 0.05175808720112518
+            }
+          },
+          "version": "0.2.0"
+        },
+        "deterministic-value-grounded": {
+          "header_status_counts": {
+            "amount_total_gross": {
+              "ambiguous": 41,
+              "extracted": 197,
+              "missing": 262
+            },
+            "amount_total_net": {
+              "ambiguous": 1,
+              "extracted": 22,
+              "missing": 477
+            },
+            "amount_total_tax": {
+              "extracted": 3,
+              "missing": 497
+            },
+            "date_issue": {
+              "extracted": 8,
+              "missing": 492
+            },
+            "document_id": {
+              "ambiguous": 18,
+              "extracted": 137,
+              "missing": 345
+            }
+          },
+          "tasks": {
+            "kile": {
+              "fields": {
+                "amount_total_gross": {
+                  "AP": 0.13113980419946564,
+                  "FN": 412,
+                  "FP": 88,
+                  "TP": 107,
+                  "f1": 0.29971988795518206,
+                  "precision": 0.5487179487179488,
+                  "recall": 0.20616570327552985
+                },
+                "amount_total_net": {
+                  "AP": 0.08088235294117647,
+                  "FN": 57,
+                  "FP": 11,
+                  "TP": 11,
+                  "f1": 0.24444444444444446,
+                  "precision": 0.5,
+                  "recall": 0.16176470588235295
+                },
+                "amount_total_tax": {
+                  "AP": 0.022222222222222223,
+                  "FN": 44,
+                  "FP": 2,
+                  "TP": 1,
+                  "f1": 0.04166666666666667,
+                  "precision": 0.3333333333333333,
+                  "recall": 0.022222222222222223
+                },
+                "date_issue": {
+                  "AP": 0.013671875,
+                  "FN": 505,
+                  "FP": 0,
+                  "TP": 7,
+                  "f1": 0.02697495183044316,
+                  "precision": 1.0,
+                  "recall": 0.013671875
+                },
+                "document_id": {
+                  "AP": 0.005944669292147711,
+                  "FN": 438,
+                  "FP": 122,
+                  "TP": 15,
+                  "f1": 0.05084745762711865,
+                  "precision": 0.10948905109489052,
+                  "recall": 0.033112582781456956
+                }
+              },
+              "localization_diagnostics": {
+                "unmatched_with_same_class_overlap": 57,
+                "unmatched_without_same_class_overlap": 166
+              },
+              "official_full": {
+                "AP": 0.010161135545728471,
+                "FN": 5721,
+                "FP": 223,
+                "TP": 141,
+                "f1": 0.04529392868615484,
+                "precision": 0.3873626373626374,
+                "recall": 0.024053224155578302
+              },
+              "supported_f1": 0.1438041815400306
+            },
+            "lir": {
+              "fields": {
+                "line_item_description": {
+                  "AP": 0.0123925316841193,
+                  "FN": 1790,
+                  "FP": 47,
+                  "TP": 46,
+                  "f1": 0.047693105235873515,
+                  "precision": 0.4946236559139785,
+                  "recall": 0.02505446623093682
+                },
+                "line_item_quantity": {
+                  "AP": 0.0280486365246134,
+                  "FN": 1530,
+                  "FP": 4,
+                  "TP": 46,
+                  "f1": 0.05658056580565806,
+                  "precision": 0.92,
+                  "recall": 0.02918781725888325
+                }
+              },
+              "localization_diagnostics": {
+                "unmatched_with_same_class_overlap": 41,
+                "unmatched_without_same_class_overlap": 10
+              },
+              "official_full": {
+                "AP": 0.005561290161496867,
+                "FN": 10551,
+                "FP": 51,
+                "TP": 92,
+                "f1": 0.017059150750973487,
+                "precision": 0.6433566433566433,
+                "recall": 0.00864417927276144
+              },
+              "supported_f1": 0.05175808720112518
+            }
+          },
+          "version": "0.3.0"
+        }
+      }
+    }
+  ],
+  "sample_manifest_sha256": "178841e803cc9bba95ff28712b3bd2d2db70074101a8dd205ce38888eed6a053",
+  "source_split": "val",
+  "validation_documents": 500
+}
