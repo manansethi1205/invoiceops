@@ -178,3 +178,16 @@ The opt-in value-grounded extractor and aggregate comparison runner are document
 Both runners require a fresh explicit output directory. Never reuse the frozen 0.2.0 or
 0.2.0-smoke directories; an existing directory is rejected before predictions are written.
 The new analysis runner writes only aggregate reports and never exports source text or predictions.
+
+### Invoice line-item coverage diagnosis
+
+[The line-coverage analysis](invoice-line-coverage.md) separates header detection, visual rows,
+row rejection and emission on the same fixed 500-document manifest in both OCR modes. Fresh
+aggregate-only reports include official description/quantity TP, FP, FN, denominators and
+precision/recall/F1. Header non-detection dominates; split headers are not established as the cause.
+
+The opt-in two-column grammar at deterministic-line-coverage@0.4.0 adds one TP and one FP per
+mode, leaving quantity unchanged and slightly reducing micro precision. Supported LIR F1 changes
+from 4.085% to 4.139% end-to-end and 5.176% to 5.229% precomputed. This practical null result
+does not justify promotion. All 500 validation documents are observed development data. The
+frozen extractor, historical 100-document reports and production worker default are preserved.

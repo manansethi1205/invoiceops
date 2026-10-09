@@ -32,11 +32,15 @@ deterministic code handles arithmetic, policy, matching, and approval.
 - Normalize word coordinates and preserve OCR/embedded-text provenance.
 - Define typed `EvidenceSpan` and `ExtractedField` contracts.
 
-## 3. Deterministic extraction and evaluation — implemented
+## 3. Deterministic extraction and evaluation — baseline implemented; generalization open
 
 - Extract versioned header fields and line items with evidence-linked deterministic rules.
 - Evaluate synthetic and DocILE data without committing private benchmark content.
 - Preserve `deterministic-baseline@0.2.0` as the frozen comparison baseline.
+- Aggregate invoice line-coverage diagnostics and an opt-in two-column candidate are implemented.
+  The same 500-document observed DocILE split yields one extra TP and FP per OCR mode; precision
+  falls slightly. This null result leaves broader header detection and production promotion open.
+  See [the measured diagnosis](invoice-line-coverage.md).
 
 ## 4. Deterministic validation and matching — implemented
 
@@ -85,7 +89,7 @@ deterministic code handles arithmetic, policy, matching, and approval.
 - Add Terraform for one real cloud path using S3, SQS, RDS, and a container service.
 - Publish measured service and business metrics separately from external benchmarks.
 
-## 11. Supporting-document extraction generalization — PO rows complete; headers current
+## 11. Supporting-document extraction — measured synthetic fixes; generalization open
 
 - Unified PO visual-row parsing now separates printed line numbers from descriptions and keeps
   per-cell evidence. Historical 0.1.0 runs are immutable; version-aware selection prevents a

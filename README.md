@@ -20,6 +20,7 @@ documents belong in this repository.
 | Three-way matching v1 | 26 synthetic receiving scenarios | 100% expected-decision accuracy, 0 false auto-matches |
 | DocILE external context | Fixed 100-document validation sample | supported LIR F1 18.49% end-to-end / 22.28% precomputed OCR; supported KILE F1 0% |
 | DocILE localization candidate, external context | Full 500-document validation split | supported KILE F1 12.23% end-to-end / 14.38% precomputed OCR; unchanged supported LIR F1 4.09% / 5.18% |
+| DocILE line-coverage candidate 0.4.0, external context | Same observed 500-document validation split | supported LIR F1 4.09% -> 4.14% / 5.18% -> 5.23%; one extra TP and FP per mode, lower micro precision; opt-in null result |
 
 Synthetic results are project measurements, not production claims. DocILE results are reported
 separately as an external stress benchmark and expose the deterministic baseline's generalization
@@ -28,6 +29,9 @@ limits.
 The DocILE localization candidate is evaluated separately from the frozen baseline.
 See [the aggregate failure analysis and targeted fix](docs/docile-failure-analysis.md) for
 value-only source evidence, the 500-document validation scope, and immutable report outputs.
+See [invoice line-item coverage](docs/invoice-line-coverage.md) for stage diagnostics, official
+per-field counts, the bounded two-column candidate, and the decision against production promotion.
+The entire validation split is observed development data, not a fresh holdout.
 
 ```text
 invoice -> extraction + evidence -> TWO_WAY: invoice + PO ---------+

@@ -11,3 +11,7 @@ CURRENT_EXTRACTION_STRATEGIES = (
     (HYBRID_EXTRACTOR_NAME, HYBRID_EXTRACTOR_VERSION),
     (EXTRACTOR_NAME, EXTRACTOR_VERSION),
 )
+
+# Explicitly opt-in evaluation candidate; not registered in production selection.
+LINE_COVERAGE_EXTRACTOR_NAME = "deterministic-line-coverage"
+LINE_COVERAGE_EXTRACTOR_VERSION = "0.4.0"

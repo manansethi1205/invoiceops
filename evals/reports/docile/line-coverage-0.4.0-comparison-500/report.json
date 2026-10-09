@@ -1,0 +1,356 @@
+{
+  "dataset": "DocILE",
+  "modes": [
+    {
+      "evaluated_documents": 500,
+      "mode": "end_to_end",
+      "variants": {
+        "deterministic-baseline": {
+          "bounded_header_probes": {
+            "description_line_total_without_optional_numeric": 39,
+            "description_quantity_unrecognized_bare_total": 11,
+            "description_unit_price_unrecognized_bare_total": 5,
+            "description_with_unrecognized_bare_price": 10,
+            "description_with_unrecognized_bare_total": 16
+          },
+          "official_full_lir": {
+            "AP": 0.0043269362544402275,
+            "FN": 10571,
+            "FP": 41,
+            "TP": 72,
+            "f1": 0.013387876534027518,
+            "precision": 0.6371681415929203,
+            "recall": 0.006765009865639387
+          },
+          "rejected_header_signatures": {
+            "description": 217,
+            "description+line_total": 39,
+            "description+quantity": 14,
+            "description+quantity+unit_price": 4,
+            "description+unit_price": 143
+          },
+          "stage_counts": {
+            "annotated_line_page_groups": 2543,
+            "documents": 500,
+            "documents_with_emitted_lines": 18,
+            "emitted_lines": 69,
+            "emitted_quantity_fields": 44,
+            "line_groups_multiple_visual_token_rows": 499,
+            "line_groups_no_visual_token_rows": 105,
+            "line_groups_numeric_cells_on_multiple_rows": 352,
+            "line_groups_one_visual_token_row": 1939,
+            "line_groups_stage_body_row_rejected": 142,
+            "line_groups_stage_header_not_detected_on_page": 2236,
+            "line_groups_stage_probable_item_row": 60,
+            "line_groups_stage_visual_tokens_missing": 105,
+            "pages": 635,
+            "pages_with_detected_header": 32,
+            "pages_with_words": 633,
+            "rows_before_header": 18578,
+            "rows_description_only": 169,
+            "rows_footer": 5,
+            "rows_header": 32,
+            "rows_ignored": 5,
+            "rows_missing_description": 101,
+            "rows_no_numeric_support": 166,
+            "rows_probable_item": 69,
+            "visual_rows": 19125,
+            "word_tokens": 163460
+          },
+          "supported_lir_fields": {
+            "line_item_description": {
+              "AP": 0.0072087658592848896,
+              "FN": 1806,
+              "FP": 39,
+              "TP": 30,
+              "f1": 0.03149606299212599,
+              "precision": 0.43478260869565216,
+              "recall": 0.016339869281045753
+            },
+            "line_item_quantity": {
+              "AP": 0.026171580890389314,
+              "FN": 1534,
+              "FP": 2,
+              "TP": 42,
+              "f1": 0.05185185185185186,
+              "precision": 0.9545454545454546,
+              "recall": 0.0266497461928934
+            }
+          },
+          "supported_lir_micro": {
+            "FN": 3340,
+            "FP": 41,
+            "TP": 72,
+            "annotations": 3412,
+            "f1": 0.04085106382978723,
+            "precision": 0.6371681415929203,
+            "predictions": 113,
+            "recall": 0.021101992966002344
+          },
+          "version": "0.2.0"
+        },
+        "deterministic-line-coverage": {
+          "bounded_header_probes": {
+            "description_line_total_without_optional_numeric": 35,
+            "description_quantity_unrecognized_bare_total": 11,
+            "description_unit_price_unrecognized_bare_total": 5,
+            "description_with_unrecognized_bare_price": 10,
+            "description_with_unrecognized_bare_total": 16
+          },
+          "official_full_lir": {
+            "AP": 0.004404183093281314,
+            "FN": 10570,
+            "FP": 42,
+            "TP": 73,
+            "f1": 0.013571295779884735,
+            "precision": 0.6347826086956522,
+            "recall": 0.00685896833599549
+          },
+          "rejected_header_signatures": {
+            "description": 217,
+            "description+line_total": 35,
+            "description+quantity": 14,
+            "description+quantity+unit_price": 4,
+            "description+unit_price": 143
+          },
+          "stage_counts": {
+            "annotated_line_page_groups": 2543,
+            "documents": 500,
+            "documents_with_emitted_lines": 20,
+            "emitted_lines": 71,
+            "emitted_quantity_fields": 44,
+            "line_groups_multiple_visual_token_rows": 499,
+            "line_groups_no_visual_token_rows": 105,
+            "line_groups_numeric_cells_on_multiple_rows": 352,
+            "line_groups_one_visual_token_row": 1939,
+            "line_groups_stage_body_row_rejected": 145,
+            "line_groups_stage_header_not_detected_on_page": 2232,
+            "line_groups_stage_probable_item_row": 61,
+            "line_groups_stage_visual_tokens_missing": 105,
+            "pages": 635,
+            "pages_with_detected_header": 36,
+            "pages_with_words": 633,
+            "rows_before_header": 18518,
+            "rows_description_only": 197,
+            "rows_footer": 5,
+            "rows_header": 36,
+            "rows_ignored": 5,
+            "rows_missing_description": 120,
+            "rows_no_numeric_support": 173,
+            "rows_probable_item": 71,
+            "visual_rows": 19125,
+            "word_tokens": 163460
+          },
+          "supported_lir_fields": {
+            "line_item_description": {
+              "AP": 0.007780890133831306,
+              "FN": 1805,
+              "FP": 40,
+              "TP": 31,
+              "f1": 0.032511798636601995,
+              "precision": 0.43661971830985913,
+              "recall": 0.016884531590413945
+            },
+            "line_item_quantity": {
+              "AP": 0.026171580890389314,
+              "FN": 1534,
+              "FP": 2,
+              "TP": 42,
+              "f1": 0.05185185185185186,
+              "precision": 0.9545454545454546,
+              "recall": 0.0266497461928934
+            }
+          },
+          "supported_lir_micro": {
+            "FN": 3339,
+            "FP": 42,
+            "TP": 73,
+            "annotations": 3412,
+            "f1": 0.04139495321803232,
+            "precision": 0.6347826086956522,
+            "predictions": 115,
+            "recall": 0.021395076201641265
+          },
+          "version": "0.4.0"
+        }
+      }
+    },
+    {
+      "evaluated_documents": 500,
+      "mode": "precomputed_ocr",
+      "variants": {
+        "deterministic-baseline": {
+          "bounded_header_probes": {
+            "description_line_total_without_optional_numeric": 43,
+            "description_quantity_unrecognized_bare_total": 9,
+            "description_unit_price_unrecognized_bare_total": 4,
+            "description_with_unrecognized_bare_price": 15,
+            "description_with_unrecognized_bare_total": 15
+          },
+          "official_full_lir": {
+            "AP": 0.005561290161496867,
+            "FN": 10551,
+            "FP": 51,
+            "TP": 92,
+            "f1": 0.017059150750973487,
+            "precision": 0.6433566433566433,
+            "recall": 0.00864417927276144
+          },
+          "rejected_header_signatures": {
+            "description": 224,
+            "description+line_total": 43,
+            "description+quantity": 20,
+            "description+quantity+unit_price": 6,
+            "description+unit_price": 143
+          },
+          "stage_counts": {
+            "annotated_line_page_groups": 2543,
+            "documents": 500,
+            "documents_with_emitted_lines": 22,
+            "emitted_lines": 93,
+            "emitted_quantity_fields": 50,
+            "line_groups_multiple_visual_token_rows": 525,
+            "line_groups_no_visual_token_rows": 5,
+            "line_groups_numeric_cells_on_multiple_rows": 363,
+            "line_groups_one_visual_token_row": 2013,
+            "line_groups_stage_body_row_rejected": 127,
+            "line_groups_stage_header_not_detected_on_page": 2328,
+            "line_groups_stage_probable_item_row": 83,
+            "line_groups_stage_visual_tokens_missing": 5,
+            "pages": 635,
+            "pages_with_detected_header": 36,
+            "pages_with_words": 633,
+            "rows_before_header": 18414,
+            "rows_description_only": 169,
+            "rows_footer": 5,
+            "rows_header": 36,
+            "rows_ignored": 11,
+            "rows_missing_description": 62,
+            "rows_no_numeric_support": 161,
+            "rows_probable_item": 93,
+            "visual_rows": 18951,
+            "word_tokens": 149954
+          },
+          "supported_lir_fields": {
+            "line_item_description": {
+              "AP": 0.0123925316841193,
+              "FN": 1790,
+              "FP": 47,
+              "TP": 46,
+              "f1": 0.047693105235873515,
+              "precision": 0.4946236559139785,
+              "recall": 0.02505446623093682
+            },
+            "line_item_quantity": {
+              "AP": 0.0280486365246134,
+              "FN": 1530,
+              "FP": 4,
+              "TP": 46,
+              "f1": 0.05658056580565806,
+              "precision": 0.92,
+              "recall": 0.02918781725888325
+            }
+          },
+          "supported_lir_micro": {
+            "FN": 3320,
+            "FP": 51,
+            "TP": 92,
+            "annotations": 3412,
+            "f1": 0.05175808720112517,
+            "precision": 0.6433566433566433,
+            "predictions": 143,
+            "recall": 0.026963657678780773
+          },
+          "version": "0.2.0"
+        },
+        "deterministic-line-coverage": {
+          "bounded_header_probes": {
+            "description_line_total_without_optional_numeric": 37,
+            "description_quantity_unrecognized_bare_total": 9,
+            "description_unit_price_unrecognized_bare_total": 4,
+            "description_with_unrecognized_bare_price": 15,
+            "description_with_unrecognized_bare_total": 15
+          },
+          "official_full_lir": {
+            "AP": 0.005638156210816892,
+            "FN": 10550,
+            "FP": 52,
+            "TP": 93,
+            "f1": 0.017241379310344827,
+            "precision": 0.6413793103448275,
+            "recall": 0.008738137743117541
+          },
+          "rejected_header_signatures": {
+            "description": 224,
+            "description+line_total": 37,
+            "description+quantity": 20,
+            "description+quantity+unit_price": 6,
+            "description+unit_price": 143
+          },
+          "stage_counts": {
+            "annotated_line_page_groups": 2543,
+            "documents": 500,
+            "documents_with_emitted_lines": 24,
+            "emitted_lines": 95,
+            "emitted_quantity_fields": 50,
+            "line_groups_multiple_visual_token_rows": 525,
+            "line_groups_no_visual_token_rows": 5,
+            "line_groups_numeric_cells_on_multiple_rows": 363,
+            "line_groups_one_visual_token_row": 2013,
+            "line_groups_stage_body_row_rejected": 136,
+            "line_groups_stage_header_not_detected_on_page": 2318,
+            "line_groups_stage_probable_item_row": 84,
+            "line_groups_stage_visual_tokens_missing": 5,
+            "pages": 635,
+            "pages_with_detected_header": 42,
+            "pages_with_words": 633,
+            "rows_before_header": 18357,
+            "rows_description_only": 202,
+            "rows_footer": 7,
+            "rows_header": 42,
+            "rows_ignored": 11,
+            "rows_missing_description": 67,
+            "rows_no_numeric_support": 170,
+            "rows_probable_item": 95,
+            "visual_rows": 18951,
+            "word_tokens": 149954
+          },
+          "supported_lir_fields": {
+            "line_item_description": {
+              "AP": 0.012940029813094828,
+              "FN": 1789,
+              "FP": 48,
+              "TP": 47,
+              "f1": 0.04867944070429829,
+              "precision": 0.49473684210526314,
+              "recall": 0.02559912854030501
+            },
+            "line_item_quantity": {
+              "AP": 0.0280486365246134,
+              "FN": 1530,
+              "FP": 4,
+              "TP": 46,
+              "f1": 0.05658056580565806,
+              "precision": 0.92,
+              "recall": 0.02918781725888325
+            }
+          },
+          "supported_lir_micro": {
+            "FN": 3319,
+            "FP": 52,
+            "TP": 93,
+            "annotations": 3412,
+            "f1": 0.05229125667697498,
+            "precision": 0.6413793103448275,
+            "predictions": 145,
+            "recall": 0.027256740914419694
+          },
+          "version": "0.4.0"
+        }
+      }
+    }
+  ],
+  "sample_manifest_sha256": "178841e803cc9bba95ff28712b3bd2d2db70074101a8dd205ce38888eed6a053",
+  "scope": "entire observed development validation split",
+  "source_split": "val"
+}

@@ -1,0 +1,98 @@
+{
+  "dataset": "DocILE",
+  "modes": [
+    {
+      "evaluated_documents": 500,
+      "mode": "precomputed_ocr",
+      "variants": {
+        "deterministic-baseline": {
+          "bounded_header_probes": {
+            "description_line_total_without_optional_numeric": 43,
+            "description_quantity_unrecognized_bare_total": 9,
+            "description_unit_price_unrecognized_bare_total": 4,
+            "description_with_unrecognized_bare_price": 15,
+            "description_with_unrecognized_bare_total": 15
+          },
+          "official_full_lir": {
+            "AP": 0.005561290161496867,
+            "FN": 10551,
+            "FP": 51,
+            "TP": 92,
+            "f1": 0.017059150750973487,
+            "precision": 0.6433566433566433,
+            "recall": 0.00864417927276144
+          },
+          "rejected_header_signatures": {
+            "description": 224,
+            "description+line_total": 43,
+            "description+quantity": 20,
+            "description+quantity+unit_price": 6,
+            "description+unit_price": 143
+          },
+          "stage_counts": {
+            "annotated_line_page_groups": 2543,
+            "documents": 500,
+            "documents_with_emitted_lines": 22,
+            "emitted_lines": 93,
+            "emitted_quantity_fields": 50,
+            "line_groups_multiple_visual_token_rows": 525,
+            "line_groups_no_visual_token_rows": 5,
+            "line_groups_numeric_cells_on_multiple_rows": 363,
+            "line_groups_one_visual_token_row": 2013,
+            "line_groups_stage_body_row_rejected": 127,
+            "line_groups_stage_header_not_detected_on_page": 2328,
+            "line_groups_stage_probable_item_row": 83,
+            "line_groups_stage_visual_tokens_missing": 5,
+            "pages": 635,
+            "pages_with_detected_header": 36,
+            "pages_with_words": 633,
+            "rows_before_header": 18414,
+            "rows_description_only": 169,
+            "rows_footer": 5,
+            "rows_header": 36,
+            "rows_ignored": 11,
+            "rows_missing_description": 62,
+            "rows_no_numeric_support": 161,
+            "rows_probable_item": 93,
+            "visual_rows": 18951,
+            "word_tokens": 149954
+          },
+          "supported_lir_fields": {
+            "line_item_description": {
+              "AP": 0.0123925316841193,
+              "FN": 1790,
+              "FP": 47,
+              "TP": 46,
+              "f1": 0.047693105235873515,
+              "precision": 0.4946236559139785,
+              "recall": 0.02505446623093682
+            },
+            "line_item_quantity": {
+              "AP": 0.0280486365246134,
+              "FN": 1530,
+              "FP": 4,
+              "TP": 46,
+              "f1": 0.05658056580565806,
+              "precision": 0.92,
+              "recall": 0.02918781725888325
+            }
+          },
+          "supported_lir_micro": {
+            "FN": 3320,
+            "FP": 51,
+            "TP": 92,
+            "annotations": 3412,
+            "f1": 0.05175808720112517,
+            "precision": 0.6433566433566433,
+            "predictions": 143,
+            "recall": 0.026963657678780773
+          },
+          "version": "0.2.0"
+        }
+      }
+    }
+  ],
+  "sample_manifest_sha256": "178841e803cc9bba95ff28712b3bd2d2db70074101a8dd205ce38888eed6a053",
+  "scope": "entire observed development validation split",
+  "source_split": "val"
+}
