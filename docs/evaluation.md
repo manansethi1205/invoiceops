@@ -210,11 +210,63 @@ promoting the opt-in line-coverage candidate.
 
 The completed [500-document qualitative header audit](invoice-line-coverage.md#reviewed-aggregate-result)
 selected 40 miss pairs plus eight controls from 45 documents (seed 1205, two-group document cap).
-All 96 mode observations were inspected privately. There are 12/48 uncertain end-to-end and
-15/48 uncertain precomputed reviews, with header disagreement on 8/48 paired groups.
+All 96 mode observations were inspected privately. The 40 miss pairs mean at least one mode
+missed; four were detected in each mode but missed in the other. Each mode has 36 actual misses:
+uncertainty among misses is 12/36 end-to-end and 15/36 precomputed (12/48 and 15/48 among all
+selected reviews), with header disagreement on 8/48 paired groups.
 No continuation-without-header or coordinate-mismatch cause was confirmed in this sample.
-Mixed categories and unresolved financial roles support expanding invoice-only review with
-independent adjudication before parser changes. Aggregate counts and denominators are published
+Mixed categories and unresolved financial roles motivated the completed bounded invoice-focused
+adjudication below. Aggregate counts and denominators are published
 in a fresh report directory; case assets and labels remain ignored and private. Frozen evaluation
 reports, extractor versions and production selection are unchanged. No official evaluator rerun
 is required because its inputs and metric computation are unchanged.
+
+### Invoice-focused financial-role adjudication
+
+`invoiceops/evaluation/financial_role_audit.py` and
+`scripts/adjudicate_docile_financial_roles.py` implement the private two-pass workflow and strict
+aggregate export. The [completed adjudication](invoice-line-coverage.md#invoice-focused-financial-role-adjudication)
+and [standalone report](../evals/reports/docile/financial-role-adjudication-500-qualitative/report.md)
+record all requested/achieved counts, exclusions, caps, denominators, printed roles, amount
+context, paired-mode changes, disagreement, uncertainty and the final implementation gate.
+
+Preparation requires the frozen 500-document private inventory and fixed validation manifest.
+Seed-ranked joint-stratum selection first includes unresolved invoice-stratum groups, then fresh
+misses, OCR disagreements and controls. Fresh groups exclude every first-audit document; a
+combined cap is never relaxed to meet requested counts. DocILE's document-type label is a
+sampling stratum; visual invoice status is reviewed separately. Source-visible roles cannot be
+inferred from arithmetic, annotation labels or another mode's tokens. Unknown and competing
+explanations remain valid outcomes. The private rubric distinguishes item tables, summary/list
+layouts, missing or competing roles, printed net/tax/gross context, token loss, labels and geometry.
+Role judgments concern source-visible page/table context, not a selected annotation row's field
+accuracy; repeated groups on a page do not add independent evidence.
+
+Use `prepare` to create a fresh private root and pass-one source/token assets. Complete its
+anonymous `reviews.json`, then `seal --pass-number 1`; `second-pass` verifies that seal and
+creates a different anonymous order without prior labels. Complete and seal pass two before
+`adjudication-template` reveals the private comparison. Inspect and explicitly fill every
+adjudication as confirmed agreement, resolved disagreement or retained uncertainty; the exporter
+rejects agreement that conceals classification differences. `export` requires both intact seals
+and a fresh aggregate output directory. Reviewer source/provenance are declared explicitly;
+assistant review cannot claim two independent reviewers. No additional model endpoint is called.
+
+Private input/output must be ignored and untracked guarded scratch or the existing dedicated
+container tmpfs; paths outside those roots, links/junctions and existing outputs are refused.
+Nested input files and copied review assets are checked for links as well. Case-level free text,
+IDs, paths, source content and labels never enter routine logs or public reports. Export accepts
+a fixed schema, fixed prose, categorical allowlists and nonnegative integer counts; it validates
+mode, role, category, adjudication and paired denominators. Public JSON/Markdown are aggregate
+only. First-audit reports, private labels and historical 100/500-document measurements are frozen.
+
+The achieved sample is 37 paired groups from 33 documents (15 prior unresolved, 12 fresh misses,
+six disagreements, four controls; seed 2110, document cap two). Actual misses are 33 end-to-end
+and 27 precomputed; unresolved primary evidence is 3/33 and 3/27 among those misses. One assistant
+performed a blinded repeat, not independent human adjudication: primary disagreement 0/37 and
+any-classification disagreement 1/37 per mode. All 74 observations were explicitly adjudicated.
+Financial-role ambiguity leads among visually confirmed invoice misses at 11/30 and 14/24 but
+fails the predeclared shared majority gate. **No-go for a new extraction implementation from
+this sample**; retain current abstention and production selection. This is observed development
+data, not representative prevalence, independent holdout, causal proof or a measured extraction
+improvement. The actual audit OCR preparation ran in the guarded evaluator container; the
+documented host Tesseract smoke limitation is not a commit blocker. Official evaluator inputs
+and metric computation are unchanged, so no full official rerun was required.

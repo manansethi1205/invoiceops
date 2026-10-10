@@ -1,0 +1,256 @@
+{
+  "adjudication_resolution_counts": {
+    "confirmed_agreement": 66,
+    "resolved_disagreement": 2,
+    "retained_uncertainty": 6
+  },
+  "decision_gate": "complete adjudication; at least eight and strict majority of visually confirmed invoice misses in each mode; modes agree; layout/label pattern still needs explicit repetition evidence",
+  "decision_matrix": {
+    "ambiguous_financial_roles": "guarded vision/human-review pilot preserving abstention",
+    "clear_roles": "no failure-directed implementation justified",
+    "geometry": "versioned deterministic layout experiment after repeated-layout confirmation",
+    "no_item_table": "explicit no-item-table abstention and review handoff",
+    "not_visually_invoice": "document-scope gate before invoice extraction",
+    "token_loss": "bounded OCR/preprocessing experiment",
+    "unresolved": "no-go: evidence does not support an implementation category",
+    "unsupported_labels": "versioned parser experiment after explicit-role confirmation"
+  },
+  "header_transitions": {
+    "0->0": 27,
+    "0->1": 6,
+    "1->1": 4
+  },
+  "jointly_adjudicated_pair_denominator": 37,
+  "limitations": [
+    "DocILE invoice stratum is not visual invoice confirmation.",
+    "Nonrepresentative, equal-stratum qualitative selection; observed development data.",
+    "Same-reviewer repeat is not independent inter-rater reliability.",
+    "Assistant repeat review does not establish independent human adjudication.",
+    "No arithmetic or annotation-only inference of financial roles.",
+    "Correlated OCR modes and groups are not independent observations.",
+    "Printed-role judgments concern page/table context, not annotation-row field accuracy.",
+    "Source familiarity and memory can survive label blinding.",
+    "Category majority does not establish a repeated explicit parser pattern.",
+    "Unadjudicated and unknown evidence is unresolved, not a confirmed cause."
+  ],
+  "modes": {
+    "end_to_end": {
+      "actual_header_misses": 33,
+      "adjudicated": 37,
+      "amount_signals": {
+        "competing": 10,
+        "none": 0,
+        "printed_gross": 5,
+        "printed_net": 5,
+        "printed_tax": 7,
+        "summary_total": 33,
+        "unknown": 18
+      },
+      "both_passes_inspected_denominator": 37,
+      "competing_explanation_count": 2,
+      "detected_headers": 4,
+      "pass_any_classification_disagreement": 1,
+      "pass_primary_disagreement": 0,
+      "primary_barriers": {
+        "ambiguous_financial_roles": 13,
+        "clear_roles": 2,
+        "geometry": 3,
+        "no_item_table": 7,
+        "not_visually_invoice": 1,
+        "token_loss": 7,
+        "unresolved": 3,
+        "unsupported_labels": 1
+      },
+      "roles": {
+        "description": {
+          "absent": 0,
+          "competing": 0,
+          "present": 36,
+          "unknown": 1
+        },
+        "printed_line_total": {
+          "absent": 10,
+          "competing": 8,
+          "present": 17,
+          "unknown": 2
+        },
+        "quantity": {
+          "absent": 19,
+          "competing": 3,
+          "present": 14,
+          "unknown": 1
+        },
+        "unit_price": {
+          "absent": 12,
+          "competing": 2,
+          "present": 11,
+          "unknown": 12
+        }
+      },
+      "selected_denominator": 37,
+      "table_kind": {
+        "item_table": 29,
+        "list": 2,
+        "none": 0,
+        "summary": 6,
+        "unknown": 0
+      },
+      "unadjudicated": 0,
+      "unknown_or_competing_role_count": 24,
+      "unresolved_count": 3,
+      "unresolved_header_misses": 3,
+      "visual_invoice": {
+        "no": 1,
+        "unknown": 2,
+        "yes": 34
+      },
+      "visually_invoice_miss_barriers": {
+        "ambiguous_financial_roles": 11,
+        "clear_roles": 0,
+        "geometry": 3,
+        "no_item_table": 7,
+        "not_visually_invoice": 0,
+        "token_loss": 7,
+        "unresolved": 1,
+        "unsupported_labels": 1
+      },
+      "visually_invoice_miss_denominator": 30
+    },
+    "precomputed_ocr": {
+      "actual_header_misses": 27,
+      "adjudicated": 37,
+      "amount_signals": {
+        "competing": 10,
+        "none": 0,
+        "printed_gross": 5,
+        "printed_net": 5,
+        "printed_tax": 7,
+        "summary_total": 33,
+        "unknown": 18
+      },
+      "both_passes_inspected_denominator": 37,
+      "competing_explanation_count": 1,
+      "detected_headers": 10,
+      "pass_any_classification_disagreement": 1,
+      "pass_primary_disagreement": 0,
+      "primary_barriers": {
+        "ambiguous_financial_roles": 17,
+        "clear_roles": 7,
+        "geometry": 1,
+        "no_item_table": 7,
+        "not_visually_invoice": 1,
+        "token_loss": 0,
+        "unresolved": 3,
+        "unsupported_labels": 1
+      },
+      "roles": {
+        "description": {
+          "absent": 0,
+          "competing": 0,
+          "present": 36,
+          "unknown": 1
+        },
+        "printed_line_total": {
+          "absent": 10,
+          "competing": 8,
+          "present": 17,
+          "unknown": 2
+        },
+        "quantity": {
+          "absent": 19,
+          "competing": 3,
+          "present": 14,
+          "unknown": 1
+        },
+        "unit_price": {
+          "absent": 12,
+          "competing": 2,
+          "present": 11,
+          "unknown": 12
+        }
+      },
+      "selected_denominator": 37,
+      "table_kind": {
+        "item_table": 29,
+        "list": 2,
+        "none": 0,
+        "summary": 6,
+        "unknown": 0
+      },
+      "unadjudicated": 0,
+      "unknown_or_competing_role_count": 24,
+      "unresolved_count": 3,
+      "unresolved_header_misses": 3,
+      "visual_invoice": {
+        "no": 1,
+        "unknown": 2,
+        "yes": 34
+      },
+      "visually_invoice_miss_barriers": {
+        "ambiguous_financial_roles": 14,
+        "clear_roles": 0,
+        "geometry": 1,
+        "no_item_table": 7,
+        "not_visually_invoice": 0,
+        "token_loss": 0,
+        "unresolved": 1,
+        "unsupported_labels": 1
+      },
+      "visually_invoice_miss_denominator": 24
+    }
+  },
+  "next_choice": "unresolved",
+  "next_implementation": "no-go: evidence does not support an implementation category",
+  "paired_primary_changes": 9,
+  "paired_role_changes": {
+    "description": 0,
+    "printed_line_total": 0,
+    "quantity": 0,
+    "unit_price": 0
+  },
+  "reviewer_kind": "same_reviewer_blinded_repeat",
+  "reviewer_source": "assistant",
+  "sample_method": "seed-ranked round-robin joint strata; unresolved first; fresh groups exclude first-audit documents",
+  "scope": "500-document observed development data; nonrepresentative qualitative sample, not holdout",
+  "selection": {
+    "achieved": {
+      "detected_controls": 4,
+      "fresh_misses": 12,
+      "ocr_disagreements": 6,
+      "prior_unresolved": 15
+    },
+    "cap_exclusions_encountered": {
+      "detected_controls": 0,
+      "fresh_misses": 0,
+      "ocr_disagreements": 2,
+      "prior_unresolved": 0
+    },
+    "eligible": {
+      "detected_controls": 81,
+      "fresh_misses": 1134,
+      "ocr_disagreements": 12,
+      "prior_unresolved": 15
+    },
+    "first_audit_documents_excluded_from_fresh": 45,
+    "first_audit_groups_excluded_from_fresh": 48,
+    "fresh_invoice_groups_excluded_by_prior_document": 289,
+    "invoice_stratum_universe": 1516,
+    "non_invoice_stratum_exclusions": 1027,
+    "per_document_cap": 2,
+    "requested": {
+      "detected_controls": 4,
+      "fresh_misses": 12,
+      "ocr_disagreements": 6,
+      "prior_unresolved": 15
+    },
+    "seed": 2110,
+    "selected_documents": 33,
+    "selected_pairs": 37,
+    "shortfall": {
+      "detected_controls": 0,
+      "fresh_misses": 0,
+      "ocr_disagreements": 0,
+      "prior_unresolved": 0
+    }
+  }
+}

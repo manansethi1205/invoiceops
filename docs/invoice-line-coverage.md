@@ -288,9 +288,8 @@ or coordinate mismatch was confirmed in this selected sample; that does not esta
 from the development split. Synthetic tests cover genuine no-repeat continuation and normalized
 coordinate/page/grouping edge cases.
 
-**Next slice recommendation:** expand invoice-only private review of header field-role
-requirements, with independent adjudication, before changing extraction. The 12/36 and 15/36
-uncertain misses, 12 non-invoice explanations per mode, and mixed actionable categories do
+The bounded invoice-only financial-role adjudication below completes this diagnostic gate.
+The 12/36 and 15/36 uncertain misses, 12 non-invoice explanations per mode, and mixed categories do
 not support one dominant parser fix. Keep financial-role ambiguity intact. This is a qualitative,
 stratified, single-reviewer sample of observed development data, not a prevalence estimate,
 causal experiment, independent holdout or extraction-quality improvement claim.
@@ -304,4 +303,98 @@ host real-data run initially failed both smoke modes because the configured data
 lacked its validation index. With the dataset root corrected for that check, precomputed OCR
 passed and end-to-end failed with a Tesseract/TESSDATA_PREFIX RuntimeError. The audit's actual
 500-document OCR preparation ran in the guarded evaluator container; this host smoke limitation
-was not bypassed or used to alter frozen behavior. The full official evaluator was not rerun.
+was not bypassed or used to alter frozen behavior. This host Tesseract limitation is not a commit
+blocker because actual audit OCR preparation ran in the guarded container. The full official
+evaluator was not rerun.
+
+### Invoice-focused financial-role adjudication
+
+The separate [financial-role report](../evals/reports/docile/financial-role-adjudication-500-qualitative/report.md)
+and [aggregate JSON](../evals/reports/docile/financial-role-adjudication-500-qualitative/report.json)
+freeze a second, evaluation-only selection. The first 48-pair audit, frozen 100/500-document
+reports, extractor versions and production selection remain unchanged. All 500 validation
+documents are observed development data; this is a nonrepresentative qualitative sample.
+
+Seed 2110 uses deterministic round-robin joint strata for OCR detection direction, page position,
+token presence and existing signatures within DocILE's invoice document-type stratum. The
+combined cap is two groups per document. All four requested tiers were achieved: 15 previously
+unresolved invoice-stratum pairs, 12 fresh both-mode misses, six fresh OCR disagreements and
+four fresh both-mode detected controls: **37 pairs from 33 documents**. Fresh tiers exclude
+all 45 first-audit documents, which contain 289 invoice-stratum groups. Eligible pools were
+15, 1,134, 12 and 81 respectively; two disagreement candidates were encountered and excluded
+by the cap. There were no selection shortfalls. The inventory has 1,516 invoice-stratum groups
+and 1,027 other-stratum groups, which were excluded. These are group counts, not document counts.
+
+DocILE's invoice stratum is not visual confirmation: **34/37** selected pairs were visually
+invoices, **1/37** was not and **2/37** remained unknown in both modes. The source layouts were
+29 item tables, six summaries and two lists, each out of 37. A genuine description/charge table
+does not establish supplied quantity, unit price or safe payable amounts. Empty financial columns
+remain absent/unknown; printed rate alone is not an automatically established unit price. The
+rubric records source-visible roles and printed net/tax/gross or summary context separately
+from token defects and primary/competing explanations. Arithmetic and annotation-only inference
+are prohibited. Amount context is multilabel and never supplies monetary values. Printed-role
+judgments concern the selected page/table context, not field accuracy on a particular annotated
+row. Sampled groups on the same page repeat context and are correlated observations.
+
+One assistant performed two differently ordered, anonymous source/token review passes. The
+second pass could not see first-pass labels through its review artifacts. Pass one was sealed
+before pass two was created; both were sealed before explicit adjudication. Blinding removes
+labels, tiers, annotations and stage counters, but cannot erase source familiarity or memory.
+This is **same-reviewer blinded repeat review, not independent human review or inter-rater
+reliability**. Primary explanations agreed on 37/37 pairs per mode. Any classification differed
+on 1/37 per mode; explicit adjudication resolved that field-role difference. Across 74 mode
+observations, 66 agreements were confirmed, two disagreements resolved and six observations
+retained uncertain. No observation was left uninspected or unadjudicated.
+
+| Primary explanation | End-to-end / 37 | Precomputed OCR / 37 |
+| --- | ---: | ---: |
+| Token loss | 7 | 0 |
+| Unsupported labels | 1 | 1 |
+| Geometry | 3 | 1 |
+| Missing or ambiguous financial roles | 13 | 17 |
+| No genuine item table | 7 | 7 |
+| Not visually an invoice | 1 | 1 |
+| Clear printed roles | 2 | 7 |
+| Unresolved evidence | 3 | 3 |
+
+There are **33 actual header misses end-to-end and 27 precomputed**, so primary uncertainty
+among misses is **3/33 and 3/27**, respectively, rather than 3/37. Visually confirmed invoice
+miss denominators are **30 and 24**. Unknown or competing printed financial roles occur in
+24/37 groups per mode; this is distinct from the three unresolved primary explanations.
+Header detection changes on 6/37 pairs, all from end-to-end miss to precomputed detection;
+27/37 miss in both modes and 4/37 detect in both. Primary explanation changes across modes
+on 9/37 pairs; source-visible role classifications change on 0/37 for each of the four roles.
+Better token availability does not resolve source financial semantics. Detected controls are
+included in the 37-group tables but excluded from the invoice-miss decision denominator.
+
+The decision gate was specified before final aggregation: complete adjudication, at least eight
+and a strict majority in the same supported category among visually confirmed invoice misses
+in **each** mode. A label/geometry majority would additionally need a repeated financially
+explicit pattern; category counts alone cannot justify an alias or layout rule. The report
+contains the full category-to-potential-implementation decision matrix.
+
+**Final gate choice: no-go for a new extraction implementation from this sample.** Financial-role
+ambiguity leads at **11/30 end-to-end** and **14/24 precomputed invoice misses**, but does not
+clear the shared majority gate. Token loss, geometry, summary/list structures and uncertainty
+remain mixed. This is the last diagnostic gate for this slice, not a prescription for more
+alias experiments or an automatic vision pilot. Preserve the existing financial-role abstention
+and production boundaries. No coverage gain, causal explanation for all misses or population
+prevalence estimate is claimed. No parser, worker, matching, review, risk, canonical-record or
+payment changes were made.
+
+The first private inventory and its selected source assets were reused read-only. Only newly
+selected documents needed OCR preparation, which ran in the guarded network-disabled evaluator
+container. Historical header flags remain the frozen inventory's observations; no official
+scoring or all-500 OCR rerun was needed. Host Tesseract/TESSDATA_PREFIX smoke limitations remain
+documented and are not a commit blocker for this container-backed audit. Private assets, two
+passes, mappings, labels and adjudication notes stay in ignored guarded scratch; only allowlisted
+aggregates are exported to the fresh report directory.
+
+Verification: focused financial-role/header-audit/coverage/table/parser tests passed (68 passed,
+two Windows symlink-permission skips). The synthetic evaluation suite passed (91 passed, two
+skips, three private-data tests deselected). Repository Ruff and strict mypy including the new
+runner passed (122 source files). Privacy checks found none of the 500 manifest IDs or actual
+private source locations in the seven changed files; private artifacts are ignored and untracked.
+All 50 tracked historical report files match HEAD. The aggregate report exactly reproduces from
+the private two-pass adjudication; schema and denominator checks passed. UTF-8/mojibake checks
+passed on 43 Markdown files, including the fresh report, and git diff --check passed.
