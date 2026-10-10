@@ -367,7 +367,7 @@ def test_current_extraction_prefers_hybrid_and_exposes_only_safe_lineage(
         hybrid = ExtractionRun(
             document_id=document_id,
             extractor_name="hybrid-routed",
-            extractor_version="0.3.0",
+            extractor_version="0.4.0",
             schema_version="invoice-v1",
             status=ExtractionRunStatus.SUCCEEDED,
             output_json=missing_invoice().model_dump(mode="json"),

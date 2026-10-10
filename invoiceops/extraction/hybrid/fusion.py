@@ -110,6 +110,11 @@ def fuse_invoice(
             )
             grounding[path] = result.reason.value
             fields[name] = _fuse_field(deterministic_field, result, path=path, outcomes=outcomes)
-        lines.append(InvoiceLine.model_validate(fields))
+        # Rejected candidate-only rows must not manufacture empty deterministic line items.
+        if deterministic_line is not None or any(
+            outcomes.get(f"line_items.{index}.{name}") == FusionOutcome.VLM_FILLED
+            for name in LINE_FIELDS
+        ):
+            lines.append(InvoiceLine.model_validate(fields))
     values["line_items"] = lines
     return FusionResult(Invoice.model_validate(values), outcomes, grounding)

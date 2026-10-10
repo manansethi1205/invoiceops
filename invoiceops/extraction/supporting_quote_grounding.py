@@ -1,3 +1,9 @@
+"""Frozen quote locator for supporting-hybrid-routed@0.4.0.
+
+Supporting fusion applies its own value/role checks after this legacy location step.
+Invoice VLM candidates must use hybrid.grounding.ground_candidate instead.
+"""
+
 import re
 import unicodedata
 from dataclasses import dataclass
@@ -17,7 +23,6 @@ from invoiceops.extraction.normalization import (
 from invoiceops.schemas.extraction import DocumentText, EvidenceSpan, WordToken
 
 type NormalizedValue = str | date | Decimal
-NUMERIC_FIELDS = frozenset({"subtotal", "tax", "total", "quantity", "unit_price", "line_total"})
 
 
 @dataclass(frozen=True)
@@ -51,13 +56,13 @@ def _normalize_value(field_name: str, raw: str) -> NormalizedValue | None:
         return parse_invoice_date(raw)
     if field_name == "currency":
         return normalize_currency(raw)
-    if field_name in NUMERIC_FIELDS:
+    if field_name in {"subtotal", "tax", "total", "quantity", "unit_price", "line_total"}:
         return parse_money(raw)
     value = normalize_whitespace(raw)
     return value or None
 
 
-def ground_candidate(
+def locate_supporting_quote(
     field_name: str,
     candidate: CandidateField,
     document: DocumentText,
@@ -92,9 +97,7 @@ def ground_candidate(
     if len(exact_starts) > 1:
         return GroundingResult(GroundingReason.QUOTE_NOT_UNIQUE, normalized_value)
     if len(exact_starts) == 1:
-        return _bind_value(
-            field_name, words, owners, exact_starts[0], len(quote), normalized_value, False
-        )
+        return _grounded(words, owners, exact_starts[0], len(quote), normalized_value, False)
 
     quote_text = " ".join(quote)
     scored: list[tuple[float, int, int]] = []
@@ -112,12 +115,7 @@ def ground_candidate(
     if len(best) != 1:
         return GroundingResult(GroundingReason.QUOTE_NOT_UNIQUE, normalized_value)
     start, length = next(iter(best))
-    if field_name in NUMERIC_FIELDS or field_name == "invoice_date":
-        quoted_digits = re.findall(r"\d+", " ".join(quote))
-        source_digits = re.findall(r"\d+", " ".join(stream[start : start + length]))
-        if quoted_digits != source_digits:
-            return GroundingResult(GroundingReason.QUOTE_DIGITS_MISMATCH, normalized_value)
-    return _bind_value(field_name, words, owners, start, length, normalized_value, True)
+    return _grounded(words, owners, start, length, normalized_value, True)
 
 
 def _word_boundary_aligned(owners: list[int], start: int, length: int) -> bool:
@@ -127,8 +125,7 @@ def _word_boundary_aligned(owners: list[int], start: int, length: int) -> bool:
     return starts_at_boundary and ends_at_boundary
 
 
-def _bind_value(
-    field_name: str,
+def _grounded(
     words: list[WordToken],
     owners: list[int],
     start: int,
@@ -136,21 +133,8 @@ def _bind_value(
     value: NormalizedValue,
     fuzzy: bool,
 ) -> GroundingResult:
-    # Quote lookup is only location evidence. Bind the value to whole source tokens inside
-    # that location, using the same field normalization as raw_value and no fuzzy value match.
-    first, last = owners[start], owners[start + length - 1] + 1
-    matches: list[tuple[int, int]] = []
-    for left in range(first, last):
-        for right in range(left + 1, last + 1):
-            text = " ".join(word.text for word in words[left:right])
-            if _normalize_value(field_name, text) == value:
-                matches.append((left, right))
-                if len(matches) > 1:
-                    return GroundingResult(GroundingReason.VALUE_NOT_UNIQUE_IN_QUOTE, value)
-    if not matches:
-        return GroundingResult(GroundingReason.VALUE_NOT_FOUND_IN_QUOTE, value)
-    left, right = matches[0]
-    evidence = tuple(evidence_from_words(words[left:right]))
+    indexes = list(dict.fromkeys(owners[start : start + length]))
+    evidence = tuple(evidence_from_words([words[index] for index in indexes]))
     return GroundingResult(
         GroundingReason.GROUNDED_FUZZY if fuzzy else GroundingReason.GROUNDED_EXACT,
         value,

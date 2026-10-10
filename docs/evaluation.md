@@ -1,5 +1,16 @@
 # Reproducible deterministic evaluation
 
+## Invoice hybrid value-binding safety replay
+
+`hybrid-routed@0.4.0` requires a unique source-token value subspan inside each located quote.
+The [fresh offline report](../evals/reports/hybrid/0.4.0-replay/report.md) runs the same 12 synthetic
+documents as 0.3.0, with no live model calls. Header coverage remains 67/72, critical coverage
+43/48 and line-item F1 1.0; all safety assertions pass. These are synthetic regression results,
+not DocILE improvement or live-model performance. Adversarial unit tests exercise quote/value
+mismatches that the historical 12-document replay does not cover. Historical reports are frozen;
+the replay writer now refuses existing output directories. See [the grounding boundary and
+remaining row-alignment limitation](hybrid-extraction.md).
+
 ## Generated supporting-document identifier evaluation
 
 The frozen `supporting-documents-v1-docker.json` report measured 30/30 synthetic PDF/PNG

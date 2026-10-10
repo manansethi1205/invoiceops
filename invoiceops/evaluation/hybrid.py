@@ -521,7 +521,7 @@ def render_hybrid_report(report: HybridReplayReport) -> str:
         f"- Prompt: `{report.prompt_version}`",
         f"- Source revision: `{report.source_revision}`",
         "",
-        "| Metric | Deterministic 0.2.0 | Hybrid replay 0.3.0 |",
+        f"| Metric | Deterministic 0.2.0 | Hybrid replay {report.extractor_version} |",
         "| --- | ---: | ---: |",
         "| Schema valid | "
         f"{report.deterministic.schema_valid_rate:.4f} | "
@@ -538,7 +538,7 @@ def render_hybrid_report(report: HybridReplayReport) -> str:
         "",
         "## Header exact match",
         "",
-        "| Field | Deterministic 0.2.0 | Hybrid replay 0.3.0 |",
+        f"| Field | Deterministic 0.2.0 | Hybrid replay {report.extractor_version} |",
         "| --- | ---: | ---: |",
         *[
             f"| {name} | {report.deterministic.header_exact_match[name]:.4f} | "
@@ -575,7 +575,7 @@ def render_hybrid_report(report: HybridReplayReport) -> str:
 
 
 def write_hybrid_report(output_dir: Path, report: HybridReplayReport) -> None:
-    output_dir.mkdir(parents=True, exist_ok=True)
+    output_dir.mkdir(parents=True, exist_ok=False)
     (output_dir / "report.json").write_text(
         report.model_dump_json(indent=2) + "\n", encoding="utf-8"
     )

@@ -1,5 +1,6 @@
 import uuid
 
+import pytest
 from sqlalchemy import create_engine, func, select
 from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
@@ -19,6 +20,7 @@ from invoiceops.extraction.hybrid.schemas import (
 from invoiceops.extraction.hybrid.service import HybridExtractionService
 from invoiceops.extraction.pipeline import DeterministicInvoiceExtractor
 from invoiceops.extraction.preprocessing import DocumentTextExtractor
+from invoiceops.extraction.selection import current_successful_extraction
 from invoiceops.extraction.service import ExtractionService
 from invoiceops.models import (
     Document,
@@ -135,7 +137,7 @@ def test_router_decline_persists_separate_run_without_initializing_provider() ->
             db, store, provider, complete_baseline=True, factory_calls=factory_calls
         ).process(item)
         assert run.extractor_name == "hybrid-routed"
-        assert run.extractor_version == "0.3.0"
+        assert run.extractor_version == "0.4.0"
         assert run.status == ExtractionRunStatus.SUCCEEDED
         assert factory_calls == []
         assert provider.calls == 0
@@ -194,3 +196,93 @@ def test_provider_failure_preserves_deterministic_output_without_document_conten
         assert call.status == ModelCallStatus.FAILED
         assert call.error_code == "provider_transient_error"
         assert "SYN-12345" not in str(call.error_code)
+        assert service.process(item).id == run.id
+        assert provider.calls == 1
+
+
+def test_new_version_keeps_historical_run_and_prefers_only_safe_current_success() -> None:
+    with session() as db:
+        store = MemoryObjectStore()
+        item = document(db, store, generated_invoice_pdf())
+        old_output = empty_invoice().model_dump(mode="json")
+        old = ExtractionRun(
+            document_id=item.id,
+            extractor_name="hybrid-routed",
+            extractor_version="0.3.0",
+            schema_version="invoice-v1",
+            status=ExtractionRunStatus.SUCCEEDED,
+            output_json=old_output,
+        )
+        db.add(old)
+        db.commit()
+        assert current_successful_extraction(db, item.id) is None
+        provider = FakeVisionExtractionProvider()
+        service = hybrid_service(db, store, provider, complete_baseline=True, factory_calls=[])
+        baseline = service.baseline_service.process(item)
+        assert current_successful_extraction(db, item.id).id == baseline.id
+        pending = service._get_or_create_run(item.id)
+        assert pending.id != old.id and pending.extractor_version == "0.4.0"
+        assert current_successful_extraction(db, item.id).id == baseline.id
+        current = service.process(item)
+        assert current_successful_extraction(db, item.id).id == current.id
+        assert service.process(item).id == current.id
+        db.refresh(old)
+        assert old.output_json == old_output and old.status == ExtractionRunStatus.SUCCEEDED
+        assert provider.calls == 0
+        assert db.scalar(select(func.count()).select_from(ExtractionRun)) == 3
+
+
+def test_retry_reuses_persisted_candidate_but_rejects_unrelated_value() -> None:
+    with session() as db:
+        store = MemoryObjectStore()
+        item = document(db, store, generated_invoice_pdf())
+        bad = vision_candidate().model_copy(
+            update={
+                "invoice_number": CandidateField(
+                    raw_value="UNRELATED",
+                    page=0,
+                    evidence_quote="SYN-12345",
+                    confidence=1,
+                )
+            }
+        )
+        provider = FakeVisionExtractionProvider(
+            response=VisionExtractionResponse(
+                candidate=bad,
+                latency_ms=1,
+            )
+        )
+        factory_calls: list[int] = []
+        service = hybrid_service(
+            db, store, provider, complete_baseline=False, factory_calls=factory_calls
+        )
+        first = service.process(item)
+        assert first.output_json == empty_invoice().model_dump(mode="json")
+        call = db.scalar(select(ModelCall))
+        assert call is not None and call.status == ModelCallStatus.SUCCEEDED
+        assert (
+            call.grounding_fusion_json["grounding"]["invoice_number"] == "VALUE_NOT_FOUND_IN_QUOTE"
+        )
+        # Simulate a retry after candidate persistence; cached provider success must be re-grounded.
+        first.status = ExtractionRunStatus.FAILED
+        first.output_json = None
+        db.commit()
+        retry = service.process(item)
+        assert retry.id == first.id and retry.output_json == empty_invoice().model_dump(mode="json")
+        assert provider.calls == 1 and len(factory_calls) == 1
+        assert db.scalar(select(func.count()).select_from(ModelCall)) == 1
+
+
+def test_hybrid_version_changes_request_fingerprint(monkeypatch: pytest.MonkeyPatch) -> None:
+    import invoiceops.extraction.hybrid.service as service_module
+
+    with session() as db:
+        store = MemoryObjectStore()
+        service = hybrid_service(
+            db, store, FakeVisionExtractionProvider(), complete_baseline=False, factory_calls=[]
+        )
+        current = service._fingerprint("a" * 64, {"reasons": ["CRITICAL_FIELD_MISSING"]})
+        with monkeypatch.context() as patch:
+            patch.setattr(service_module, "HYBRID_EXTRACTOR_VERSION", "0.3.0")
+            old = service._fingerprint("a" * 64, {"reasons": ["CRITICAL_FIELD_MISSING"]})
+        assert current != old

@@ -335,7 +335,7 @@ def test_real_stack_upload_is_idempotent_and_worker_completes() -> None:
         expected_strategy = os.environ.get("EXPECT_EXTRACTION_STRATEGY")
         if expected_strategy:
             assert extraction["extractor"]["name"] == expected_strategy
-            assert extraction["hybrid"]["strategy"] == "hybrid-routed@0.3.0"
+            assert extraction["hybrid"]["strategy"] == "hybrid-routed@0.4.0"
             assert extraction["hybrid"]["provider_invoked"] is False
         invoice = extraction["invoice"]
         assert invoice["invoice_number"]["value"] == invoice_number

@@ -24,7 +24,7 @@ def main() -> None:
     parser.add_argument("--allow-holdout", action="store_true")
     parser.add_argument("--manifest", type=Path)
     parser.add_argument(
-        "--output-dir", type=Path, default=Path("evals/reports/hybrid/0.3.0-replay")
+        "--output-dir", type=Path, default=Path("evals/reports/hybrid/0.4.0-replay")
     )
     parser.add_argument("--input-price-per-million", type=Decimal)
     parser.add_argument("--output-price-per-million", type=Decimal)
@@ -46,7 +46,7 @@ def main() -> None:
             max_retries=settings.vlm_max_retries,
             image_detail=settings.vlm_image_detail,
         )
-        report = run_hybrid_live_manifest(
+        live_report = run_hybrid_live_manifest(
             args.manifest,
             provider,
             PageRenderer(
@@ -58,7 +58,7 @@ def main() -> None:
         )
         args.output_dir.mkdir(parents=True, exist_ok=True)
         (args.output_dir / "report.json").write_text(
-            json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+            json.dumps(live_report, indent=2, sort_keys=True) + "\n", encoding="utf-8"
         )
         print("wrote aggregate-only explicitly enabled live hybrid report")
         return

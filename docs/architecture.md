@@ -103,7 +103,7 @@ The optional perception path is deterministic-first:
 ```text
 stored document -> deterministic-baseline@0.2.0 (persisted)
                 -> pure quality router
-                    -> sufficient: hybrid-routed@0.3.0 copies canonical baseline
+                    -> sufficient: hybrid-routed@0.4.0 copies canonical baseline
                     -> insufficient: bounded render -> strict VLM candidate
                                      -> quote-to-token grounding
                                      -> conservative deterministic fusion
@@ -115,4 +115,7 @@ Provider construction is lazy. Images and document text are never logged, model 
 and document instructions are untrusted data. Request fingerprints make attempt persistence
 idempotent. External exactly-once execution is not claimed: a crash between provider response and
 database commit can cause an at-least-once retry, while a persisted success is reused. Read and
-matching paths prefer successful 0.3.0, fall back to 0.2.0, and never rewrite historical matches.
+matching paths prefer successful 0.4.0, fall back to 0.2.0, and never rewrite historical matches.
+Quote location alone is insufficient: each VLM value requires a unique normalized source-token
+subspan within that quote. Historical 0.3.0 runs remain immutable and are excluded from current
+selection. Index-based line-item fusion remains a separate row-alignment limitation.

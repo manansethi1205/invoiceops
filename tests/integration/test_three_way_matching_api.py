@@ -373,7 +373,7 @@ def test_changed_extraction_allocation_requires_reconciliation(
             ExtractionRun(
                 document_id=document.id,
                 extractor_name="hybrid-routed",
-                extractor_version="0.3.0",
+                extractor_version="0.4.0",
                 schema_version="invoice-v1",
                 status=ExtractionRunStatus.SUCCEEDED,
                 output_json=changed.model_dump(mode="json"),

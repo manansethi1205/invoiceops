@@ -10,7 +10,6 @@ from typing import cast
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from invoiceops.extraction.hybrid.grounding import ground_candidate
 from invoiceops.extraction.hybrid.schemas import CandidateField, GroundingReason, VisionUsage
 from invoiceops.extraction.normalization import (
     normalize_currency,
@@ -18,6 +17,7 @@ from invoiceops.extraction.normalization import (
     parse_invoice_date,
     parse_money,
 )
+from invoiceops.extraction.supporting_quote_grounding import locate_supporting_quote
 from invoiceops.extraction.table_layout import reconstruct_visual_rows
 from invoiceops.schemas.cases import (
     DocumentRole,
@@ -271,7 +271,9 @@ def _column_supported(name: str, field: ExtractedField[object], document: Docume
 def _ground_field(
     name: str, candidate: CandidateField, document: DocumentText
 ) -> tuple[ExtractedField[object] | None, str]:
-    result = ground_candidate(_normalization_name(name), candidate, document, fuzzy_threshold=100)
+    result = locate_supporting_quote(
+        _normalization_name(name), candidate, document, fuzzy_threshold=100
+    )
     if not result.grounded or result.normalized_value is None:
         return None, result.reason.value
     if not candidate.evidence_quote or not _value_supported(

@@ -86,10 +86,11 @@ The worker downloads the stored document, performs text/OCR preprocessing and de
 extraction, and persists one result per document, extractor name, and extractor version. Celery
 redelivery reuses a completed extraction instead of repeating it.
 
-An optional deterministic-first vision fallback is implemented as `hybrid-routed@0.3.0` while the
+An optional deterministic-first vision fallback is implemented as `hybrid-routed@0.4.0` while the
 frozen `deterministic-baseline@0.2.0` remains intact. The router invokes a provider only for typed
-quality failures. Strict model candidates are accepted only when their quotes map uniquely to real
-embedded-text/OCR tokens. Grounded conflicts become `AMBIGUOUS`; provider failure preserves the
+quality failures. Strict model candidates require a uniquely located quote and a unique source-token
+value span inside it that normalizes to the proposed value. Numeric fuzzy digit substitutions are
+rejected. Grounded conflicts become `AMBIGUOUS`; provider failure preserves the
 deterministic invoice. The VLM is disabled and model-less by default, and confidence never
 authorizes matching, approval, or payment.
 
@@ -237,8 +238,8 @@ metric is sequential; real PostgreSQL contention is exercised by the Compose int
 Run the network-free hybrid replay evaluation:
 
 ```powershell
-uv run python scripts/run_hybrid_evaluation.py --mode hybrid-replay
-Get-Content evals/reports/hybrid/0.3.0-replay/report.md
+uv run python scripts/run_hybrid_evaluation.py --mode hybrid-replay --output-dir evals/reports/hybrid/0.4.0-replay-local
+Get-Content evals/reports/hybrid/0.4.0-replay-local/report.md
 ```
 
 Live mode is guarded and requires explicit manifest wiring, `--allow-live`, an enabled provider,
