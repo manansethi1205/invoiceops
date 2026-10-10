@@ -134,7 +134,7 @@ def annotated_stage_counts(
     trace: LineCoverageTrace,
     fields: Sequence[Any],
 ) -> Counter[str]:
-    """Partition annotated line/page groups by the earliest observed parser bottleneck.
+    """Partition annotated line/page groups by an observed attribution stage, not a cause.
 
     Token-center containment is diagnostic only; official PCC/LIR matches are scored separately.
     Multiple rows can be legitimate wrapping and are not automatically a construction failure.

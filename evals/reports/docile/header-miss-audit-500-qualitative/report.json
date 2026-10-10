@@ -1,0 +1,169 @@
+{
+  "annotation_fields_missing_line_item_id": 0,
+  "available_joint_strata": 57,
+  "header_transitions_end_to_end_to_precomputed": {
+    "0->0": 32,
+    "0->1": 4,
+    "1->0": 4,
+    "1->1": 8
+  },
+  "jointly_reviewed_pair_denominator": 48,
+  "limitations": [
+    "Equal-stratum qualitative sampling is not proportional or representative.",
+    "Header absence on a page is an observation, not a root cause.",
+    "Earlier headers and cross-page IDs do not automatically establish continuation.",
+    "Token-center containment is not official DocILE PCC scoring.",
+    "One private reviewer; no independent adjudication or causal generalization.",
+    "Uninspected and uncertain observations are not confirmed causes."
+  ],
+  "modes": {
+    "end_to_end": {
+      "inspected": 48,
+      "observable_signals": {
+        "earlier_page_has_header": 3,
+        "groups_with_invalid_boxes": 0,
+        "groups_with_overlap_without_center": 5,
+        "prior_page_has_lir": 10,
+        "same_line_id_on_other_page": 2
+      },
+      "primary_explanations": {
+        "annotation_or_coordinate_mismatch": 0,
+        "continuation_page": 0,
+        "detected_header_verified": 12,
+        "document_not_invoice": 12,
+        "geometry_or_row_grouping": 3,
+        "other_or_uncertain": 12,
+        "tokens_absent": 7,
+        "wording_not_supported": 2
+      },
+      "review_by_document_type": {
+        "invoice": {
+          "detected_header_verified": 7,
+          "document_not_invoice": 1,
+          "geometry_or_row_grouping": 3,
+          "other_or_uncertain": 12,
+          "tokens_absent": 7,
+          "wording_not_supported": 2
+        },
+        "other": {
+          "detected_header_verified": 5,
+          "document_not_invoice": 11
+        }
+      },
+      "selected_group_denominator": 48,
+      "selected_strata": {
+        "document_type": {
+          "invoice": 32,
+          "other": 16
+        },
+        "header_detection": {
+          "detected": 12,
+          "not_detected": 36
+        },
+        "header_signature": {
+          "description_line_total": 5,
+          "description_only": 11,
+          "description_unit_price": 3,
+          "mixed": 6,
+          "none": 19,
+          "other_known_combination": 4
+        },
+        "page_position": {
+          "first": 37,
+          "later": 11
+        },
+        "token_presence": {
+          "absent": 9,
+          "present": 39
+        }
+      },
+      "uncertainty_count": 12,
+      "unreviewed": 0
+    },
+    "precomputed_ocr": {
+      "inspected": 48,
+      "observable_signals": {
+        "earlier_page_has_header": 3,
+        "groups_with_invalid_boxes": 0,
+        "groups_with_overlap_without_center": 5,
+        "prior_page_has_lir": 10,
+        "same_line_id_on_other_page": 2
+      },
+      "primary_explanations": {
+        "annotation_or_coordinate_mismatch": 0,
+        "continuation_page": 0,
+        "detected_header_verified": 12,
+        "document_not_invoice": 12,
+        "geometry_or_row_grouping": 0,
+        "other_or_uncertain": 15,
+        "tokens_absent": 4,
+        "wording_not_supported": 5
+      },
+      "review_by_document_type": {
+        "invoice": {
+          "detected_header_verified": 8,
+          "document_not_invoice": 1,
+          "other_or_uncertain": 15,
+          "tokens_absent": 3,
+          "wording_not_supported": 5
+        },
+        "other": {
+          "detected_header_verified": 4,
+          "document_not_invoice": 11,
+          "tokens_absent": 1
+        }
+      },
+      "selected_group_denominator": 48,
+      "selected_strata": {
+        "document_type": {
+          "invoice": 32,
+          "other": 16
+        },
+        "header_detection": {
+          "detected": 12,
+          "not_detected": 36
+        },
+        "header_signature": {
+          "description_line_total": 6,
+          "description_only": 12,
+          "description_unit_price": 3,
+          "mixed": 7,
+          "none": 14,
+          "other_known_combination": 6
+        },
+        "page_position": {
+          "first": 37,
+          "later": 11
+        },
+        "token_presence": {
+          "present": 48
+        }
+      },
+      "uncertainty_count": 15,
+      "unreviewed": 0
+    }
+  },
+  "paired_denominator": 48,
+  "paired_disagreements": {
+    "header_detection": 8,
+    "review_primary": 14,
+    "signature": 17,
+    "token_presence": 9
+  },
+  "per_document_cap": 2,
+  "requested_controls": 8,
+  "requested_misses": 40,
+  "sample_method": "seed-ranked round-robin joint mode/type/page/token/signature strata; controls first",
+  "scanned_document_denominator": 500,
+  "scope": "500-document observed development validation split; qualitative audit, not holdout",
+  "seed": 1205,
+  "selected_control_pairs": 8,
+  "selected_documents": 45,
+  "selected_joint_strata": 48,
+  "selected_miss_pairs": 40,
+  "selected_pairs": 48,
+  "universe_both_detected_pairs": 178,
+  "universe_documents_with_lir": 458,
+  "universe_header_miss_pairs": 2365,
+  "universe_paired_groups": 2543
+}

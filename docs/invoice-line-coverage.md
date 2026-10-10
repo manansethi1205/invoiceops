@@ -28,8 +28,8 @@ modification. No model provider is called. Frozen reports are never reused as ou
 - Rejection: body rows lacking descriptions/numeric support, description-only rows, ignored
   rows, footer closures and rows outside active sections.
 - Emission: documents emitting lines, actual emitted line count and extracted quantity fields.
-- Annotation attribution: each annotated line/page group is assigned to its earliest observed
-  bottleneck. Token-center containment is diagnostic, not official DocILE scoring.
+- Annotation attribution: each annotated line/page group is assigned to an observed
+  stage, not a diagnosed cause. Token-center containment is diagnostic, not official DocILE scoring.
 
 The annotation partition uses all LIR fields, including unsupported classes. The legacy counter
 `line_groups_numeric_cells_on_multiple_rows` is a non-description alignment proxy: it also
@@ -38,7 +38,7 @@ supported-field metric denominators remain separate: 1,836 description annotatio
 quantity annotations, or 3,412 fields together. Counts of pages, rows, groups and fields must not
 be mixed.
 
-## Measured diagnosis
+## Measured observations
 
 | Frozen baseline diagnostic | End-to-end | Precomputed OCR |
 |---|---:|---:|
@@ -47,7 +47,7 @@ be mixed.
 | Visual rows | 19,125 | 18,951 |
 | Pages with a detected table header | 32 | 36 |
 | Annotated line/page groups | 2,543 | 2,543 |
-| Groups on a page without a detected header | 2,236 | 2,328 |
+| Groups with contained tokens and no detected page header | 2,236 | 2,328 |
 | Groups with no contained OCR/text tokens | 105 | 5 |
 | Groups with rejected body rows | 142 | 127 |
 | Groups reaching a probable item row | 60 | 83 |
@@ -55,8 +55,10 @@ be mixed.
 | Emitted lines | 69 | 93 |
 | Explicit description + line-total headers lacking quantity/unit-price anchors | 39 | 43 |
 
-Header non-detection dominates, at 87.93%/91.55% of annotated line/page groups. This does not establish
-split headers as the cause. Rejected description-plus-unit-price signatures also occur, but
+The no-detected-page-header stage accounts for 87.93%/91.55% of annotated line/page groups.
+This is an observation, not a root cause: continuation pages may legitimately omit repeated
+headers, and document type, token availability or coordinate attribution can change its meaning.
+It establishes neither split headers as the cause nor that a header was printed on every page. Rejected description-plus-unit-price signatures also occur, but
 opening those without quantity or a total would require a separate row-admission decision.
 The selected pattern already has a printed total and therefore can reuse existing admission
 semantics without inferring any money.
@@ -174,3 +176,132 @@ Keep the strategy opt-in. Before production adoption, use independent de-identif
 layouts, assess precision and exception workload, add persisted-version/strategy-selection tests,
 and verify routing against realistic incomplete/mismatched invoices. Do not change canonical
 confirmation, review ownership, matching/risk rules or payment authority during that rollout.
+
+## Evaluation-only paired header-miss audit
+
+The audit adds no parser rules or extractor version and does not promote the 0.4.0 candidate.
+No worker/read-path selection, matching, review, risk, canonical record or payment behavior changes.
+
+The private inventory contains one observation per document/page/line-item ID and OCR mode.
+Each group is paired across end-to-end and precomputed OCR. Page-local groups remain distinct
+when a line-item ID occurs on more than one page; fields without an ID are counted separately
+and excluded from grouping. Coordinates are normalized, pages are zero-based, and the
+precomputed adapter keeps normalized boxes even when image dimensions are in pixels.
+Containment includes a token center on a boundary; positive box intersection without a
+contained center is recorded separately. None of these checks is official DocILE PCC scoring.
+
+Sampling uses seed 1205 and SHA-256 ranks within round-robin joint strata:
+invoice/other/unknown type, first/later page, and each mode's header detection, group token
+presence and existing rejected-header signature bucket. DocILE tax_invoice is the invoice
+stratum; other types include orders and receipts. Forty pairs lacking a detected header in
+at least one mode and eight pairs detected in both modes are requested. Controls reserve
+capacity first; a combined cap of two selected groups per document applies. Any shortfall,
+available/selected strata, achieved document/group counts and mode denominators are explicit.
+Signature buckets contain only predefined anchor combinations, never observed header text.
+
+An earlier detected header, earlier LIR page, shared cross-page ID, absent contained tokens,
+invalid annotation box, or box overlap without a token center is an observable signal.
+It cannot automatically assign continuation, OCR loss, geometry or coordinate error.
+
+The generated private RUBRIC.md requires source-page and token inspection for every assigned
+primary explanation. Additional required evidence distinguishes:
+tokens_absent, wording_not_supported, geometry_or_row_grouping, continuation_page,
+document_not_invoice, annotation_or_coordinate_mismatch and other_or_uncertain.
+Detected controls require visual verification of the actual detected row.
+Continuation specifically requires inspection of a prior page and verification that the table
+continues without a repeated header. Annotation/coordinate explanations require both grouping
+and coordinate inspection. Empty labels remain unreviewed; unresolved competing explanations
+remain other_or_uncertain. Reviewer notes and inspection checklists never enter public reports.
+
+Private output is accepted only in ignored, untracked work/docile-header-audit-private
+subdirectories or the existing dedicated /private-cache tmpfs. Symlinks/junctions, tracked
+destinations and existing new-run directories are refused. Raw tokens can stay in tmpfs;
+selected images, tokens, annotations, IDs and labels stay private. Routine CLI errors suppress
+dataset exception details. Aggregate output must be a fresh evals/reports/docile subdirectory.
+Its string/key allowlist rejects case-level keys or accidental private prose.
+
+Preparation and export are separate commands. In the existing evaluation container, provide
+a dedicated tmpfs and a fresh private directory:
+~~~text
+python -m scripts.audit_docile_header_misses prepare
+  --dataset-path /data/docile
+  --sample-manifest data/docile/manifests/validation-500.json
+  --private-dir /private-cache/new-audit
+  --cache-dir /private-cache/new-text-cache
+~~~
+After private visual inspection, edit only the private reviews.json with primary explanations
+and required affirmative evidence. Export to a fresh report directory:
+~~~text
+python -m scripts.audit_docile_header_misses export
+  --private-dir work/docile-header-audit-private/new-review
+  --output-dir evals/reports/docile/header-miss-audit-new-run
+~~~
+The first example's private tmpfs artifacts must be copied to a guard-checked ignored directory
+before export on the host, or reviewed/exported inside the same running container. Private
+tmpfs contents disappear with the container; do not copy the full OCR cache into Git.
+
+Every exported category count uses its selected-mode group denominator. Inspected, unreviewed
+and uncertainty counts are separate, and categories reconcile to inspected observations.
+Paired disagreements use the selected-pair denominator; reviewer disagreement uses only pairs
+inspected in both modes. This equal-stratum qualitative sample is not a representative estimate
+for all 2,543 groups. All 500 validation documents are observed development data, not a fresh
+holdout; one reviewer provides no independent adjudication.
+
+### Reviewed aggregate result
+
+The fresh [qualitative audit report](../evals/reports/docile/header-miss-audit-500-qualitative/report.json)
+scanned all 500 documents. There are 2,543 paired page/line groups in 458 documents with
+LIR annotations: 2,365 pairs miss a page header in at least one mode and 178 detect it in both.
+No annotated fields lack a line-item ID. Seed 1205 selected 40 miss pairs and eight controls
+from 45 documents, with 48 joint strata represented out of 57 and a maximum of two per document.
+The sample contains 32 invoice-type and 16 other-type groups; 37 are first-page and 11 later-page.
+
+All 48 groups were inspected in both modes (96 mode reviews; zero unreviewed).
+The following primary labels use a denominator of **48 inspected groups per mode**.
+Detected labels include eight paired controls plus four groups detected in only that mode.
+
+| Primary review explanation | End-to-end | Precomputed OCR |
+| --- | ---: | ---: |
+| Tokens absent or damaged | 7 | 4 |
+| Unsupported wording | 2 | 5 |
+| Geometry or row grouping/rotation | 3 | 0 |
+| Continuation without repeated header | 0 | 0 |
+| Non-invoice document | 12 | 12 |
+| Annotation/coordinate mismatch | 0 | 0 |
+| Other or uncertain | 12 | 15 |
+| Detected header visually verified | 12 | 12 |
+| Total inspected | 48 | 48 |
+
+Of the **36 actual page-header misses per mode**, 12/36 end-to-end and 15/36 precomputed
+remain uncertain. Many unresolved tables have missing or competing financial field roles;
+an alias or geometry change alone is not justified by those observations. Document type is
+an annotation-derived sampling stratum; visual review can disagree with it, and a receipt
+or order is not automatically a parser defect. Verified detected rows do not establish
+correct column semantics, emitted lines or official LIR accuracy.
+
+Header detection disagrees on 8/48 pairs (four in each direction). Token-center presence
+disagrees on 9/48, signature on 17/48, and primary review explanation on 14/48 jointly inspected
+pairs. Five groups per mode have token overlap without center containment, zero have invalid
+normalized boxes, two share an ID across pages, and ten have prior-page LIR annotations.
+These are signals, not confirmed coordinate errors or continuation causes. No continuation
+or coordinate mismatch was confirmed in this selected sample; that does not establish absence
+from the development split. Synthetic tests cover genuine no-repeat continuation and normalized
+coordinate/page/grouping edge cases.
+
+**Next slice recommendation:** expand invoice-only private review of header field-role
+requirements, with independent adjudication, before changing extraction. The 12/36 and 15/36
+uncertain misses, 12 non-invoice explanations per mode, and mixed actionable categories do
+not support one dominant parser fix. Keep financial-role ambiguity intact. This is a qualitative,
+stratified, single-reviewer sample of observed development data, not a prevalence estimate,
+causal experiment, independent holdout or extraction-quality improvement claim.
+
+
+Verification: focused audit/coverage/table/parser tests passed (51 passed, one Windows
+symlink-permission skip). The synthetic evaluation suite passed (74 passed, one skip,
+three real-data tests deselected). Repository Ruff and strict mypy, including the audit runner,
+passed (121 source files); git diff --check and UTF-8/mojibake checks passed. An additional
+host real-data run initially failed both smoke modes because the configured dataset directory
+lacked its validation index. With the dataset root corrected for that check, precomputed OCR
+passed and end-to-end failed with a Tesseract/TESSDATA_PREFIX RuntimeError. The audit's actual
+500-document OCR preparation ran in the guarded evaluator container; this host smoke limitation
+was not bypassed or used to alter frozen behavior. The full official evaluator was not rerun.
