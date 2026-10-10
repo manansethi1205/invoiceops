@@ -8,6 +8,7 @@ from invoiceops.extraction.hybrid.schemas import (
 from invoiceops.schemas.extraction import (
     DocumentText,
     ExtractedField,
+    ExtractionIssue,
     ExtractionStatus,
     Invoice,
     InvoiceLine,
@@ -22,6 +23,7 @@ class FusionResult:
     invoice: Invoice
     outcomes: dict[str, FusionOutcome]
     grounding: dict[str, str]
+    row_associations: dict[int, int]
 
 
 def _fuse_field(
@@ -76,45 +78,47 @@ def fuse_invoice(
             getattr(deterministic, name), result, path=name, outcomes=outcomes
         )
 
+    # Ground every claimed cell before considering row identity.
+    from invoiceops.extraction.hybrid.row_association import associate_rows
+
+    rows = [
+        {
+            name: ground_candidate(
+                name, getattr(row, name), document, fuzzy_threshold=fuzzy_threshold
+            )
+            for name in LINE_FIELDS
+            if getattr(row, name).raw_value is not None
+        }
+        for row in candidate.line_items
+    ]
+    associations, reasons = associate_rows(deterministic.line_items, rows, document)
+    for candidate_index, reason in enumerate(reasons):
+        grounding[f"candidate_rows.{candidate_index}"] = reason
+        for name, result in rows[candidate_index].items():
+            grounding[f"candidate_rows.{candidate_index}.{name}"] = result.reason.value
+    issues = list(deterministic.extraction_issues)
+    if any(reason != "associated" for reason in reasons) or (
+        deterministic.line_items and len(associations) != len(deterministic.line_items)
+    ):
+        issue = ExtractionIssue.HYBRID_ROW_ASSOCIATION_UNRESOLVED
+        if issue not in issues:
+            issues.append(issue)
     lines: list[InvoiceLine] = []
-    line_count = max(len(deterministic.line_items), len(candidate.line_items))
-    for index in range(line_count):
-        deterministic_line = (
-            deterministic.line_items[index] if index < len(deterministic.line_items) else None
-        )
-        candidate_line = candidate.line_items[index] if index < len(candidate.line_items) else None
-        if candidate_line is None and deterministic_line is not None:
-            lines.append(deterministic_line)
-            for name in LINE_FIELDS:
-                outcomes[f"line_items.{index}.{name}"] = FusionOutcome.DETERMINISTIC_ONLY
-            continue
+    for index, deterministic_line in enumerate(deterministic.line_items):
+        associated_index = associations.get(index)
         fields: dict[str, object] = {}
         for name in LINE_FIELDS:
             path = f"line_items.{index}.{name}"
-            if deterministic_line is None:
-                deterministic_field = ExtractedField[object](
-                    value=None, status=ExtractionStatus.MISSING, evidence=[]
-                )
-            else:
-                deterministic_field = getattr(deterministic_line, name)
-            if candidate_line is None:
-                fields[name] = deterministic_field
-                continue
-            candidate_field = getattr(candidate_line, name)
-            if candidate_field.raw_value is None:
-                fields[name] = deterministic_field
+            field = getattr(deterministic_line, name)
+            if associated_index is None or name not in rows[associated_index]:
+                fields[name] = field
                 outcomes[path] = FusionOutcome.DETERMINISTIC_ONLY
-                continue
-            result = ground_candidate(
-                name, candidate_field, document, fuzzy_threshold=fuzzy_threshold
-            )
-            grounding[path] = result.reason.value
-            fields[name] = _fuse_field(deterministic_field, result, path=path, outcomes=outcomes)
-        # Rejected candidate-only rows must not manufacture empty deterministic line items.
-        if deterministic_line is not None or any(
-            outcomes.get(f"line_items.{index}.{name}") == FusionOutcome.VLM_FILLED
-            for name in LINE_FIELDS
-        ):
-            lines.append(InvoiceLine.model_validate(fields))
+            else:
+                grounding[path] = rows[associated_index][name].reason.value
+                fields[name] = _fuse_field(
+                    field, rows[associated_index][name], path=path, outcomes=outcomes
+                )
+        lines.append(InvoiceLine.model_validate(fields))
+    values["extraction_issues"] = issues
     values["line_items"] = lines
-    return FusionResult(Invoice.model_validate(values), outcomes, grounding)
+    return FusionResult(Invoice.model_validate(values), outcomes, grounding, associations)

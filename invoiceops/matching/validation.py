@@ -52,13 +52,21 @@ def _check(
     )
 
 
-def validate_invoice_financials(
-    invoice: Invoice, policy: MatchingPolicy
-) -> list[ValidationCheck]:
+def validate_invoice_financials(invoice: Invoice, policy: MatchingPolicy) -> list[ValidationCheck]:
     checks: list[ValidationCheck] = []
+    if invoice.extraction_issues:
+        checks.append(
+            _check(
+                code=ReasonCode.EXTRACTION_ROW_ASSOCIATION_UNRESOLVED,
+                passed=False,
+                expected="resolved row association",
+                actual="unresolved",
+                tolerance=None,
+                message="Hybrid invoice row association requires review.",
+            )
+        )
     currency_present = (
-        invoice.currency.status == ExtractionStatus.EXTRACTED
-        and invoice.currency.value is not None
+        invoice.currency.status == ExtractionStatus.EXTRACTED and invoice.currency.value is not None
     )
     checks.append(
         _check(

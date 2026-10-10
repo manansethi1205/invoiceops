@@ -9,7 +9,23 @@ documents as 0.3.0, with no live model calls. Header coverage remains 67/72, cri
 not DocILE improvement or live-model performance. Adversarial unit tests exercise quote/value
 mismatches that the historical 12-document replay does not cover. Historical reports are frozen;
 the replay writer now refuses existing output directories. See [the grounding boundary and
-remaining row-alignment limitation](hybrid-extraction.md).
+row-association boundary](hybrid-extraction.md).
+
+## Invoice row association safety
+
+`hybrid-routed@0.5.0` adds source-evidence association before any line-cell fusion and an
+`invoice-v2` extraction issue that forces deterministic review under `matching-v3` and
+`three-way-v3`. See [the association rules and limitations](hybrid-extraction.md).
+The [network-free replay](../evals/reports/hybrid/0.5.0-replay/report.md) and separate
+[synthetic row stress corpus](../evals/reports/hybrid/0.5.0-row-alignment/report.md) are fresh reports.
+Neither changes the frozen 0.4.0 report. Association precision is 20/20, coverage 20/29;
+9/29 candidate rows abstain. In 15 complete-invoice trials, eight carry unresolved row issues and
+nine need review; all nine independently expected review cases avoid automatic matches. In the
+30 removed-quantity trials, all 20 promotions are correct. These synthetic results do not claim
+population precision. Stress denominators include candidate rows for association,
+missing quantity cells for promotions, and invoices for review/false automatic matches.
+Historical matching reports retain their original policy version; replaying current matching code
+uses the new policy version. No live model or payment-authority change is involved.
 
 ## Generated supporting-document identifier evaluation
 
@@ -281,3 +297,29 @@ data, not representative prevalence, independent holdout, causal proof or a meas
 improvement. The actual audit OCR preparation ran in the guarded evaluator container; the
 documented host Tesseract smoke limitation is not a commit blocker. Official evaluator inputs
 and metric computation are unchanged, so no full official rerun was required.
+
+
+CI report directories must be fresh: the hybrid and row-association writers create their own
+output directories and reject existing ones. CI must not pre-create those leaf directories.
+A CLI regression test runs the same replay command successfully once, then verifies that a
+second invocation fails without changing the first report. The row-association stress corpus
+also runs in CI with precision, cross-row promotion, automatic-match and review-accounting gates.
+Generated OpenAPI JSON and TypeScript contracts must be regenerated after schema changes.
+
+
+Local CI preflight for the uncommitted row-safety slice passed: Python suite 572 passed,
+two Windows symlink-permission skips and nine Docker/private-data tests deselected; the targeted
+replay/association suite passed 44 tests. Ruff, mypy (125 files), offline lockfile validation,
+repository hygiene and UTF-8 checks passed. All eight offline evaluation steps and their exact
+CI assertions passed. Generated OpenAPI JSON and TypeScript types reproduce.
+
+With isolated synthetic configuration and no live-model credentials, PostgreSQL 16 migrations
+passed, both generated PDF/PNG holdouts evaluated 30/30 documents with all CI gates passing,
+Docker integration passed four tests in default mode and five in fake-hybrid mode, and the
+telemetry smoke test passed. The skipped Docker cases are conditional on those separate modes.
+Web typecheck, lint, 28 unit tests, production build, 20 browser/accessibility/visual tests,
+Docker web build and authenticated login/proxy smoke checks passed. Restricted Windows process
+execution initially timed out starting Vitest workers; the unchanged default suite passed when
+run outside that process sandbox. No test assertions or report overwrite protections were relaxed.
+These local checks do not guarantee GitHub runner/network availability. Historical reports remain
+frozen, and no commit or push was performed.

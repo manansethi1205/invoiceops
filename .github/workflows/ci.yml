@@ -192,7 +192,7 @@ jobs:
 
       - name: Run hybrid evaluation
         run: |
-          mkdir -p "$RUNNER_TEMP/hybrid-evaluation"
+          # The report writer creates this leaf directory and refuses existing outputs.
           uv run python scripts/run_hybrid_evaluation.py \
             --mode hybrid-replay \
             --output-dir "$RUNNER_TEMP/hybrid-evaluation"
@@ -228,6 +228,26 @@ jobs:
               print(f"PASS: {name}")
 
           print("All hybrid evaluation invariants passed.")
+          PY
+
+      - name: Run row-association safety evaluation
+        run: |
+          uv run python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          from invoiceops.evaluation.row_alignment import write_stress
+
+          output = Path(os.environ["RUNNER_TEMP"]) / "row-alignment-evaluation"
+          write_stress(output)
+          report = json.loads((output / "report.json").read_text())
+          if report["associated"] == 0 or report["association_precision"] != 1.0:
+              raise SystemExit("Row association precision gate failed")
+          if report["cross_row_promotions"] != 0 or report["false_automatic_matches"] != 0:
+              raise SystemExit("Unsafe row promotion or automatic match")
+          if report["review_cases"] != report["expected_review_cases"]:
+              raise SystemExit("Row association review accounting failed")
+          print("Row association safety invariants passed")
           PY
 
       - name: Run review workflow evaluation

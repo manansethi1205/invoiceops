@@ -24,7 +24,7 @@ from invoiceops.extraction.service import ExtractionService, TextExtractor
 from invoiceops.extraction.version import (
     HYBRID_EXTRACTOR_NAME,
     HYBRID_EXTRACTOR_VERSION,
-    SCHEMA_VERSION,
+    HYBRID_SCHEMA_VERSION,
 )
 from invoiceops.ingestion.storage import ObjectStore
 from invoiceops.models import (
@@ -82,9 +82,7 @@ class HybridExtractionService:
             document_text = self.text_extractor.extract(body, document.content_type)
         except (DocumentExtractionError, ValidationError) as exc:
             self._mark_terminal_failure(run.id, exc)
-            metrics.add(
-                "extraction", "extraction", strategy="hybrid-routed", status="FAILED"
-            )
+            metrics.add("extraction", "extraction", strategy="hybrid-routed", status="FAILED")
             metrics.observe(
                 "extraction_duration",
                 time.perf_counter() - started,
@@ -121,9 +119,7 @@ class HybridExtractionService:
                 provider_started = time.perf_counter()
                 with span("extraction.provider_call", provider=self.provider_name):
                     provider_response = provider.extract(pages, document_text)
-                metrics.add(
-                    "vlm_calls", "vlm", provider=self.provider_name, outcome="SUCCEEDED"
-                )
+                metrics.add("vlm_calls", "vlm", provider=self.provider_name, outcome="SUCCEEDED")
                 metrics.observe(
                     "vlm_duration",
                     time.perf_counter() - provider_started,
@@ -140,9 +136,7 @@ class HybridExtractionService:
                     )
                 invoice = fused.invoice
                 summary = self._summary(fused)
-                grounding_outcome = (
-                    "PROMOTED" if any(fused.grounding.values()) else "ABSTAINED"
-                )
+                grounding_outcome = "PROMOTED" if any(fused.grounding.values()) else "ABSTAINED"
                 metrics.add("grounding", "grounding", outcome=grounding_outcome)
                 self._finish_call(
                     model_call.id,
@@ -158,9 +152,7 @@ class HybridExtractionService:
                 )
             except (VisionProviderError, DocumentRenderingError) as exc:
                 if isinstance(exc, VisionProviderError):
-                    metrics.add(
-                        "vlm_calls", "vlm", provider=self.provider_name, outcome="FAILED"
-                    )
+                    metrics.add("vlm_calls", "vlm", provider=self.provider_name, outcome="FAILED")
                     metrics.observe(
                         "vlm_duration",
                         time.perf_counter() - provider_started,
@@ -190,9 +182,7 @@ class HybridExtractionService:
                 )
             )
             self.session.commit()
-        metrics.add(
-            "extraction", "extraction", strategy="hybrid-routed", status="SUCCEEDED"
-        )
+        metrics.add("extraction", "extraction", strategy="hybrid-routed", status="SUCCEEDED")
         metrics.observe(
             "extraction_duration",
             time.perf_counter() - started,
@@ -222,7 +212,7 @@ class HybridExtractionService:
             document_id=document_id,
             extractor_name=HYBRID_EXTRACTOR_NAME,
             extractor_version=HYBRID_EXTRACTOR_VERSION,
-            schema_version=SCHEMA_VERSION,
+            schema_version=HYBRID_SCHEMA_VERSION,
             status=ExtractionRunStatus.PROCESSING,
         )
         self.session.add(run)
@@ -342,6 +332,7 @@ class HybridExtractionService:
     def _summary(fused: FusionResult) -> dict[str, object]:
         return {
             "grounding": dict(fused.grounding),
+            "row_associations": {str(k): v for k, v in fused.row_associations.items()},
             "fusion": {key: value.value for key, value in fused.outcomes.items()},
         }
 

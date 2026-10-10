@@ -137,7 +137,7 @@ def test_router_decline_persists_separate_run_without_initializing_provider() ->
             db, store, provider, complete_baseline=True, factory_calls=factory_calls
         ).process(item)
         assert run.extractor_name == "hybrid-routed"
-        assert run.extractor_version == "0.4.0"
+        assert run.extractor_version == "0.5.0"
         assert run.status == ExtractionRunStatus.SUCCEEDED
         assert factory_calls == []
         assert provider.calls == 0
@@ -208,7 +208,7 @@ def test_new_version_keeps_historical_run_and_prefers_only_safe_current_success(
         old = ExtractionRun(
             document_id=item.id,
             extractor_name="hybrid-routed",
-            extractor_version="0.3.0",
+            extractor_version="0.4.0",
             schema_version="invoice-v1",
             status=ExtractionRunStatus.SUCCEEDED,
             output_json=old_output,
@@ -221,7 +221,7 @@ def test_new_version_keeps_historical_run_and_prefers_only_safe_current_success(
         baseline = service.baseline_service.process(item)
         assert current_successful_extraction(db, item.id).id == baseline.id
         pending = service._get_or_create_run(item.id)
-        assert pending.id != old.id and pending.extractor_version == "0.4.0"
+        assert pending.id != old.id and pending.extractor_version == "0.5.0"
         assert current_successful_extraction(db, item.id).id == baseline.id
         current = service.process(item)
         assert current_successful_extraction(db, item.id).id == current.id
@@ -286,3 +286,38 @@ def test_hybrid_version_changes_request_fingerprint(monkeypatch: pytest.MonkeyPa
             patch.setattr(service_module, "HYBRID_EXTRACTOR_VERSION", "0.3.0")
             old = service._fingerprint("a" * 64, {"reasons": ["CRITICAL_FIELD_MISSING"]})
         assert current != old
+
+
+def test_retry_preserves_row_abstention_and_review_issue(monkeypatch: pytest.MonkeyPatch) -> None:
+    from invoiceops.evaluation.row_alignment import fixture
+    from invoiceops.matching.engine import match_invoice
+    from invoiceops.schemas.matching import MatchDecision
+
+    baseline, candidate, text, po = fixture("ocr")
+    candidate = candidate.model_copy(
+        update={"line_items": candidate.line_items[::-1] + [candidate.line_items[0]]}
+    )
+    with session() as db:
+        store = MemoryObjectStore()
+        item = document(db, store, generated_invoice_pdf())
+        provider = FakeVisionExtractionProvider(
+            response=VisionExtractionResponse(candidate=candidate, latency_ms=1)
+        )
+        service = hybrid_service(db, store, provider, complete_baseline=True, factory_calls=[])
+        monkeypatch.setattr(service.text_extractor, "extract", lambda *args: text)
+        monkeypatch.setattr(
+            service.baseline_service.invoice_extractor, "extract", lambda *args: baseline
+        )
+        first = service.process(item)
+        output = first.output_json
+        assert first.schema_version == "invoice-v2"
+        assert (
+            match_invoice(Invoice.model_validate(output), po).decision == MatchDecision.NEEDS_REVIEW
+        )
+        first.status = ExtractionRunStatus.FAILED
+        first.output_json = None
+        db.commit()
+        retry = service.process(item)
+        assert retry.output_json == output
+        assert provider.calls == 1
+        assert current_successful_extraction(db, item.id).id == retry.id

@@ -1,0 +1,24 @@
+# Row association stress evaluation
+
+- dataset: synthetic-row-alignment-v1
+- extractor_version: 0.5.0
+- schema_version: invoice-v2
+- matching_policy: matching-v3
+- source_revision: 6daf2bce40083a1c3a9dc9df92276bbb43099a25
+- source_state: uncommitted working tree implementation
+- cases: 15
+- candidate_rows: 29
+- missing_quantity_cells: 30
+- promoted_quantity_cells: 20
+- correct_quantity_promotions: 20
+- associated: 20
+- abstained: 9
+- correct_associations: 20
+- association_precision: 1.0
+- association_coverage: 0.6896551724137931
+- review_cases: 9
+- unresolved_invoices: 8
+- expected_review_cases: 9
+- false_automatic_matches: 0
+- cross_row_promotions: 0
+- limitations: ['Synthetic observed development corpus; not a population estimate.', 'No live models. Candidate-only rows always abstain.', 'Geometry gate uses normalized pages and bounded descriptions.']

@@ -1031,6 +1031,11 @@ export interface components {
             ordered_quantity: components["schemas"]["ExtractedField_Decimal_"];
             unit_price: components["schemas"]["ExtractedField_Decimal_"];
         };
+        /**
+         * ExtractionIssue
+         * @enum {string}
+         */
+        ExtractionIssue: "hybrid_row_association_unresolved";
         /** ExtractionPendingRead */
         ExtractionPendingRead: {
             /**
@@ -1210,6 +1215,8 @@ export interface components {
         /** Invoice */
         Invoice: {
             currency: components["schemas"]["ExtractedField_str_"];
+            /** Extraction Issues */
+            extraction_issues?: components["schemas"]["ExtractionIssue"][];
             invoice_date: components["schemas"]["ExtractedField_date_"];
             invoice_number: components["schemas"]["ExtractedField_str_"];
             /** Line Items */
@@ -1450,7 +1457,7 @@ export interface components {
             unit_price_relative_tolerance: string;
             /**
              * Version
-             * @default matching-v2
+             * @default matching-v3
              */
             version: string;
         };
@@ -1596,7 +1603,7 @@ export interface components {
          * ReasonCode
          * @enum {string}
          */
-        ReasonCode: "INVOICE_SCHEMA_INCOMPLETE" | "INVOICE_LINE_ARITHMETIC_MISMATCH" | "INVOICE_SUBTOTAL_MISMATCH" | "INVOICE_TOTAL_MISMATCH" | "CURRENCY_MISMATCH" | "INVOICE_LINE_UNMATCHED" | "PO_LINE_UNMATCHED" | "DESCRIPTION_BELOW_THRESHOLD" | "DESCRIPTION_AMBIGUOUS" | "QUANTITY_MISMATCH" | "UNIT_PRICE_MISMATCH" | "EXTRA_INVOICE_LINE" | "LINE_AMOUNT_MISMATCH" | "PO_LINE_AMOUNT_MISMATCH" | "NEGATIVE_AMOUNT" | "NO_GOODS_RECEIPT" | "RECEIPT_LINE_MISSING" | "GOODS_RECEIPT_REVERSED" | "INVOICE_QUANTITY_EXCEEDS_RECEIVED" | "CUMULATIVE_QUANTITY_EXCEEDS_RECEIVED" | "RECEIVED_QUANTITY_EXCEEDS_ORDERED" | "RECEIPT_AFTER_INVOICE" | "THREE_WAY_UNIT_PRICE_MISMATCH" | "THREE_WAY_LINE_AMOUNT_MISMATCH" | "RECEIPT_CONTEXT_CHANGED" | "ALLOCATION_RECONCILIATION_REQUIRED";
+        ReasonCode: "EXTRACTION_ROW_ASSOCIATION_UNRESOLVED" | "INVOICE_SCHEMA_INCOMPLETE" | "INVOICE_LINE_ARITHMETIC_MISMATCH" | "INVOICE_SUBTOTAL_MISMATCH" | "INVOICE_TOTAL_MISMATCH" | "CURRENCY_MISMATCH" | "INVOICE_LINE_UNMATCHED" | "PO_LINE_UNMATCHED" | "DESCRIPTION_BELOW_THRESHOLD" | "DESCRIPTION_AMBIGUOUS" | "QUANTITY_MISMATCH" | "UNIT_PRICE_MISMATCH" | "EXTRA_INVOICE_LINE" | "LINE_AMOUNT_MISMATCH" | "PO_LINE_AMOUNT_MISMATCH" | "NEGATIVE_AMOUNT" | "NO_GOODS_RECEIPT" | "RECEIPT_LINE_MISSING" | "GOODS_RECEIPT_REVERSED" | "INVOICE_QUANTITY_EXCEEDS_RECEIVED" | "CUMULATIVE_QUANTITY_EXCEEDS_RECEIVED" | "RECEIVED_QUANTITY_EXCEEDS_ORDERED" | "RECEIPT_AFTER_INVOICE" | "THREE_WAY_UNIT_PRICE_MISMATCH" | "THREE_WAY_LINE_AMOUNT_MISMATCH" | "RECEIPT_CONTEXT_CHANGED" | "ALLOCATION_RECONCILIATION_REQUIRED";
         /** ReceiptConfirmation */
         ReceiptConfirmation: {
             confirmed: components["schemas"]["ReceiptConfirmationValues"];
@@ -2087,7 +2094,7 @@ export interface components {
             unit_price_relative_tolerance: string;
             /**
              * Version
-             * @default three-way-v2
+             * @default three-way-v3
              */
             version: string;
         };

@@ -1,5 +1,33 @@
 import { expect, test } from "./auth-fixture";
 
+test("unresolved invoice row association can be filtered and explained", async ({ page }) => {
+  const reason = "EXTRACTION_ROW_ASSOCIATION_UNRESOLVED";
+  const detail = reviewDetail(false);
+  detail.reason_codes = [reason];
+  detail.review_triggers[0].code = reason;
+  let requestedReason: string | null = null;
+  await page.route("**/api/backend/**", async (route) => {
+    const url = new URL(route.request().url());
+    if (url.pathname.endsWith("/events")) return route.fulfill({ json: [] });
+    if (url.pathname.endsWith("/audit-verification")) return route.fulfill({ json: { valid: true } });
+    if (url.pathname.endsWith("/v1/review-cases")) {
+      requestedReason = url.searchParams.get("reason_code");
+      return route.fulfill({ json: { items: [detail], next_cursor: null } });
+    }
+    if (url.pathname.includes("/v1/review-cases/")) return route.fulfill({ json: detail });
+    return route.fulfill({ status: 404, json: { detail: "Unexpected test request" } });
+  });
+  await page.goto("/reviews");
+  await page.getByLabel("Reason", { exact: true }).selectOption(reason);
+  await expect(page).toHaveURL(new RegExp(`reason_code=${reason}`));
+  await expect.poll(() => requestedReason).toBe(reason);
+  await expect(page.locator("table").getByText("Invoice row association needs review", { exact: true })).toBeVisible();
+  await page.getByRole("link", { name: "Case 00000000" }).click();
+  await expect(page.getByText("MATCH_REASON: Invoice row association needs review")).toBeVisible();
+  await expect(page.getByText("Extracted cells could not be safely linked", { exact: false })).toBeVisible();
+  await expect(page.getByText("It does not authorize payment.", { exact: false }).first()).toBeVisible();
+});
+
 test("a reviewer claims an open case under the session identity", async ({ page }) => {
   let claimed = false;
   await page.route("**/api/backend/**", async (route) => {

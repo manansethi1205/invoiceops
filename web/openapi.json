@@ -1022,6 +1022,13 @@
         "title": "ExtractedPurchaseOrderLine",
         "type": "object"
       },
+      "ExtractionIssue": {
+        "enum": [
+          "hybrid_row_association_unresolved"
+        ],
+        "title": "ExtractionIssue",
+        "type": "string"
+      },
       "ExtractionPendingRead": {
         "properties": {
           "document_id": {
@@ -1511,6 +1518,13 @@
         "properties": {
           "currency": {
             "$ref": "#/components/schemas/ExtractedField_str_"
+          },
+          "extraction_issues": {
+            "items": {
+              "$ref": "#/components/schemas/ExtractionIssue"
+            },
+            "title": "Extraction Issues",
+            "type": "array"
           },
           "invoice_date": {
             "$ref": "#/components/schemas/ExtractedField_date_"
@@ -2168,7 +2182,7 @@
             "type": "string"
           },
           "version": {
-            "default": "matching-v2",
+            "default": "matching-v3",
             "title": "Version",
             "type": "string"
           }
@@ -2649,6 +2663,7 @@
       },
       "ReasonCode": {
         "enum": [
+          "EXTRACTION_ROW_ASSOCIATION_UNRESOLVED",
           "INVOICE_SCHEMA_INCOMPLETE",
           "INVOICE_LINE_ARITHMETIC_MISMATCH",
           "INVOICE_SUBTOTAL_MISMATCH",
@@ -3881,7 +3896,7 @@
             "type": "string"
           },
           "version": {
-            "default": "three-way-v2",
+            "default": "three-way-v3",
             "title": "Version",
             "type": "string"
           }

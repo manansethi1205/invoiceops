@@ -434,7 +434,14 @@ def run_hybrid_replay_evaluation(
         output_tokens += response.usage.output_tokens or 0
         total_tokens += response.usage.total_tokens or 0
 
-    grounding_reasons = [reason for fusion in fusions for reason in fusion.grounding.values()]
+    # Count each attempted cell once; row-level reason codes and output aliases are separate.
+    grounding_reasons = [
+        reason
+        for fusion in fusions
+        for path, reason in fusion.grounding.items()
+        if not path.startswith("line_items.")
+        and not (path.startswith("candidate_rows.") and path.count(".") == 1)
+    ]
     grounded_count = sum(reason.startswith("GROUNDED_") for reason in grounding_reasons)
     outcomes = [outcome for fusion in fusions for outcome in fusion.outcomes.values()]
     agreements = sum(outcome == FusionOutcome.AGREEMENT for outcome in outcomes)
@@ -464,9 +471,7 @@ def run_hybrid_replay_evaluation(
         hybrid_replay=_mode_metrics(hybrids, cases),
         grounded_field_rate=grounded_count / len(grounding_reasons) if grounding_reasons else 1,
         deterministic_vlm_agreement_rate=(
-            agreements / (agreements + disagreements)
-            if agreements + disagreements
-            else 1
+            agreements / (agreements + disagreements) if agreements + disagreements else 1
         ),
         disagreement_abstention_rate=1.0 if disagreements else 1.0,
         fallback_invocation_rate=invoked / len(cases),
@@ -547,10 +552,8 @@ def render_hybrid_report(report: HybridReplayReport) -> str:
         ],
         "",
         f"- Grounded candidate rate: {report.grounded_field_rate:.4f}",
-        "- Deterministic/VLM agreement rate: "
-        f"{report.deterministic_vlm_agreement_rate:.4f}",
-        "- Disagreement abstention rate: "
-        f"{report.disagreement_abstention_rate:.4f}",
+        f"- Deterministic/VLM agreement rate: {report.deterministic_vlm_agreement_rate:.4f}",
+        f"- Disagreement abstention rate: {report.disagreement_abstention_rate:.4f}",
         f"- Fallback invocation rate: {report.fallback_invocation_rate:.4f}",
         f"- Provider failure rate: {report.provider_failure_rate:.4f}",
         "- p50/p95 total latency: "
@@ -564,9 +567,7 @@ def render_hybrid_report(report: HybridReplayReport) -> str:
         f"- Estimated cost: {cost}",
         "",
         "Safety assertions: "
-        + ", ".join(
-            f"{name}={str(value).lower()}" for name, value in report.safety.items()
-        ),
+        + ", ".join(f"{name}={str(value).lower()}" for name, value in report.safety.items()),
         "",
         "Confidence is uncalibrated diagnostic metadata and never authorizes matching or payment.",
         "",

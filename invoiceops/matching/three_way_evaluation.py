@@ -232,7 +232,7 @@ def _inputs(scenario: Scenario) -> tuple[Invoice, PurchaseOrderRead, ThreeWayCon
         ]
     context = ThreeWayContextSnapshot(
         purchase_order_id=po_id,
-        policy_version="three-way-v2",
+        policy_version="three-way-v3",
         lines=[
             ReceiptLineContextRead(
                 purchase_order_line_id=line_id,

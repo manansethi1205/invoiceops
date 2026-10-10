@@ -103,7 +103,7 @@ def test_three_way_match_persists_context_and_allocates_once(
     body = first.json()
     assert body["matching_mode"] == "THREE_WAY"
     assert body["decision"] == "MATCHED"
-    assert body["policy_version"] == "three-way-v2"
+    assert body["policy_version"] == "three-way-v3"
     assert body["context_fingerprint"]
     assert replay.status_code == 200
     assert replay.json()["id"] == body["id"]
@@ -373,8 +373,8 @@ def test_changed_extraction_allocation_requires_reconciliation(
             ExtractionRun(
                 document_id=document.id,
                 extractor_name="hybrid-routed",
-                extractor_version="0.4.0",
-                schema_version="invoice-v1",
+                extractor_version="0.5.0",
+                schema_version="invoice-v2",
                 status=ExtractionRunStatus.SUCCEEDED,
                 output_json=changed.model_dump(mode="json"),
             )

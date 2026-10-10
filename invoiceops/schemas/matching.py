@@ -44,6 +44,7 @@ class CheckSeverity(StrEnum):
 
 
 class ReasonCode(StrEnum):
+    EXTRACTION_ROW_ASSOCIATION_UNRESOLVED = "EXTRACTION_ROW_ASSOCIATION_UNRESOLVED"
     INVOICE_SCHEMA_INCOMPLETE = "INVOICE_SCHEMA_INCOMPLETE"
     INVOICE_LINE_ARITHMETIC_MISMATCH = "INVOICE_LINE_ARITHMETIC_MISMATCH"
     INVOICE_SUBTOTAL_MISMATCH = "INVOICE_SUBTOTAL_MISMATCH"
@@ -75,7 +76,7 @@ class ReasonCode(StrEnum):
 class MatchingPolicy(BaseModel):
     model_config = ConfigDict(frozen=True)
 
-    version: str = "matching-v2"
+    version: str = "matching-v3"
     amount_absolute_tolerance: Decimal = Field(default=Decimal("0.02"), ge=0)
     quantity_absolute_tolerance: Decimal = Field(default=Decimal("0"), ge=0)
     unit_price_relative_tolerance: Decimal = Field(default=Decimal("0.01"), ge=0)
@@ -101,7 +102,7 @@ class MatchingPolicy(BaseModel):
 class ThreeWayMatchingPolicy(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
-    version: str = "three-way-v2"
+    version: str = "three-way-v3"
     amount_absolute_tolerance: Decimal = Field(default=Decimal("0.02"), ge=0)
     quantity_absolute_tolerance: Decimal = Field(default=Decimal("0"), ge=0)
     unit_price_relative_tolerance: Decimal = Field(default=Decimal("0.01"), ge=0)

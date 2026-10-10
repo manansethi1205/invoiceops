@@ -68,7 +68,7 @@ document identity, so retries and cross-case reuse do not duplicate storage.
 Purchase-order and receipt extraction is typed and evidence-linked, but never authoritative.
 The current supporting extractor is `deterministic-supporting-documents@0.3.0`; its unified PO
 table parser separates printed line numbers from descriptions. The optional supporting hybrid is
-`supporting-hybrid-routed@0.4.0`. The six-case before report remains frozen; a generated synthetic
+`supporting-hybrid-routed@0.5.0`. The six-case before report remains frozen; a generated synthetic
 document holdout records both improvements and remaining failures.
 Confirmation endpoints create canonical records only after explicit human confirmation, while the
 original extraction JSON remains immutable. Case matching consumes only confirmed records and
@@ -86,7 +86,7 @@ The worker downloads the stored document, performs text/OCR preprocessing and de
 extraction, and persists one result per document, extractor name, and extractor version. Celery
 redelivery reuses a completed extraction instead of repeating it.
 
-An optional deterministic-first vision fallback is implemented as `hybrid-routed@0.4.0` while the
+An optional deterministic-first vision fallback is implemented as `hybrid-routed@0.5.0` while the
 frozen `deterministic-baseline@0.2.0` remains intact. The router invokes a provider only for typed
 quality failures. Strict model candidates require a uniquely located quote and a unique source-token
 value span inside it that normalizes to the proposed value. Numeric fuzzy digit substitutions are
@@ -238,8 +238,8 @@ metric is sequential; real PostgreSQL contention is exercised by the Compose int
 Run the network-free hybrid replay evaluation:
 
 ```powershell
-uv run python scripts/run_hybrid_evaluation.py --mode hybrid-replay --output-dir evals/reports/hybrid/0.4.0-replay-local
-Get-Content evals/reports/hybrid/0.4.0-replay-local/report.md
+uv run python scripts/run_hybrid_evaluation.py --mode hybrid-replay --output-dir evals/reports/hybrid/0.5.0-replay-local
+Get-Content evals/reports/hybrid/0.5.0-replay-local/report.md
 ```
 
 Live mode is guarded and requires explicit manifest wiring, `--allow-live`, an enabled provider,
@@ -339,3 +339,9 @@ Line-item extraction detects positioned table headers and assigns words to infer
 column ranges. Missing financial cells remain missing rather than being calculated. Wrapped
 descriptions are joined only within the same detected table section and page; cross-page
 description continuation is intentionally unsupported in the deterministic baseline.
+
+
+Invoice hybrid 0.5.0 associates candidate lines by unique source evidence and bounded page geometry,
+then fuses grounded cells. Unresolved rows persist an extraction issue and require deterministic
+review under matching-v3/three-way-v3. See [the row safety evaluation](docs/hybrid-extraction.md).
+The worker remains opt-in, and payment authority is unchanged.

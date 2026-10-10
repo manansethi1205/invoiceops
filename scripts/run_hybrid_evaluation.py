@@ -24,7 +24,7 @@ def main() -> None:
     parser.add_argument("--allow-holdout", action="store_true")
     parser.add_argument("--manifest", type=Path)
     parser.add_argument(
-        "--output-dir", type=Path, default=Path("evals/reports/hybrid/0.4.0-replay")
+        "--output-dir", type=Path, default=Path("evals/reports/hybrid/0.5.0-replay")
     )
     parser.add_argument("--input-price-per-million", type=Decimal)
     parser.add_argument("--output-price-per-million", type=Decimal)

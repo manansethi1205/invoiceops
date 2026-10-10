@@ -70,7 +70,14 @@ class InvoiceLine(BaseModel):
     line_total: ExtractedField[Decimal]
 
 
+class ExtractionIssue(StrEnum):
+    HYBRID_ROW_ASSOCIATION_UNRESOLVED = "hybrid_row_association_unresolved"
+
+
 class Invoice(BaseModel):
+    extraction_issues: list[ExtractionIssue] = Field(
+        default_factory=list, exclude_if=lambda issues: not issues
+    )
     invoice_number: ExtractedField[str]
     invoice_date: ExtractedField[date]
     currency: ExtractedField[str]

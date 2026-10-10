@@ -10,7 +10,7 @@ def test_hybrid_replay_is_safe_reproducible_and_cost_requires_explicit_pricing()
     first = run_hybrid_replay_evaluation()
     second = run_hybrid_replay_evaluation()
     assert first.dataset_fingerprint == second.dataset_fingerprint
-    assert first.extractor_version == "0.4.0"
+    assert first.extractor_version == "0.5.0"
     assert first.prompt_version == "invoice-vision-v1"
     assert first.hybrid_replay.schema_valid_rate == 1
     assert first.safety["no_ungrounded_candidate_promoted"] is True
@@ -27,7 +27,38 @@ def test_replay_report_is_versioned_and_cannot_overwrite(tmp_path: Path) -> None
     output = tmp_path / "fresh"
     write_hybrid_report(output, report)
     original = (output / "report.json").read_bytes()
-    assert "Hybrid replay 0.4.0" in (output / "report.md").read_text()
+    assert "Hybrid replay 0.5.0" in (output / "report.md").read_text()
     with pytest.raises(FileExistsError):
         write_hybrid_report(output, report)
+    assert (output / "report.json").read_bytes() == original
+
+
+def test_ci_replay_creates_its_own_output_and_rejects_second_run(tmp_path: Path) -> None:
+    import json
+    import subprocess
+    import sys
+
+    workflow = Path(".github/workflows/ci.yml").read_text(encoding="utf-8")
+    step = workflow.split("      - name: Run hybrid evaluation\n", 1)[1].split("      - name:", 1)[
+        0
+    ]
+    assert 'mkdir -p "$RUNNER_TEMP/hybrid-evaluation"' not in step
+    assert '--output-dir "$RUNNER_TEMP/hybrid-evaluation"' in step
+    output = tmp_path / "hybrid-evaluation"
+    command = [
+        sys.executable,
+        "scripts/run_hybrid_evaluation.py",
+        "--mode",
+        "hybrid-replay",
+        "--output-dir",
+        str(output),
+    ]
+    first = subprocess.run(command, capture_output=True, text=True)
+    assert first.returncode == 0, first.stderr
+    report = json.loads((output / "report.json").read_text())
+    assert all(report["safety"].values())
+    original = (output / "report.json").read_bytes()
+    second = subprocess.run(command, capture_output=True, text=True)
+    assert second.returncode != 0
+    assert "FileExistsError" in second.stderr
     assert (output / "report.json").read_bytes() == original

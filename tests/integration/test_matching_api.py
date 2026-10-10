@@ -221,13 +221,15 @@ def test_new_matching_policy_version_creates_new_immutable_run(
         assert isinstance(lines, list)
         lines[0]["line_total"] = "1100"
         po = PurchaseOrderService(session).create(PurchaseOrderCreate.model_validate(payload))
-        prior = MatchingService(session, MatchingPolicy(version="matching-v1")).match(
-            document.id, po.id
-        ).run
+        prior = (
+            MatchingService(session, MatchingPolicy(version="matching-v1"))
+            .match(document.id, po.id)
+            .run
+        )
         assert prior.decision == MatchDecision.NEEDS_REVIEW
         current = MatchingService(session).match(document.id, po.id).run
         assert current.id != prior.id
-        assert current.policy_version == "matching-v2"
+        assert current.policy_version == "matching-v3"
         assert "PO_LINE_AMOUNT_MISMATCH" in current.result_json["reason_codes"]
 
 
@@ -270,8 +272,8 @@ def test_hybrid_becomes_current_without_rewriting_historical_match(
         hybrid = ExtractionRun(
             document_id=document.id,
             extractor_name="hybrid-routed",
-            extractor_version="0.4.0",
-            schema_version="invoice-v1",
+            extractor_version="0.5.0",
+            schema_version="invoice-v2",
             status=ExtractionRunStatus.SUCCEEDED,
             output_json=invoice().model_dump(mode="json"),
         )
@@ -284,3 +286,44 @@ def test_hybrid_becomes_current_without_rewriting_historical_match(
         assert current.run.id != historical_id
         preserved = session.get(MatchRun, historical_id)
         assert preserved is not None and preserved.extraction_run_id == baseline.id
+
+
+def test_row_uncertainty_creates_review_without_rewriting_historical_match(
+    db_session_factory: sessionmaker[Session],
+) -> None:
+    from invoiceops.models import ReviewCase
+    from invoiceops.schemas.extraction import ExtractionIssue
+
+    with db_session_factory() as session:
+        document, baseline = create_document_with_extraction(session)
+        po = PurchaseOrderService(session).create(PurchaseOrderCreate.model_validate(po_payload()))
+        historical = (
+            MatchingService(session, MatchingPolicy(version="matching-v2"))
+            .match(document.id, po.id)
+            .run
+        )
+        original = dict(historical.result_json)
+        uncertain = invoice().model_copy(
+            update={"extraction_issues": [ExtractionIssue.HYBRID_ROW_ASSOCIATION_UNRESOLVED]}
+        )
+        hybrid = ExtractionRun(
+            document_id=document.id,
+            extractor_name="hybrid-routed",
+            extractor_version="0.5.0",
+            schema_version="invoice-v2",
+            status=ExtractionRunStatus.SUCCEEDED,
+            output_json=uncertain.model_dump(mode="json"),
+        )
+        session.add(hybrid)
+        session.commit()
+        current = MatchingService(session).match(document.id, po.id)
+        assert current.run.decision == MatchDecision.NEEDS_REVIEW
+        assert "EXTRACTION_ROW_ASSOCIATION_UNRESOLVED" in current.run.result_json["reason_codes"]
+        assert (
+            session.scalar(select(ReviewCase).where(ReviewCase.match_run_id == current.run.id))
+            is not None
+        )
+        assert MatchingService(session).match(document.id, po.id).run.id == current.run.id
+        session.refresh(historical)
+        assert historical.result_json == original and historical.extraction_run_id == baseline.id
+        assert historical.decision == MatchDecision.MATCHED

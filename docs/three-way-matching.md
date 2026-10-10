@@ -7,6 +7,11 @@ matched allocations. It uses `Decimal` arithmetic and never authorizes payment.
 The stored policy also includes the deterministic description-assignment threshold and ambiguity
 margin inherited from two-way line assignment, so historical decisions remain reproducible.
 
+New runs use `three-way-v3`. Unresolved hybrid invoice-row association requires `NEEDS_REVIEW`
+with `EXTRACTION_ROW_ASSOCIATION_UNRESOLVED` and creates no allocation. Historical runs retain
+their recorded policies and decisions. Version 2 introduced confirmed PO line-amount validation;
+version 3 preserves that validation and adds the extraction-issue safety gate.
+
 ## Goods receipts
 
 `POST /v1/goods-receipts` accepts a PO ID, external receipt number, timestamp and positive accepted
@@ -19,7 +24,8 @@ development authentication mode; it is not production authentication.
 ## Context, concurrency and allocation
 
 The context fingerprint covers active receipt IDs/quantities/timestamps, reversal IDs, allocations
-from other documents, the current document's allocations and the complete `three-way-v2` policy.
+from other documents, the current document's allocations and the complete policy snapshot
+(`three-way-v3` for new runs; historical runs retain their earlier version).
 Only other-document allocations reduce available quantity, so an invoice never competes with its
 own reserved quantity. The context exposes the two allocation groups separately.
 A later receipt or reversal can therefore create a new immutable match run without allocating the

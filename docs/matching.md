@@ -5,7 +5,8 @@ is documented in [three-way-matching.md](three-way-matching.md).
 
 This slice compares a successfully extracted invoice with a purchase order explicitly selected by
 the caller. This page describes two-way matching only; automatic PO discovery, ERP integration,
-approval routing, and three-way matching are intentionally deferred.
+and approval routing are intentionally deferred. Three-way matching is available as an explicit
+mode documented separately.
 
 `external_po_number` is indexed but intentionally not globally unique. Real PO identity requires
 tenant/company scope; that scope is not implemented yet, so callers select the database PO UUID
@@ -27,8 +28,12 @@ There is no automatic rejection or approval decision.
 
 ## Matching policy
 
-Every new match run stores the full effective `matching-v2` snapshot. The version changed so
-previously cached decisions are not reused without checking optional confirmed PO line amounts:
+New match runs store the full effective `matching-v3` snapshot. Unresolved hybrid invoice-row
+association produces `EXTRACTION_ROW_ASSOCIATION_UNRESOLVED` and requires `NEEDS_REVIEW`, even
+when the financial values otherwise pass. Historical runs retain their recorded policy and decisions.
+
+Historically, `matching-v2` added validation of optional confirmed PO line amounts so previously
+cached decisions were not reused without that check. Version 3 retains those checks and tolerances:
 
 | Setting | Default | Meaning |
 |---|---:|---|
@@ -62,6 +67,7 @@ is never assigned automatically.
 | Code | Condition |
 |---|---|
 | `INVOICE_SCHEMA_INCOMPLETE` | Required invoice value or usable line is missing/ambiguous |
+| `EXTRACTION_ROW_ASSOCIATION_UNRESOLVED` | Extracted cells cannot be safely associated with invoice rows; requires review |
 | `INVOICE_LINE_ARITHMETIC_MISMATCH` | Quantity times unit price differs from line total |
 | `INVOICE_SUBTOTAL_MISMATCH` | Sum of usable line totals differs from subtotal |
 | `INVOICE_TOTAL_MISMATCH` | Subtotal plus tax differs from total |

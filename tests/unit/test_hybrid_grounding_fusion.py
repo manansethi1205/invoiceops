@@ -216,15 +216,8 @@ def test_line_item_candidate_can_fill_only_grounded_cells() -> None:
         }
     )
     fused = fuse_invoice(empty_invoice(None, ExtractionStatus.MISSING), vision, doc)
-    line = fused.invoice.line_items[0]
-    assert line.description.value == "Widget"
-    assert line.quantity.value == Decimal("2")
-    assert line.unit_price.value == Decimal("10.00")
-    assert line.line_total.value == Decimal("20.00")
-    assert all(
-        getattr(line, name).evidence
-        for name in ("description", "quantity", "unit_price", "line_total")
-    )
+    assert fused.invoice.line_items == []
+    assert fused.invoice.extraction_issues
 
 
 @pytest.mark.parametrize(
@@ -361,16 +354,24 @@ def test_bad_values_preserve_deterministic_header_and_line_cells() -> None:
         }
     )
     result = fuse_invoice(baseline, vision, doc)
-    assert result.invoice == baseline
+    assert result.invoice.line_items == baseline.line_items
+    assert result.invoice.invoice_number == baseline.invoice_number
+    assert result.invoice.extraction_issues
     assert all(
-        reason == GroundingReason.VALUE_NOT_FOUND_IN_QUOTE for reason in result.grounding.values()
+        reason == GroundingReason.VALUE_NOT_FOUND_IN_QUOTE
+        for key, reason in result.grounding.items()
+        if key != "candidate_rows.0"
     )
+    assert result.outcomes["invoice_number"] == FusionOutcome.UNGROUNDED_REJECTED
     assert all(
-        result.outcomes[path] == FusionOutcome.UNGROUNDED_REJECTED for path in result.grounding
+        outcome == FusionOutcome.DETERMINISTIC_ONLY
+        for path, outcome in result.outcomes.items()
+        if path.startswith("line_items.")
     )
     empty = empty_invoice(None, ExtractionStatus.MISSING)
     rejected_row = fuse_invoice(empty, vision, doc)
-    assert rejected_row.invoice == empty
+    assert rejected_row.invoice.line_items == empty.line_items
+    assert rejected_row.invoice.extraction_issues
 
 
 @pytest.mark.parametrize(

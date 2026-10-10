@@ -65,7 +65,7 @@ def _context(
         )
     return po, ThreeWayContextSnapshot(
         purchase_order_id=po.id,
-        policy_version="three-way-v2",
+        policy_version="three-way-v3",
         lines=lines,
     )
 
@@ -145,7 +145,9 @@ def test_unit_price_and_line_amount_tolerances_use_invoice_quantity() -> None:
 def test_partial_receipt_keeps_unit_price_basis_when_po_printed_amount_differs() -> None:
     po, context = _context()
     partial = invoice(
-        subtotal="700", tax="0", total="700",
+        subtotal="700",
+        tax="0",
+        total="700",
         lines=[
             invoice_line("Industrial Filter", "1", "500", "500"),
             invoice_line("Mounting Bracket", "4", "50", "200"),
@@ -208,4 +210,22 @@ def test_partial_invoice_can_be_disabled_by_versioned_policy() -> None:
         ThreeWayMatchingPolicy(allow_partial_invoice=False),
     )
     assert ReasonCode.QUANTITY_MISMATCH in result.reason_codes
+    assert allocations == []
+
+
+def test_extraction_row_issue_blocks_allocations_and_auto_match() -> None:
+    from invoiceops.schemas.extraction import ExtractionIssue
+
+    po, context = _context()
+    baseline = invoice()
+    assert (
+        match_invoice_three_way(baseline, po, context, ThreeWayMatchingPolicy())[0].decision
+        == MatchDecision.MATCHED
+    )
+    uncertain = baseline.model_copy(
+        update={"extraction_issues": [ExtractionIssue.HYBRID_ROW_ASSOCIATION_UNRESOLVED]}
+    )
+    result, allocations = match_invoice_three_way(uncertain, po, context, ThreeWayMatchingPolicy())
+    assert result.decision == MatchDecision.NEEDS_REVIEW
+    assert ReasonCode.EXTRACTION_ROW_ASSOCIATION_UNRESOLVED in result.reason_codes
     assert allocations == []

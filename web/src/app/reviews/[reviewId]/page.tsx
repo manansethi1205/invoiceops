@@ -11,6 +11,7 @@ import { PageHeader } from "@/components/page-header";
 import { StatusBadge } from "@/components/status-badge";
 import { api, errorMessage, required, type ApiSchema } from "@/lib/api/client";
 import { formatDate } from "@/lib/format";
+import { reviewReasonExplanation, reviewReasonLabel } from "@/lib/review-reasons";
 
 type Resolution = ApiSchema<"ReviewResolution">;
 type ActionKind = "claim" | "release" | "comment" | "resolve";
@@ -60,7 +61,7 @@ export default function ReviewDetailPage() {
     <PageHeader eyebrow="Human review" title={`Case ${review.id.slice(0, 8)}`} description={`Opened ${formatDate(review.opened_at)} · version ${review.version}`} action={<StatusBadge value={review.status} />} />
     <div className="two-column">
       <div className="stack">
-        <section className="card"><div className="card-header"><h2>Decision context</h2><Link href={`/invoices/${review.match.document_id}`} className="button button-secondary">Inspect invoice</Link></div><p><strong>Match:</strong> <StatusBadge value={review.match.decision} /></p><p><strong>Risk:</strong> <StatusBadge value={review.match.risk_disposition} /></p><div className="notice"><strong>Why this needs attention</strong>{review.review_triggers.map((trigger) => <div key={trigger.id}>{trigger.type}: {trigger.code}</div>)}</div><p className="help-text">Accepting an exception records a review resolution. It does not authorize payment.</p></section>
+        <section className="card"><div className="card-header"><h2>Decision context</h2><Link href={`/invoices/${review.match.document_id}`} className="button button-secondary">Inspect invoice</Link></div><p><strong>Match:</strong> <StatusBadge value={review.match.decision} /></p><p><strong>Risk:</strong> <StatusBadge value={review.match.risk_disposition} /></p><div className="notice"><strong>Why this needs attention</strong>{review.review_triggers.map((trigger) => <div key={trigger.id}><div>{trigger.type}: {reviewReasonLabel(trigger.code)}</div>{reviewReasonExplanation(trigger.code) ? <p>{reviewReasonExplanation(trigger.code)}</p> : null}</div>)}</div><p className="help-text">Accepting an exception records a review resolution. It does not authorize payment.</p></section>
         <section className="card"><div className="card-header"><h2>Tamper-evident history</h2><StatusBadge value={audit.data?.valid ? "CLEAR" : "failed"} /></div><div className="timeline">{events.data?.map((event) => <div className="timeline-item" key={event.id}><span className="timeline-marker" /><div className="timeline-copy"><strong>{event.event_type.replaceAll("_", " ")}</strong><span>{event.actor_id} · {formatDate(event.occurred_at)}</span><code className="mono">{event.event_hash.slice(0, 16)}… · {event.hash_version}</code></div></div>)}</div><p className="help-text">Hash chaining provides application-level tamper evidence; it does not prevent a database administrator from rewriting history.</p></section>
       </div>
       {canReview ? <aside className="card stack">
