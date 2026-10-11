@@ -160,6 +160,49 @@ See [the guarded live benchmark](hybrid-live-benchmark.md) for generation, exact
 denominators, billing-bound assumptions, OCR preflight and the authorization-only command template.
 No live call or live-quality result was produced while implementing this evaluation slice.
 
+## Private human-labelled real-invoice baseline
+
+For an authorized real-invoice baseline, use the separate
+[private human-labelled deterministic harness](private-real-invoice-benchmark.md).
+It reuses the existing extraction runner, distinguishes explicit absence from unannotated
+fields, and publishes only allowlisted aggregates. Documents, human labels and optional
+case-level diagnostics remain in ignored private scratch. Ordinary tests use synthetic inputs.
+
+The [first baseline](../evals/reports/real-input/human-reviewed-baseline-01/report.md) and
+[updated-annotation baseline](../evals/reports/real-input/human-reviewed-baseline-02/report.md)
+each evaluated 29 authorized PDFs, 29 pages and 50 labelled item rows using
+`deterministic@0.2.0` and the `real-input-human-v1` scorer. All 29 attempts completed with valid
+schemas. Document bytes are identical between runs; 14 annotations changed. The labels are
+human-reviewed AI-assisted drafts, based on the user's attestation, not independently blinded
+annotations. Neither permission, invoice origin nor annotation quality is independently
+established by the harness.
+
+The updated baseline has invoice-number and date exact counts of 28/28 each, currency 5/28,
+subtotal 0/28, tax 0/1 and total 0/28 on present labels. Tax is unannotated on 27 documents.
+There are zero present unit-price labels across the 50 rows; quantity is present on 21 and
+explicitly absent on 29. Exact rows score 0 TP, 22 FP and 50 FN; explicit absence participates
+in four-cell matching, but this corpus cannot measure extraction of present unit prices.
+Currency evidence support changed from 0/5 to 5/5 correct predictions, without an extraction
+change. These annotation-dependent measurements are not a parser improvement.
+
+Private read-only diagnostics supplied after the run found that all 14 extracted totals
+matched labelled subtotals, while the other 14 present totals were missing; 17/28 labelled
+embedded-text documents emitted no rows. None of the 50 labelled description, quantity or
+line-total values appeared in the corresponding field of any predicted row in that analysis.
+These are supplied diagnostic observations, not additional frozen evaluator metrics or an
+independent visual adjudication. They motivate financial-role diagnosis before table-rule work.
+
+The visually sampled invoices contain closely related tax-invoice layouts with separate
+net/tax/gross columns. The 28 labelled invoices are observed development data, not a diverse AP
+holdout; splitting these same layouts does not establish an independent holdout. The one OCR
+document has no present header labels or labelled rows and therefore cannot measure scan
+accuracy. No supplier/PO discovery, matching, review, risk or payment outcome is evaluated.
+No provider or network calls were made during either baseline run.
+
+Preserve both reports' recorded parent revision and `source_state: working-tree changes`.
+They describe the source at execution time and must not be relabelled as runs from a subsequent
+commit. Original private documents and labels remain ignored and must never be staged.
+
 ## Reproducible OCR runtime
 
 An OCR-tagged manifest is rejected before document bytes are loaded unless the Tesseract runtime
