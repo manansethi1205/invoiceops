@@ -210,6 +210,11 @@ printed gross/net/tax/payable roles, false-abstention denominators and source-su
 counts. Its native synthetic contract report is separate from the observed 29-document corpus;
 it does not establish independent real-world generalization or justify guard promotion.
 
+The separate [0.4.0 financial-role candidate](financial-role-guard-04.md) compares 0.2.0/0.3.0/0.4.0
+on the unchanged 12-case challenge and 29-document observed corpus. It requires independent
+gross evidence for payable candidates and bounded source-region separation for references.
+It remains opt-in; the frozen strategies, historical reports and production selection are unchanged.
+
 The [opt-in financial-summary role guard](financial-summary-role-guard.md) compares the frozen
 baseline with a source-only deterministic candidate on identical private input tokens. The
 [paired report](../evals/reports/real-input/financial-summary-guard-02/report.md) shows wrong

@@ -1,0 +1,185 @@
+# Three-version financial-role regression
+
+Same native source tokens for all three frozen strategies. Both corpora are observed development regressions, not independent validation. Synthetic labels were authored before predictions. Legacy total labels are not reinterpreted as gross/payable roles; their false-abstention metric is unavailable. Legacy location-supported role errors are the subtotal-evidence subset, not a comprehensive financial-role score.
+
+Correct/wrong/ambiguous/missing/failures use present target labels. Value precision = correct / (correct + wrong + emissions on absent); recall = correct / present. Role errors require independent printed-role and bound amount evidence; unresolved evidence is separate. False abstentions use source-supported correct baseline gross totals. Added/new abstentions use emitted baseline/0.3 totals respectively; recoveries use missing/ambiguous 0.3 totals. Extraction failures do not count as recovered or abstained invoices. All review gates are pre-PO checks, not MATCHED/payment decisions. Non-total equality includes evidence. Keep 0.4 opt-in.
+
+```json
+{
+  "metric_version": "financial-role-three-version-v1",
+  "cohort": "observed_development",
+  "corpus_fingerprint": "20adbcfa757d37ca3fc5df915d25ea0459c33e33f8752b2d407e6e665a6feaa9",
+  "source_revision": "f1d188492b35f384674b01f8181d9a5f643e8d23",
+  "source_state": "working-tree changes",
+  "baseline_version": "deterministic-baseline@0.2.0",
+  "guard_03_version": "deterministic-financial-summary-guard@0.3.0",
+  "guard_04_version": "deterministic-financial-summary-guard@0.4.0",
+  "documents": 29,
+  "pages": 29,
+  "ocr_documents": 1,
+  "ocr_version": "5.5.3.20260724",
+  "baseline": {
+    "legacy_total_labels": {
+      "counts": {
+        "documents": 29,
+        "present": 28,
+        "absent": 1,
+        "unannotated": 0,
+        "correct": 0,
+        "wrong": 14,
+        "ambiguous": 14,
+        "missing": 0,
+        "failed_present": 0,
+        "correct_absence": 1,
+        "false_on_absent": 0,
+        "failed_documents": 0,
+        "wrong_equals_subtotal": 14,
+        "location_supported_role_errors": 12,
+        "mandatory_financial_review": 29,
+        "total_incomplete_review_gate": 15
+      },
+      "emitted_total_precision": {
+        "numerator": 0,
+        "denominator": 14,
+        "rate": 0.0
+      },
+      "correct_total_recall": {
+        "numerator": 0,
+        "denominator": 28,
+        "rate": 0.0
+      }
+    },
+    "independent_role_labels": null,
+    "false_abstentions": null,
+    "added_abstentions_vs_baseline": {
+      "numerator": 0,
+      "denominator": 14,
+      "rate": 0.0
+    },
+    "new_abstentions_vs_03": {
+      "numerator": 0,
+      "denominator": 0,
+      "rate": null
+    },
+    "recovered_totals_vs_03": {
+      "numerator": 14,
+      "denominator": 29,
+      "rate": 0.4827586206896552
+    },
+    "unchanged_non_total": {
+      "numerator": 29,
+      "denominator": 29,
+      "rate": 1.0
+    }
+  },
+  "guard_03": {
+    "legacy_total_labels": {
+      "counts": {
+        "documents": 29,
+        "present": 28,
+        "absent": 1,
+        "unannotated": 0,
+        "correct": 0,
+        "wrong": 0,
+        "ambiguous": 28,
+        "missing": 0,
+        "failed_present": 0,
+        "correct_absence": 1,
+        "false_on_absent": 0,
+        "failed_documents": 0,
+        "wrong_equals_subtotal": 0,
+        "location_supported_role_errors": 0,
+        "mandatory_financial_review": 29,
+        "total_incomplete_review_gate": 29
+      },
+      "emitted_total_precision": {
+        "numerator": 0,
+        "denominator": 0,
+        "rate": null
+      },
+      "correct_total_recall": {
+        "numerator": 0,
+        "denominator": 28,
+        "rate": 0.0
+      }
+    },
+    "independent_role_labels": null,
+    "false_abstentions": null,
+    "added_abstentions_vs_baseline": {
+      "numerator": 14,
+      "denominator": 14,
+      "rate": 1.0
+    },
+    "new_abstentions_vs_03": {
+      "numerator": 0,
+      "denominator": 0,
+      "rate": null
+    },
+    "recovered_totals_vs_03": {
+      "numerator": 0,
+      "denominator": 29,
+      "rate": 0.0
+    },
+    "unchanged_non_total": {
+      "numerator": 29,
+      "denominator": 29,
+      "rate": 1.0
+    }
+  },
+  "guard_04": {
+    "legacy_total_labels": {
+      "counts": {
+        "documents": 29,
+        "present": 28,
+        "absent": 1,
+        "unannotated": 0,
+        "correct": 0,
+        "wrong": 0,
+        "ambiguous": 28,
+        "missing": 0,
+        "failed_present": 0,
+        "correct_absence": 1,
+        "false_on_absent": 0,
+        "failed_documents": 0,
+        "wrong_equals_subtotal": 0,
+        "location_supported_role_errors": 0,
+        "mandatory_financial_review": 29,
+        "total_incomplete_review_gate": 29
+      },
+      "emitted_total_precision": {
+        "numerator": 0,
+        "denominator": 0,
+        "rate": null
+      },
+      "correct_total_recall": {
+        "numerator": 0,
+        "denominator": 28,
+        "rate": 0.0
+      }
+    },
+    "independent_role_labels": null,
+    "false_abstentions": null,
+    "added_abstentions_vs_baseline": {
+      "numerator": 14,
+      "denominator": 14,
+      "rate": 1.0
+    },
+    "new_abstentions_vs_03": {
+      "numerator": 0,
+      "denominator": 0,
+      "rate": null
+    },
+    "recovered_totals_vs_03": {
+      "numerator": 0,
+      "denominator": 29,
+      "rate": 0.0
+    },
+    "unchanged_non_total": {
+      "numerator": 29,
+      "denominator": 29,
+      "rate": 1.0
+    }
+  },
+  "limitations": "development-only-no-model-no-PO-matching"
+}
+```

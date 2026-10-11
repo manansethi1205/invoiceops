@@ -1,5 +1,8 @@
 # Private financial-role challenge benchmark
 
+The subsequent [0.4.0 candidate comparison](financial-role-guard-04.md) preserves this harness,
+corpus and reports, and evaluates three strategies on identical frozen source tokens.
+
 This evaluation compares frozen `deterministic-baseline@0.2.0` with the opt-in
 `deterministic-financial-summary-guard@0.3.0` on identical native-extracted source tokens.
 Neither strategy, production selection, hybrid fusion nor matching policy is changed.
