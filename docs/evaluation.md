@@ -410,3 +410,13 @@ execution initially timed out starting Vitest workers; the unchanged default sui
 run outside that process sandbox. No test assertions or report overwrite protections were relaxed.
 These local checks do not guarantee GitHub runner/network availability. Historical reports remain
 frozen, and no commit or push was performed.
+
+## New-data three-version financial-role comparison
+
+The [0.4.0 evaluation guide](financial-role-guard-04.md#new-authorized-supplier-invoice-challenge)
+provides the offline `new_authorized_challenge` command for frozen 0.2.0/0.3.0/0.4.0.
+It requires independently frozen human printed-role labels and an explicit observed-manifest
+reference, reuses the private path and byte-overlap preflight, and compares identical native
+source tokens. Separate aggregate reports by cohort. The previous 29 invoices remain observed
+development data; synthetic fixtures do not establish real-data generalization. No new
+authorized supplier corpus was supplied for this harness change, so it records no new real result.

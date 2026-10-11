@@ -10,8 +10,11 @@ def main() -> None:
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--private-diagnostics", type=Path, required=True)
     parser.add_argument(
-        "--cohort", choices=["observed_development", "synthetic_contract"], required=True
+        "--cohort",
+        choices=["observed_development", "synthetic_contract", "new_authorized_challenge"],
+        required=True,
     )
+    parser.add_argument("--observed-manifest", type=Path)
     args = parser.parse_args()
     try:
         report = run_versions(
@@ -20,6 +23,7 @@ def main() -> None:
             args.private_diagnostics,
             repository=Path(__file__).resolve().parents[1],
             cohort=args.cohort,
+            observed_manifest=args.observed_manifest,
         )
     except Exception:
         parser.exit(2, "Private comparison refused; inspect inputs and fresh paths privately.\n")

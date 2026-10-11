@@ -230,6 +230,30 @@ class ChallengeReport(Aggregate):
     )
 
 
+class ChallengeSourceGuard:
+    """Shared private source preflight; byte overlap never establishes independence."""
+
+    def __init__(self, cohort: Cohort, observed_manifest: Path | None, repository: Path) -> None:
+        self.observed_hashes: set[str] = set()
+        self.seen: set[str] = set()
+        if cohort == "new_authorized_challenge":
+            if observed_manifest is None:
+                raise ValueError("New challenge requires observed-corpus non-overlap reference")
+            reference = private_path(observed_manifest, repository)
+            self.observed_hashes = {
+                sha256(
+                    member(reference.parent, e.document_path, repository).read_bytes()
+                ).hexdigest()
+                for e in ManifestAdapter().load(reference).examples
+            }
+
+    def check(self, body: bytes) -> None:
+        source_hash = sha256(body).hexdigest()
+        if source_hash in self.seen or source_hash in self.observed_hashes:
+            raise ValueError("Duplicate or previously observed source in challenge")
+        self.seen.add(source_hash)
+
+
 def run_challenge(
     manifest: Path,
     output: Path,
@@ -245,24 +269,12 @@ def run_challenge(
         raise FileExistsError("Private output must be fresh")
     manifest = private_path(manifest, repository)
     dataset = ManifestAdapter().load(manifest)
-    observed_hashes = set()
-    if cohort == "new_authorized_challenge":
-        if observed_manifest is None:
-            raise ValueError("New challenge requires observed-corpus non-overlap reference")
-        reference = private_path(observed_manifest, repository)
-        observed_hashes = {
-            sha256(member(reference.parent, e.document_path, repository).read_bytes()).hexdigest()
-            for e in ManifestAdapter().load(reference).examples
-        }
+    source_guard = ChallengeSourceGuard(cohort, observed_manifest, repository)
     prepared = []
     fingerprints = []
-    seen = set()
     for example in dataset.examples:
         body = member(manifest.parent, example.document_path, repository).read_bytes()
-        source_hash = sha256(body).hexdigest()
-        if source_hash in seen or source_hash in observed_hashes:
-            raise ValueError("Duplicate or previously observed source in challenge")
-        seen.add(source_hash)
+        source_guard.check(body)
         labels = member(manifest.parent, example.ground_truth_path, repository).read_bytes()
         annotation, roles = load_annotation(labels)
         if cohort != "observed_development" and roles is None:

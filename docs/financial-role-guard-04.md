@@ -64,6 +64,42 @@ existing `corpus-03/manifest.jsonl`, and separate fresh output/diagnostics names
 installed English Tesseract runtime locally; no runtime download or network service is used.
 The measured runs also blocked provider/client imports and Python sockets/DNS.
 
+## New authorized supplier-invoice challenge
+
+The same runner also accepts `new_authorized_challenge`. This requires an explicit observed
+manifest reference and the private `financial-roles-v1` contract documented in
+[the challenge guide](financial-role-challenge.md). Every case must declare human provenance
+and `labelled_without_predictions: true`. Obtain authorization, independently label printed
+roles/evidence and freeze labels before viewing predictions. These are reviewer attestations;
+the harness cannot verify reviewer independence or issuer diversity. Do not substitute the
+old 29-document corpus or synthetic fixtures for newly authorized real invoices.
+
+```powershell
+$env:UV_OFFLINE = '1'
+uv run python scripts/run_financial_role_versions.py `
+  --cohort new_authorized_challenge `
+  --manifest work/real-invoice-private/new-supplier-challenge/manifest.jsonl `
+  --observed-manifest work/real-invoice-private/corpus-03/manifest.jsonl `
+  --output-dir evals/reports/real-input/new-supplier-three-version-01 `
+  --private-diagnostics work/real-invoice-private/diagnostics/new-supplier-three-version-01
+```
+
+This is a command template, not a measured new-data result. The manifest uses the existing
+development split convention; the explicit cohort records new-challenge provenance. Reference
+all previously observed sources in the supplied observed manifest. The shared preflight rejects
+duplicate source bytes and bytes present in that reference, including renamed copies. This
+does not detect related templates or guarantee unseen layouts. Paths must be contained,
+ignored and untracked; public and private output directories must be fresh.
+
+All three strategies consume the same cached native PDF/OCR tokens. One report represents
+one cohort: never pool synthetic, old observed and new supplier results. Independently labelled
+gross totals supply correctness, emitted precision, recall, role-supported errors, uncertainty
+and false-abstention denominators. Net/subtotal, component tax, payable and unknown roles stay
+distinct; neither annotations nor arithmetic enter runtime extraction. Pre-PO gates are not
+matching/payment decisions. OCR failures use attempted OCR documents as denominator; completed
+OCR documents and known source pages are separate counts. Older reports without the new OCR
+counts load as unknown, not zero. Keep the candidate opt-in and historical reports frozen.
+
 ## Measured development regressions
 
 The [12-case synthetic report](../evals/reports/real-input/financial-role-versions-synthetic-02/report.md)
