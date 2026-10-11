@@ -205,6 +205,11 @@ commit. Original private documents and labels remain ignored and must never be s
 
 ## Reproducible OCR runtime
 
+The [financial-role challenge benchmark](financial-role-challenge.md) adds independently labelled
+printed gross/net/tax/payable roles, false-abstention denominators and source-supported competing-role
+counts. Its native synthetic contract report is separate from the observed 29-document corpus;
+it does not establish independent real-world generalization or justify guard promotion.
+
 The [opt-in financial-summary role guard](financial-summary-role-guard.md) compares the frozen
 baseline with a source-only deterministic candidate on identical private input tokens. The
 [paired report](../evals/reports/real-input/financial-summary-guard-02/report.md) shows wrong

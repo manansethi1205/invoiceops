@@ -1,5 +1,9 @@
 # Opt-in deterministic financial-summary role guard
 
+The subsequent [financial-role challenge](financial-role-challenge.md) tests this frozen rule set
+without retuning it. Native synthetic contracts expose one false abstention and one retained
+payable-balance role error; these are not independent real-world validation results.
+
 `deterministic-financial-summary-guard@0.3.0` reuses the frozen
 `deterministic-baseline@0.2.0` and changes only the returned total field. It is instantiated
 explicitly by the paired evaluator, with no registration in worker factories or production
