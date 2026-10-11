@@ -205,6 +205,12 @@ commit. Original private documents and labels remain ignored and must never be s
 
 ## Reproducible OCR runtime
 
+The separate [private failure-attribution guide](private-failure-attribution.md) documents the
+evaluation-only stage probes and [fresh aggregate report](../evals/reports/real-input/failure-attribution-02/report.md).
+It distinguishes source visibility, existing region detection, raw header candidates, role/row
+association and scorer-only rejection. Private case traces stay ignored; both baselines remain
+byte-for-byte unchanged. These observational categories are not confirmed root causes.
+
 An OCR-tagged manifest is rejected before document bytes are loaded unless the Tesseract runtime
 passes its readiness check. Run the frozen holdout in the dedicated container:
 
