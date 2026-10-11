@@ -136,8 +136,29 @@ uv run python scripts/run_hybrid_evaluation.py --mode hybrid-replay `
 The report separates 0.2.0 deterministic metrics from 0.3.0 replay metrics and includes header
 exact accuracy, exact line F1, schema validity, coverage, grounding, agreement, disagreement
 abstention, invocation/provider-failure rates, latency, and tokens. Cost stays `null` unless both
-token prices are supplied. `hybrid-live` refuses to run without `--allow-live` and
-organization-owned manifest wiring; it is excluded from ordinary tests and CI.
+token prices are supplied. The extended `hybrid-live` path now accepts only byte-verified fresh
+synthetic assets, explicit model/document/page/spending/output-token limits, confirmed verified
+pricing and `--allow-live`. It compares deterministic and hybrid on identical inputs, measures
+source-labelled row/financial-role errors and reserves a conservative request charge before each
+call. It never enables production extraction and is excluded from ordinary tests and CI.
+The `synthetic-local` mode evaluates the verified 16-invoice manifest without network/model calls,
+using a clearly labelled in-process oracle stub. It is separate from the 12-case replay; its
+optional synthetic scan tokens do not measure OCR quality. Live authorization and billing gates
+are unchanged. See [the local manifest command](hybrid-live-benchmark.md#local-manifest-regression-no-network-or-model).
+
+The [local scorer diagnosis](hybrid-local-diagnosis.md) explains the evaluation-only correction
+for expanded header evidence and why row-association precision and document-level false automatic
+matches have different denominators. New reports use `synthetic-source-safety-v2`; frozen
+center-only results remain unchanged.
+
+The [native-OCR local milestone](hybrid-native-ocr-milestone.md) records a same-corpus paired
+comparison with two actual OCR documents, zero scan-token substitutions and no model calls.
+It reports a null coverage result by PDF/PNG input type. Legacy report metric versions remain
+unknown; fresh reports explicitly identify v2 and record OCR version provenance.
+
+See [the guarded live benchmark](hybrid-live-benchmark.md) for generation, exact metric
+denominators, billing-bound assumptions, OCR preflight and the authorization-only command template.
+No live call or live-quality result was produced while implementing this evaluation slice.
 
 ## Reproducible OCR runtime
 

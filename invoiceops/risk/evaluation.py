@@ -1,5 +1,6 @@
 import hashlib
 import math
+import os
 import platform
 import subprocess
 import time
@@ -285,30 +286,93 @@ def _git_revision() -> str:
         return "unknown"
 
 
+_FINGERPRINT_RUNTIME_DIRECTORIES = frozenset(
+    {
+        ".git",
+        ".tmp",
+        "tmp",
+        "work",
+        "outputs",
+        ".uv-cache",
+        ".cache",
+        ".venv",
+        "venv",
+        "__pycache__",
+        ".pytest_cache",
+        ".mypy_cache",
+        ".ruff_cache",
+        ".tox",
+        ".nox",
+        ".hypothesis",
+        ".tools",
+        ".playwright",
+        ".pnpm-store",
+        "node_modules",
+        ".next",
+        "htmlcov",
+        "coverage",
+        "playwright-report",
+        "test-results",
+        "mlruns",
+        "minio-data",
+        "postgres-data",
+        "build",
+        "dist",
+    }
+)
+
+
+def _fingerprint_source_path(name: str) -> bool:
+    parts = name.split("/")
+    return (
+        not any(part in _FINGERPRINT_RUNTIME_DIRECTORIES for part in parts)
+        and not name.startswith("evals/reports/")
+        and not parts[-1].startswith(".coverage")
+        and not name.endswith((".pyc", ".pyo", ".tsbuildinfo"))
+    )
+
+
 def source_tree_fingerprint() -> str:
-    """Hash tracked source/config inputs while excluding generated reports."""
+    """Hash Git-visible source/config inputs, excluding runtime artifacts in either discovery mode.
+
+    Include untracked source edits, but never generated reports or cache/temp trees, even if
+    tracked accidentally. Read failures for selected source files must propagate.
+    """
     try:
-        names = subprocess.run(
-            ["git", "ls-files", "--cached", "--others", "--exclude-standard"],
-            check=True,
-            capture_output=True,
-            text=True,
-            timeout=2,
-        ).stdout.splitlines()
-    except (OSError, subprocess.SubprocessError):
-        names = [
-            path.as_posix()
-            for root in (Path("apps"), Path("invoiceops"), Path("scripts"), Path("tests"))
-            if root.exists()
-            for path in root.rglob("*")
-            if path.is_file()
-        ]
-    selected = sorted(
-        name.replace("\\", "/")
-        for name in names
-        if not name.replace("\\", "/").startswith(
-            ("evals/reports/", "tmp/", "work/", "outputs/", ".uv-cache/")
+        names = (
+            subprocess.run(
+                ["git", "ls-files", "--cached", "--others", "--exclude-standard", "-z"],
+                check=True,
+                capture_output=True,
+                text=True,
+                timeout=2,
+            )
+            .stdout.rstrip("\0")
+            .split("\0")
         )
+    except (OSError, subprocess.SubprocessError):
+        names = []
+
+        def fail_walk(error: OSError) -> None:
+            raise error
+
+        for root in ("apps", "invoiceops", "scripts", "tests"):
+            if not Path(root).exists():
+                continue
+            # Prune runtime directories before descending, rather than filtering after a glob.
+            for directory, children, files in os.walk(root, onerror=fail_walk):
+                children[:] = [
+                    child
+                    for child in children
+                    if _fingerprint_source_path((Path(directory) / child).as_posix())
+                ]
+                names.extend((Path(directory) / name).as_posix() for name in files)
+    selected = sorted(
+        {
+            name.replace("\\", "/")
+            for name in names
+            if name and _fingerprint_source_path(name.replace("\\", "/"))
+        }
     )
     digest = hashlib.sha256()
     for name in selected:

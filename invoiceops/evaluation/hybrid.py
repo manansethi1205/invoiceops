@@ -3,7 +3,6 @@ import json
 import math
 import platform
 import subprocess
-import time
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
@@ -11,23 +10,17 @@ from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from invoiceops.evaluation.adapters.manifest import ManifestAdapter
+from invoiceops.evaluation.hybrid_live import run_hybrid_live_manifest as run_hybrid_live_manifest
 from invoiceops.evaluation.matching import align_line_items
-from invoiceops.evaluation.metrics import calculate_metrics
 from invoiceops.evaluation.normalization import canonical_value
 from invoiceops.evaluation.schemas import (
-    EvaluationPrediction,
-    EvaluationResult,
     GroundTruthInvoice,
     GroundTruthLineItem,
 )
 from invoiceops.extraction.hybrid.fusion import FusionResult, fuse_invoice
 from invoiceops.extraction.hybrid.provider import (
     ReplayVisionExtractionProvider,
-    VisionExtractionProvider,
-    VisionProviderError,
 )
-from invoiceops.extraction.hybrid.renderer import DocumentRenderingError, PageRenderer
 from invoiceops.extraction.hybrid.router import route_extraction
 from invoiceops.extraction.hybrid.schemas import (
     CandidateField,
@@ -36,8 +29,6 @@ from invoiceops.extraction.hybrid.schemas import (
     VisionInvoiceCandidate,
     VisionUsage,
 )
-from invoiceops.extraction.pipeline import DeterministicInvoiceExtractor
-from invoiceops.extraction.preprocessing import DocumentTextExtractor
 from invoiceops.extraction.version import HYBRID_EXTRACTOR_VERSION, VLM_PROMPT_VERSION
 from invoiceops.schemas.extraction import (
     BoundingBox,
@@ -581,85 +572,3 @@ def write_hybrid_report(output_dir: Path, report: HybridReplayReport) -> None:
         report.model_dump_json(indent=2) + "\n", encoding="utf-8"
     )
     (output_dir / "report.md").write_text(render_hybrid_report(report), encoding="utf-8")
-
-
-def run_hybrid_live_manifest(
-    manifest_path: Path,
-    provider: VisionExtractionProvider,
-    renderer: PageRenderer,
-    *,
-    allow_holdout: bool = False,
-) -> dict[str, object]:
-    """Explicitly opted-in live runner; outputs aggregates only."""
-    dataset = ManifestAdapter().load(manifest_path)
-    if dataset.examples[0].split == "holdout" and not allow_holdout:
-        raise ValueError("holdout live evaluation requires --allow-holdout")
-    text_extractor = DocumentTextExtractor()
-    deterministic_extractor = DeterministicInvoiceExtractor()
-    results: list[EvaluationResult] = []
-    invocations = failures = input_tokens = output_tokens = total_tokens = 0
-    provider_latencies: list[float] = []
-    for example in dataset.examples:
-        body = dataset.read_document(example)
-        truth = dataset.read_ground_truth(example)
-        started = time.perf_counter()
-        document = text_extractor.extract(body, example.content_type)
-        deterministic = deterministic_extractor.extract(document)
-        invoice = deterministic
-        decision = route_extraction(deterministic, document)
-        error_code = None
-        if decision.invoke_vlm:
-            invocations += 1
-            try:
-                response = provider.extract(renderer.render(body, example.content_type), document)
-                invoice = fuse_invoice(deterministic, response.candidate, document).invoice
-                provider_latencies.append(response.latency_ms)
-                input_tokens += response.usage.input_tokens or 0
-                output_tokens += response.usage.output_tokens or 0
-                total_tokens += response.usage.total_tokens or 0
-            except (VisionProviderError, DocumentRenderingError) as exc:
-                failures += 1
-                error_code = exc.code
-        canonical_truth = json.dumps(
-            truth.model_dump(mode="json"), sort_keys=True, separators=(",", ":")
-        ).encode()
-        results.append(
-            EvaluationResult(
-                example=example,
-                ground_truth=truth,
-                prediction=EvaluationPrediction(
-                    document_id=example.document_id,
-                    invoice=invoice,
-                    schema_valid=True,
-                    used_ocr=document.used_ocr,
-                    page_count=len(document.pages),
-                    latency_ms=(time.perf_counter() - started) * 1000,
-                    error_code=error_code,
-                ),
-                document_sha256=hashlib.sha256(body).hexdigest(),
-                ground_truth_sha256=hashlib.sha256(canonical_truth).hexdigest(),
-            )
-        )
-    count = len(results)
-    return {
-        "metadata": {
-            "mode": "hybrid-live",
-            "dataset": str(manifest_path.name),
-            "extractor_version": HYBRID_EXTRACTOR_VERSION,
-            "prompt_version": VLM_PROMPT_VERSION,
-            "provider": provider.name,
-            "requested_model": provider.requested_model,
-            "source_revision": _git_revision(),
-        },
-        "metrics": calculate_metrics(results),
-        "hybrid": {
-            "fallback_invocation_rate": invocations / count,
-            "provider_failure_rate": failures / invocations if invocations else 0,
-            "p50_provider_latency_ms": _percentile(provider_latencies, 0.5),
-            "p95_provider_latency_ms": _percentile(provider_latencies, 0.95),
-            "mean_input_tokens_per_document": input_tokens / count,
-            "mean_output_tokens_per_document": output_tokens / count,
-            "mean_total_tokens_per_document": total_tokens / count,
-            "estimated_cost": None,
-        },
-    }

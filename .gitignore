@@ -15,6 +15,7 @@ not-an-invoice.txt
 outputs/
 work/
 tmp/
+.tmp/
 .tools/
 .playwright/
 .pnpm-store/

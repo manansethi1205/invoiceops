@@ -134,6 +134,16 @@ implementation. UTF-8/mojibake checks passed on 44 Markdown files; git diff --ch
 
 ## Row association safety evaluation
 
+The evaluation-only `synthetic-local` mode can exercise the generated 16-invoice manifest with a
+label-guided fake provider and zero network calls. Its optional synthetic scan tokens and oracle
+candidates establish pipeline regressions only, not live-model or OCR accuracy. The existing
+12-case replay remains separate. See [the local command](hybrid-live-benchmark.md#local-manifest-regression-no-network-or-model).
+
+The separate [guarded synthetic live benchmark](hybrid-live-benchmark.md) measures source-labelled
+financial roles and row association through the existing `hybrid-live` CLI. Its implementation and
+fake-provider tests do not change 0.5.0 behavior or establish live-provider precision. A real run
+requires separate explicit model and spending authorization; production settings remain disabled.
+
 The [0.5.0 replay](../evals/reports/hybrid/0.5.0-replay/report.md) reuses the 12 historical
 synthetic documents and preserves their header measurements. Its row candidates are empty, so
 it is not evidence of row-association coverage. The separate
