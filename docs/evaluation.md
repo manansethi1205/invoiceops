@@ -205,6 +205,13 @@ commit. Original private documents and labels remain ignored and must never be s
 
 ## Reproducible OCR runtime
 
+The [opt-in financial-summary role guard](financial-summary-role-guard.md) compares the frozen
+baseline with a source-only deterministic candidate on identical private input tokens. The
+[paired report](../evals/reports/real-input/financial-summary-guard-02/report.md) shows wrong
+present totals changing from 14/28 to 0/28 through 14 added abstentions, with correct totals
+remaining 0/28 and all non-total outputs unchanged. Review counts are mandatory pre-PO financial
+gates, not measured PO matching. Production selection and hybrid/VLM header promotions are unchanged.
+
 The separate [private failure-attribution guide](private-failure-attribution.md) documents the
 evaluation-only stage probes and [fresh aggregate report](../evals/reports/real-input/failure-attribution-02/report.md).
 It distinguishes source visibility, existing region detection, raw header candidates, role/row
